@@ -1,5 +1,17 @@
+# Editor Configs
+.vs
+
 # Prerequisites
 *.d
+
+# Build Projects
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Compiled Debug Symbols
+*.pdb
+*.exp
 
 # Compiled Object files
 *.slo
@@ -30,3 +42,12 @@
 *.exe
 *.out
 *.app
+
+# Logs
+*.tlog
+*.log
+
+# Misc
+*.ilk
+*.recipe
+*.idb
