@@ -1,16 +1,14 @@
 -- premake5.lua
 
 project "HydrogenEngine"
-	kind "SharedLib"
+	kind "StaticLib"
 	language "C++"
-	cppdialect "C++17"
+	cppdialect "C++20"
 
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "Include" }
-
-	defines { "HY_SYM_EXPORT" }
+	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm" }
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
 
@@ -28,3 +26,6 @@ project "HydrogenEngine"
 		defines { "HY_DIST", "HY_NDEBUG", "NDEBUG" }
 		optimize "On"
 		symbols "Off"
+
+	filter "action:vs*"
+		buildoptions { "/utf-8" }

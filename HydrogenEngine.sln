@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Engine", "Engine", "{8249BEE1-6EAC-4D86-1732-863C03741909}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenRuntime", "HydrogenRuntime\HydrogenRuntime.vcxproj", "{C99A0602-3526-74C6-3E37-F7BAAA41D0C6}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenEngine", "HydrogenEngine\HydrogenEngine.vcxproj", "{5B1DD54D-47EB-C853-307F-397A1CECA4B8}"
@@ -27,5 +29,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C99A0602-3526-74C6-3E37-F7BAAA41D0C6} = {8249BEE1-6EAC-4D86-1732-863C03741909}
+		{5B1DD54D-47EB-C853-307F-397A1CECA4B8} = {8249BEE1-6EAC-4D86-1732-863C03741909}
 	EndGlobalSection
 EndGlobal

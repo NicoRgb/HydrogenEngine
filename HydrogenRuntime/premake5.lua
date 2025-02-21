@@ -3,12 +3,12 @@
 project "HydrogenRuntime"
 	kind "ConsoleApp"
 	language "C++"
-	cppdialect "C++17"
+	cppdialect "C++20"
 
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "%{wks.location}/HydrogenEngine/Include", "Include" }
+	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/glm", "Include" }
 	links { "HydrogenEngine" }
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }

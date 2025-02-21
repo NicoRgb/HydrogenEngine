@@ -1,7 +1,12 @@
 #pragma once
 
-#ifdef HY_SYM_EXPORT
-__declspec(dllexport) void Test();
-#else
-__declspec(dllimport) void Test();
-#endif
+#include <Hydrogen/Application.hpp>
+#include <memory>
+
+extern std::shared_ptr<Hydrogen::Application> GetApplication();
+
+int main(void)
+{
+	auto app = GetApplication();
+	app->Run();
+}

@@ -1,7 +1,21 @@
-#include "Hydrogen/Hydrogen.hpp"
-#include <iostream>
+#include "Hydrogen/Application.hpp"
+#include "Hydrogen/Logger.hpp"
 
-void Test()
+using namespace Hydrogen;
+
+void Application::Run()
 {
-	std::cout << "Hello World!" << std::endl;
+	OnSetup();
+
+	EngineLogger::Init();
+	AppLogger::Init();
+
+	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
+
+	OnStartup();
+	while (true)
+	{
+		OnUpdate();
+	}
+	OnShutdown();
 }
