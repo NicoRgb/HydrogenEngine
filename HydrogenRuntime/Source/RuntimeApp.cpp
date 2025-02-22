@@ -7,6 +7,8 @@ public:
 	{
 		ApplicationSpec.Name = "Hydrogen Runtime";
 		ApplicationSpec.Version = { 1, 0 };
+		ApplicationSpec.ViewportTitle = "Hydrogen Runtime";
+		ApplicationSpec.ViewportSize = { 1080, 720 };
 	}
 
 	virtual void OnStartup() override

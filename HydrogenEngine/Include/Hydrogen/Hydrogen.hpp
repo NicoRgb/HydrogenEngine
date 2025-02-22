@@ -1,7 +1,9 @@
 #pragma once
 
+#include <Hydrogen/Core.hpp>
 #include <Hydrogen/Application.hpp>
-#include <memory>
+#include <Hydrogen/Logger.hpp>
+#include <Hydrogen/Viewport.h>
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication();
 

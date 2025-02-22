@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Core.hpp"
 #include <string>
 #include <spdlog/spdlog.h>
 
@@ -62,17 +61,17 @@ namespace Hydrogen
 		static std::shared_ptr<Logger> s_Logger;
 	};
 
-	#define HY_ENGINE_TRACE(...) Hydrogen::EngineLogger::GetLogger()->Trace(__VA_ARGS__);
-	#define HY_ENGINE_DEBUG(...) Hydrogen::EngineLogger::GetLogger()->Debug(__VA_ARGS__);
-	#define HY_ENGINE_INFO(...) Hydrogen::EngineLogger::GetLogger()->Info(__VA_ARGS__);
-	#define HY_ENGINE_WARN(...) Hydrogen::EngineLogger::GetLogger()->Warn(__VA_ARGS__);
-	#define HY_ENGINE_ERROR(...) Hydrogen::EngineLogger::GetLogger()->Error(__VA_ARGS__);
-	#define HY_ENGINE_FATAL(...) Hydrogen::EngineLogger::GetLogger()->Fatal(__VA_ARGS__);
+	#define HY_ENGINE_TRACE(...) Hydrogen::EngineLogger::GetLogger()->Trace(__VA_ARGS__)
+	#define HY_ENGINE_DEBUG(...) Hydrogen::EngineLogger::GetLogger()->Debug(__VA_ARGS__)
+	#define HY_ENGINE_INFO(...) Hydrogen::EngineLogger::GetLogger()->Info(__VA_ARGS__)
+	#define HY_ENGINE_WARN(...) Hydrogen::EngineLogger::GetLogger()->Warn(__VA_ARGS__)
+	#define HY_ENGINE_ERROR(...) Hydrogen::EngineLogger::GetLogger()->Error(__VA_ARGS__)
+	#define HY_ENGINE_FATAL(...) Hydrogen::EngineLogger::GetLogger()->Fatal(__VA_ARGS__)
 
-	#define HY_APP_TRACE(...) Hydrogen::AppLogger::GetLogger()->Trace(__VA_ARGS__);
-	#define HY_APP_DEBUG(...) Hydrogen::AppLogger::GetLogger()->Debug(__VA_ARGS__);
-	#define HY_APP_INFO(...) Hydrogen::AppLogger::GetLogger()->Info(__VA_ARGS__);
-	#define HY_APP_WARN(...) Hydrogen::AppLogger::GetLogger()->Warn(__VA_ARGS__);
-	#define HY_APP_ERROR(...) Hydrogen::AppLogger::GetLogger()->Error(__VA_ARGS__);
-	#define HY_APP_FATAL(...) Hydrogen::AppLogger::GetLogger()->Fatal(__VA_ARGS__);
+	#define HY_APP_TRACE(...) Hydrogen::AppLogger::GetLogger()->Trace(__VA_ARGS__)
+	#define HY_APP_DEBUG(...) Hydrogen::AppLogger::GetLogger()->Debug(__VA_ARGS__)
+	#define HY_APP_INFO(...) Hydrogen::AppLogger::GetLogger()->Info(__VA_ARGS__)
+	#define HY_APP_WARN(...) Hydrogen::AppLogger::GetLogger()->Warn(__VA_ARGS__)
+	#define HY_APP_ERROR(...) Hydrogen::AppLogger::GetLogger()->Error(__VA_ARGS__)
+	#define HY_APP_FATAL(...) Hydrogen::AppLogger::GetLogger()->Fatal(__VA_ARGS__)
 }

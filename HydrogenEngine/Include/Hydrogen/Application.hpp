@@ -3,7 +3,7 @@
 #include <string>
 #include <glm/glm.hpp>
 
-#include "Core.hpp"
+#include "Hydrogen/Viewport.h"
 
 namespace Hydrogen
 {
@@ -24,10 +24,15 @@ namespace Hydrogen
 	protected:
 		struct ApplicationSpecification
 		{
-			std::string Name;
-			glm::vec2 Version{ 0 };
+			std::string Name = "Hydrogen Application";
+			glm::vec2 Version{ 1, 0 };
+
+			std::string ViewportTitle = "Hydrogen Application";
+			glm::vec2 ViewportSize{ 0 };
+			glm::vec2 ViewportPos{ 0 };
 		};
 
 		ApplicationSpecification ApplicationSpec;
+		std::shared_ptr<Viewport> MainViewport;
 	};
 }

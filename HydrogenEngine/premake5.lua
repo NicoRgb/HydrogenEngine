@@ -4,6 +4,7 @@ project "HydrogenEngine"
 	kind "StaticLib"
 	language "C++"
 	cppdialect "C++20"
+	characterset ( "MBCS" )
 
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
@@ -11,6 +12,9 @@ project "HydrogenEngine"
 	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm" }
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
+
+	filter "system:windows"
+		defines { "HY_SYSTEM_WINDOWS" }
 
 	filter "configurations:Debug"
 		defines { "HY_DEBUG" }
