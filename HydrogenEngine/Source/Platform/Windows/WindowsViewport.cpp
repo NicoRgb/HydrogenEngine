@@ -1,5 +1,6 @@
-#include "Hydrogen/Platform/Windows/WindowsViewport.h"
+#include "Hydrogen/Platform/Windows/WindowsViewport.hpp"
 #include "Hydrogen/Core.hpp"
+#include <vulkan/vulkan.h>
 
 using namespace Hydrogen;
 
@@ -53,6 +54,9 @@ WindowsViewport::WindowsViewport(std::string name, int width, int height, int x,
 {
 	WindowsBackend::RegisterWindowClass();
 
+	RECT rect = { 0, 0, width, height };
+	AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, FALSE);
+
 	m_hWnd = CreateWindowEx(
 		0,
 		WindowsBackend::GetWindowClassName(),
@@ -60,8 +64,8 @@ WindowsViewport::WindowsViewport(std::string name, int width, int height, int x,
 		WS_OVERLAPPEDWINDOW,
 		x == 0 ? CW_USEDEFAULT : x,
 		y == 0 ? CW_USEDEFAULT : y,
-		width == 0 ? CW_USEDEFAULT : width,
-		height == 0 ? CW_USEDEFAULT : height,
+		width == 0 ? CW_USEDEFAULT : rect.right - rect.left,
+		height == 0 ? CW_USEDEFAULT : rect.bottom - rect.top,
 		NULL,
 		NULL,
 		WindowsBackend::GetHInstance(),
@@ -105,6 +109,12 @@ LRESULT WindowsViewport::WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 	case WM_CLOSE:
 		Close();
 		return 0;
+
+	case WM_SIZE:
+		m_Width = (int)LOWORD(lParam);
+		m_Height = (int)HIWORD(lParam);
+		m_ResizeEvent.Invoke(m_Width, m_Height);
+		break;
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);

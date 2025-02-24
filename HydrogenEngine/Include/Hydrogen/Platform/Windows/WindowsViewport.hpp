@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Hydrogen/Viewport.h"
+#include "Hydrogen/Viewport.hpp"
 
 #include <Windows.h>
 

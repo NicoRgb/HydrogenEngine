@@ -9,9 +9,11 @@ project "HydrogenEngine"
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm" }
-
+	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "$(VULKAN_SDK)/Include" }
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
+
+	libdirs { "$(VULKAN_SDK)/Lib" }
+	links { "vulkan-1" }
 
 	filter "system:windows"
 		defines { "HY_SYSTEM_WINDOWS" }

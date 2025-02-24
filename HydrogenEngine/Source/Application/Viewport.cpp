@@ -1,5 +1,5 @@
-#include "Hydrogen/Viewport.h"
-#include "Hydrogen/Platform/Windows/WindowsViewport.h"
+#include "Hydrogen/Viewport.hpp"
+#include "Hydrogen/Platform/Windows/WindowsViewport.hpp"
 
 using namespace Hydrogen;
 

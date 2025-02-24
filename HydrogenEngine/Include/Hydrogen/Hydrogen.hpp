@@ -3,7 +3,7 @@
 #include <Hydrogen/Core.hpp>
 #include <Hydrogen/Application.hpp>
 #include <Hydrogen/Logger.hpp>
-#include <Hydrogen/Viewport.h>
+#include <Hydrogen/Viewport.hpp>
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication();
 

@@ -3,7 +3,7 @@
 #include <string>
 #include <glm/glm.hpp>
 
-#include "Hydrogen/Viewport.h"
+#include "Hydrogen/Viewport.hpp"
 
 namespace Hydrogen
 {
