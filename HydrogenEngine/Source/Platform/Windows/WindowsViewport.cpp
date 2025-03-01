@@ -1,6 +1,8 @@
+#define VK_USE_PLATFORM_WIN32_KHR
+
 #include "Hydrogen/Platform/Windows/WindowsViewport.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 #include "Hydrogen/Core.hpp"
-#include <vulkan/vulkan.h>
 
 using namespace Hydrogen;
 
@@ -84,6 +86,27 @@ void WindowsViewport::Open()
 void WindowsViewport::Close()
 {
 	m_IsOpen = false;
+}
+
+const std::vector<const char*> WindowsViewport::GetVulkanExtensions() const
+{
+	return std::vector<const char*> { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
+}
+
+void* WindowsViewport::CreateVulkanSurface(const RenderContext* renderContext) const
+{
+	VkSurfaceKHR surface;
+
+	VkWin32SurfaceCreateInfoKHR createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	createInfo.hwnd = m_hWnd;
+	createInfo.hinstance = WindowsBackend::GetHInstance();
+
+	const VulkanRenderContext* vkContext = dynamic_cast<const VulkanRenderContext*>(renderContext);
+
+	HY_ASSERT(vkCreateWin32SurfaceKHR(vkContext->GetInstance(), &createInfo, nullptr, &surface) == VK_SUCCESS, "Failed to create win32 window surface for vulkan");
+
+	return (void*)surface;
 }
 
 void WindowsViewport::PumpMessages()

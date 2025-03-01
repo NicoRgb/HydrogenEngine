@@ -22,16 +22,19 @@ project "HydrogenEngine"
 		defines { "HY_DEBUG" }
 		optimize "Off"
 		symbols "On"
+		links { "shaderc_combinedd" }
 
 	filter "configurations:Release"
 		defines { "HY_NDEBUG", "NDEBUG" }
 		optimize "On"
 		symbols "On"
+		links { "shaderc_combined" }
 
 	filter "configurations:Dist"
 		defines { "HY_DIST", "HY_NDEBUG", "NDEBUG" }
 		optimize "On"
 		symbols "Off"
+		links { "shaderc_combined" }
 
 	filter "action:vs*"
 		buildoptions { "/utf-8" }

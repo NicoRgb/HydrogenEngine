@@ -3,7 +3,7 @@
 
 using namespace Hydrogen;
 
-std::shared_ptr<RenderContext> RenderContext::Create(std::string appName, glm::vec2 appVersion)
+std::shared_ptr<RenderContext> RenderContext::Create(std::string appName, glm::vec2 appVersion, const std::shared_ptr<Viewport>& viewport)
 {
-	return std::make_shared<VulkanRenderContext>(appName, appVersion);
+	return std::make_shared<VulkanRenderContext>(appName, appVersion, viewport);
 }

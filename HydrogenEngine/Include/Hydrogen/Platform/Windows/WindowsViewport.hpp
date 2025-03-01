@@ -19,6 +19,9 @@ namespace Hydrogen
 		int GetHeight() const override { return m_Height; }
 		int IsOpen() const override { return m_IsOpen; }
 
+		const std::vector<const char*> GetVulkanExtensions() const override;
+		void* CreateVulkanSurface(const class RenderContext* renderContext) const override;
+
 		static void PumpMessages();
 		LRESULT WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
