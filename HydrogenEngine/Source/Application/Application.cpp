@@ -1,7 +1,7 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
 
-#include "Hydrogen/Renderer/RenderPipeline.hpp"
+#include "Hydrogen/Renderer/Framebuffer.hpp"
 
 using namespace Hydrogen;
 
@@ -22,7 +22,7 @@ void Application::Run()
 	MainViewport->GetResizeEvent().AddListener(Test);
 
 	auto renderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
-	auto renderPipeline = RenderPipeline::Create(renderContext,
+	auto pipeline = Pipeline::Create(renderContext,
 		R"(
 		#version 450
 
@@ -58,6 +58,8 @@ void Application::Run()
 		}
 		)"
 	);
+
+	auto framebuffer = Framebuffer::Create(renderContext, pipeline);
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
 

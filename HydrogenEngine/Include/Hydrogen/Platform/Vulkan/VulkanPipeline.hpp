@@ -1,13 +1,15 @@
-#include "Hydrogen/Renderer/RenderPipeline.hpp"
+#include "Hydrogen/Renderer/Pipeline.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 
 namespace Hydrogen
 {
-	class VulkanRenderPipeline : public RenderPipeline
+	class VulkanPipeline : public Pipeline
 	{
 	public:
-		VulkanRenderPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc);
-		~VulkanRenderPipeline();
+		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc);
+		~VulkanPipeline();
+
+		const VkRenderPass GetRenderPass() { return m_RenderPass; }
 
 	private:
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;

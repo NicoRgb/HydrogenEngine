@@ -1,4 +1,4 @@
-#include "Hydrogen/Platform/Vulkan/VulkanRenderPipeline.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanPipeline.hpp"
 #include "Hydrogen/Core.hpp"
 
 #include <shaderc/shaderc.hpp>
@@ -19,7 +19,7 @@ static const std::vector<uint32_t> CompileShader(const std::string& source, shad
 	return { module.cbegin(), module.cend() };
 }
 
-VulkanRenderPipeline::VulkanRenderPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	VkAttachmentDescription colorAttachment{};
@@ -190,14 +190,14 @@ VulkanRenderPipeline::VulkanRenderPipeline(const std::shared_ptr<RenderContext>&
 	vkDestroyShaderModule(m_RenderContext->GetDevice(), fragmentShaderModule, nullptr);
 }
 
-VulkanRenderPipeline::~VulkanRenderPipeline()
+VulkanPipeline::~VulkanPipeline()
 {
 	vkDestroyPipeline(m_RenderContext->GetDevice(), m_Pipeline, nullptr);
 	vkDestroyPipelineLayout(m_RenderContext->GetDevice(), m_PipelineLayout, nullptr);
 	vkDestroyRenderPass(m_RenderContext->GetDevice(), m_RenderPass, nullptr);
 }
 
-VkShaderModule VulkanRenderPipeline::CreateShaderModule(const std::vector<uint32_t>& code) const
+VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<uint32_t>& code) const
 {
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

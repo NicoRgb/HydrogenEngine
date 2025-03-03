@@ -22,6 +22,7 @@ namespace Hydrogen
 		const VkDevice& GetDevice() const { return m_Device; }
 		const VkFormat& GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 		const VkExtent2D& GetSwapChainExtent() const { return m_SwapChainExtent; }
+		const std::vector<VkImageView>& GetSwapChainImageViews() const { return m_SwapChainImageViews; }
 
 	private:
 		uint64_t ScorePhysicalDevice(VkPhysicalDevice physicalDevice, const std::vector<const char*>& deviceExtensions);
