@@ -1,25 +1,9 @@
 #include "Hydrogen/Platform/Vulkan/VulkanPipeline.hpp"
 #include "Hydrogen/Core.hpp"
 
-#include <shaderc/shaderc.hpp>
-
 using namespace Hydrogen;
 
-static const std::vector<uint32_t> CompileShader(const std::string& source, shaderc_shader_kind kind)
-{
-	shaderc::Compiler compiler;
-	shaderc::CompileOptions options;
-
-	options.SetOptimizationLevel(shaderc_optimization_level_performance);
-	shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
-		source, kind, "shader", options
-	);
-
-	HY_ASSERT(module.GetCompilationStatus() == shaderc_compilation_status_success, "Vulkan shader compilation failed: {}", module.GetErrorMessage());
-	return { module.cbegin(), module.cend() };
-}
-
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	VkAttachmentDescription colorAttachment{};
@@ -41,22 +25,27 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorAttachmentRef;
 
+	VkSubpassDependency dependency{};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassInfo.attachmentCount = 1;
 	renderPassInfo.pAttachments = &colorAttachment;
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
+	renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies = &dependency;
 
 	HY_ASSERT(vkCreateRenderPass(m_RenderContext->GetDevice(), &renderPassInfo, nullptr, &m_RenderPass) == VK_SUCCESS, "Failed to create vulkan render pass");
 
-	HY_ENGINE_INFO("Compiling vertex shader");
-	const auto vertexShaderCode = CompileShader(vertexShaderSrc, shaderc_glsl_vertex_shader);
-	HY_ENGINE_INFO("Compiling fragment shader");
-	const auto fragmentShaderCode = CompileShader(fragmentShaderSrc, shaderc_glsl_fragment_shader);
-
-	VkShaderModule vertexShaderModule = CreateShaderModule(vertexShaderCode);
-	VkShaderModule fragmentShaderModule = CreateShaderModule(fragmentShaderCode);
+	VkShaderModule vertexShaderModule = CreateShaderModule(vertexShaderAsset->GetByteCode());
+	VkShaderModule fragmentShaderModule = CreateShaderModule(fragmentShaderAsset->GetByteCode());
 
 	VkPipelineShaderStageCreateInfo vertexShaderStageInfo{};
 	vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

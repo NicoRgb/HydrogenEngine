@@ -4,3 +4,6 @@
 [submodule "Extern/spdlog"]
 	path = Extern/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "Extern/json"]
+	path = Extern/json
+	url = https://github.com/nlohmann/json

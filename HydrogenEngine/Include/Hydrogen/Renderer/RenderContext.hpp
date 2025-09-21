@@ -12,6 +12,8 @@ namespace Hydrogen
 	{
 	public:
 		virtual ~RenderContext() = default;
+
+		virtual void OnResize(int width, int height) = 0;
 		
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<RenderContext>& renderContext)

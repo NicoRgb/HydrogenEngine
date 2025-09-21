@@ -9,7 +9,7 @@ project "HydrogenEngine"
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "$(VULKAN_SDK)/Include" }
+	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "$(VULKAN_SDK)/Include" }
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
 
 	libdirs { "$(VULKAN_SDK)/Lib" }

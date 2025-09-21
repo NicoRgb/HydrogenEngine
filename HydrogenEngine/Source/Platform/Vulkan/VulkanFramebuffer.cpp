@@ -1,10 +1,24 @@
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 #include "Hydrogen/Core.hpp"
+#include "Hydrogen/Renderer/Renderer.hpp"
 
 using namespace Hydrogen;
 
 VulkanFramebuffer::VulkanFramebuffer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext)), m_Pipeline(Pipeline::Get<VulkanPipeline>(pipeline))
+{
+	CreateFramebuffers();
+}
+
+VulkanFramebuffer::~VulkanFramebuffer()
+{
+	for (auto framebuffer : m_Framebuffers)
+	{
+		vkDestroyFramebuffer(m_RenderContext->GetDevice(), framebuffer, nullptr);
+	}
+}
+
+void VulkanFramebuffer::CreateFramebuffers()
 {
 	const auto& swapChainImageViews = m_RenderContext->GetSwapChainImageViews();
 	m_Framebuffers.resize(swapChainImageViews.size());
@@ -26,10 +40,20 @@ VulkanFramebuffer::VulkanFramebuffer(const std::shared_ptr<RenderContext>& rende
 	}
 }
 
-VulkanFramebuffer::~VulkanFramebuffer()
+void VulkanFramebuffer::OnResize(int width, int height)
 {
+	if (!Renderer::GetAPI()->FrameFinished())
+	{
+		Renderer::GetAPI()->GetFrameFinishedEvent().AddTempListener([this, width, height]() { OnResize(width, height); });
+	}
+
+	vkDeviceWaitIdle(m_RenderContext->GetDevice());
+
 	for (auto framebuffer : m_Framebuffers)
 	{
 		vkDestroyFramebuffer(m_RenderContext->GetDevice(), framebuffer, nullptr);
 	}
+	m_RenderContext->OnResize(width, height);
+
+	CreateFramebuffers();
 }

@@ -13,6 +13,7 @@ namespace Hydrogen
 		Application() = default;
 		~Application() = default;
 
+		void OnResize(int width, int height);
 		void Run();
 
 		virtual void OnSetup() = 0;

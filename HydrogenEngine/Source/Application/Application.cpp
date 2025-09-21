@@ -1,13 +1,12 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
-
-#include "Hydrogen/Renderer/Framebuffer.hpp"
+#include "Hydrogen/AssetManager.hpp"
+#include "Hydrogen/Renderer/Renderer.hpp"
 
 using namespace Hydrogen;
 
-void Test(int width, int height)
+void Application::OnResize(int width, int height)
 {
-	HY_ENGINE_INFO("Resize: {}, {}", width, height);
 }
 
 void Application::Run()
@@ -19,47 +18,18 @@ void Application::Run()
 
 	MainViewport = Viewport::Create(ApplicationSpec.ViewportTitle, (int)ApplicationSpec.ViewportSize.x, (int)ApplicationSpec.ViewportSize.y, (int)ApplicationSpec.ViewportPos.x, (int)ApplicationSpec.ViewportPos.y);
 	MainViewport->Open();
-	MainViewport->GetResizeEvent().AddListener(Test);
+
+	AssetManager assetManager;
+	assetManager.LoadAssets("Assets");
 
 	auto renderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
-	auto pipeline = Pipeline::Create(renderContext,
-		R"(
-		#version 450
+	Renderer::Init(renderContext);
 
-		layout(location = 0) out vec3 fragColor;
+	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 
-		vec2 positions[3] = vec2[](
-			vec2(0.0, -0.5),
-			vec2(0.5, 0.5),
-			vec2(-0.5, 0.5)
-		);
-
-		vec3 colors[3] = vec3[](
-			vec3(1.0, 0.0, 0.0),
-			vec3(0.0, 1.0, 0.0),
-			vec3(0.0, 0.0, 1.0)
-		);
-
-		void main() {
-			gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
-			fragColor = colors[gl_VertexIndex];
-		}
-		)",
-
-		R"(
-		#version 450
-
-		layout(location = 0) in vec3 fragColor;
-
-		layout(location = 0) out vec4 outColor;
-
-		void main() {
-			outColor = vec4(fragColor, 1.0);
-		}
-		)"
-	);
-
+	auto pipeline = Pipeline::Create(renderContext, assetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), assetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 	auto framebuffer = Framebuffer::Create(renderContext, pipeline);
+	MainViewport->GetResizeEvent().AddListener([&framebuffer](int width, int height) { framebuffer->OnResize(width, height); });
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
 
@@ -68,6 +38,17 @@ void Application::Run()
 	{
 		Viewport::PumpMessages();
 		OnUpdate();
+
+		if (MainViewport->GetWidth() == 0 || MainViewport->GetHeight() == 0)
+		{
+			continue;
+		}
+
+		Renderer::BeginFrame();
+		Renderer::Draw(pipeline, framebuffer);
+		Renderer::EndFrame();
 	}
 	OnShutdown();
+
+	Renderer::Shutdown();
 }

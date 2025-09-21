@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Hydrogen/Renderer/Pipeline.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 
@@ -6,10 +8,11 @@ namespace Hydrogen
 	class VulkanPipeline : public Pipeline
 	{
 	public:
-		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::string& vertexShaderSrc, const std::string& fragmentShaderSrc);
+		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset);
 		~VulkanPipeline();
 
-		const VkRenderPass GetRenderPass() { return m_RenderPass; }
+		const VkRenderPass GetRenderPass() const { return m_RenderPass; }
+		const VkPipeline GetPipeline() const { return m_Pipeline; }
 
 	private:
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;

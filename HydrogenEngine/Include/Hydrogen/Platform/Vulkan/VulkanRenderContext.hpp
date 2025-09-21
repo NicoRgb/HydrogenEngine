@@ -18,11 +18,20 @@ namespace Hydrogen
 		VulkanRenderContext(std::string appName, glm::vec2 appVersion, const std::shared_ptr<Viewport>& viewport);
 		~VulkanRenderContext();
 
+		void CreateSwapChain();
+
+		void OnResize(int width, int height) override;
+
 		const VkInstance& GetInstance() const { return m_Instance; }
 		const VkDevice& GetDevice() const { return m_Device; }
+		const VkSwapchainKHR& GetSwapChain() const { return m_SwapChain; }
 		const VkFormat& GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 		const VkExtent2D& GetSwapChainExtent() const { return m_SwapChainExtent; }
 		const std::vector<VkImageView>& GetSwapChainImageViews() const { return m_SwapChainImageViews; }
+		const uint32_t GetGraphicsQueueFamily() const { return m_GraphicsQueueFamily; }
+		const VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
+		const VkQueue GetPresentQueue() const { return m_PresentQueue; }
+		const VkCommandPool GetCommandPool() const { return m_CommandPool; }
 
 	private:
 		uint64_t ScorePhysicalDevice(VkPhysicalDevice physicalDevice, const std::vector<const char*>& deviceExtensions);
@@ -50,5 +59,7 @@ namespace Hydrogen
 		std::vector<VkImage> m_SwapChainImages;
 		VkFormat m_SwapChainImageFormat;
 		VkExtent2D m_SwapChainExtent;
+
+		VkCommandPool m_CommandPool;
 	};
 }
