@@ -20,6 +20,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(framebuffer);
 		}
 
-		static std::shared_ptr<Framebuffer> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline);
+		static std::shared_ptr<Framebuffer> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline, bool renderToTexture);
 	};
 }

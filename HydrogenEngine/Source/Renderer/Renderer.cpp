@@ -40,3 +40,12 @@ void Renderer::Draw(const std::shared_ptr<Pipeline>& pipeline, const std::shared
 	s_CommandQueue->Draw();
 	s_CommandQueue->UnbindPipeline();
 }
+
+void Renderer::DrawDebugGui(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<DebugGUI>& debugGUI)
+{
+	s_CommandQueue->BindPipeline(pipeline, framebuffer);
+	s_CommandQueue->SetViewport();
+	s_CommandQueue->SetScissor();
+	debugGUI->Render(s_CommandQueue);
+	s_CommandQueue->UnbindPipeline();
+}

@@ -21,6 +21,7 @@ namespace Hydrogen
 		virtual void OnStartup() = 0;
 		virtual void OnShutdown() = 0;
 		virtual void OnUpdate() = 0;
+		virtual void OnImGuiRender() = 0;
 
 	protected:
 		struct ApplicationSpecification
@@ -31,6 +32,8 @@ namespace Hydrogen
 			std::string ViewportTitle = "Hydrogen Application";
 			glm::vec2 ViewportSize{ 0 };
 			glm::vec2 ViewportPos{ 0 };
+
+			bool UseDebugGUI = false;
 		};
 
 		ApplicationSpecification ApplicationSpec;

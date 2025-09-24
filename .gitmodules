@@ -7,3 +7,7 @@
 [submodule "Extern/json"]
 	path = Extern/json
 	url = https://github.com/nlohmann/json
+[submodule "Extern/imgui-docking"]
+	path = Extern/imgui-docking
+	url = https://github.com/ocornut/imgui/
+	branch = docking

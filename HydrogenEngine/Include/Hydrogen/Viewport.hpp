@@ -21,6 +21,8 @@ namespace Hydrogen
 
 		virtual const std::vector<const char*> GetVulkanExtensions() const = 0;
 		virtual void* CreateVulkanSurface(const class RenderContext* renderContext) const = 0;
+		virtual void InitImGui() const = 0;
+		virtual void ImGuiNewFrame() const = 0;
 
 		static void PumpMessages();
 		Event<int, int>& GetResizeEvent() { return m_ResizeEvent; }

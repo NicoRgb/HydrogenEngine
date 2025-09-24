@@ -9,6 +9,7 @@
 *.vcxproj.filters
 *.vcxproj.user
 *.vcxproj.FileListAbsolute.txt
+*.sln
 
 # Compiled Debug Symbols
 *.pdb

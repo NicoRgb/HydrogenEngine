@@ -3,7 +3,7 @@
 
 using namespace Hydrogen;
 
-std::shared_ptr<Framebuffer> Framebuffer::Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline)
+std::shared_ptr<Framebuffer> Framebuffer::Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline, bool renderToTexture)
 {
-	return std::make_shared<VulkanFramebuffer>(renderContext, pipeline);
+	return std::make_shared<VulkanFramebuffer>(renderContext, pipeline, renderToTexture);
 }

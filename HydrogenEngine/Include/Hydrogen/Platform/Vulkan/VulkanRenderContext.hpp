@@ -24,6 +24,7 @@ namespace Hydrogen
 
 		const VkInstance& GetInstance() const { return m_Instance; }
 		const VkDevice& GetDevice() const { return m_Device; }
+		const VkPhysicalDevice& GetPhysicalDevice() const { return m_PhysicalDevice; }
 		const VkSwapchainKHR& GetSwapChain() const { return m_SwapChain; }
 		const VkFormat& GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 		const VkExtent2D& GetSwapChainExtent() const { return m_SwapChainExtent; }
@@ -32,6 +33,7 @@ namespace Hydrogen
 		const VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
 		const VkQueue GetPresentQueue() const { return m_PresentQueue; }
 		const VkCommandPool GetCommandPool() const { return m_CommandPool; }
+		const std::shared_ptr<Viewport> GetViewport() const { return m_Viewport; }
 
 	private:
 		uint64_t ScorePhysicalDevice(VkPhysicalDevice physicalDevice, const std::vector<const char*>& deviceExtensions);

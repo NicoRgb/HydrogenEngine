@@ -21,6 +21,8 @@ namespace Hydrogen
 
 		const std::vector<const char*> GetVulkanExtensions() const override;
 		void* CreateVulkanSurface(const class RenderContext* renderContext) const override;
+		void ImGuiNewFrame() const override;
+		void InitImGui() const override;
 
 		static void PumpMessages();
 		LRESULT WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

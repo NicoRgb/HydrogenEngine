@@ -94,9 +94,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
 		HY_ENGINE_DEBUG("Vulkan validation layer message:\n{}", pCallbackData->pMessage);
 		break;
-	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-		HY_ENGINE_INFO("Vulkan validation layer message:\n{}", pCallbackData->pMessage);
-		break;
+	// case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+	// 	HY_ENGINE_INFO("Vulkan validation layer message:\n{}", pCallbackData->pMessage);
+	// 	break;
 	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
 		HY_ENGINE_WARN("Vulkan validation layer message:\n{}", pCallbackData->pMessage);
 		break;

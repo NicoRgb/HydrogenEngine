@@ -4,13 +4,22 @@
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 #include "Hydrogen/Core.hpp"
 
+#include "backends/imgui_impl_win32.h"
+
 using namespace Hydrogen;
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 class WindowsBackend
 {
 public:
 	static LRESULT CALLBACK WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
+		if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
+		{
+			return true;
+		}
+
 		if (uMsg == WM_NCCREATE)
 		{
 			CREATESTRUCT* pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
@@ -107,6 +116,24 @@ void* WindowsViewport::CreateVulkanSurface(const RenderContext* renderContext) c
 	HY_ASSERT(vkCreateWin32SurfaceKHR(vkContext->GetInstance(), &createInfo, nullptr, &surface) == VK_SUCCESS, "Failed to create win32 window surface for vulkan");
 
 	return (void*)surface;
+}
+
+void WindowsViewport::ImGuiNewFrame() const
+{
+	ImGui_ImplWin32_NewFrame();
+}
+
+void WindowsViewport::InitImGui() const
+{
+	ImGui_ImplWin32_Init(m_hWnd);
+	ImGui::GetPlatformIO().Platform_CreateVkSurface = [](ImGuiViewport* viewport, ImU64 vk_instance, const void* vk_allocator, ImU64* out_vk_surface) -> int
+		{
+			VkWin32SurfaceCreateInfoKHR createInfo = {};
+			createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+			createInfo.hwnd = (HWND)viewport->PlatformHandleRaw;
+			createInfo.hinstance = ::GetModuleHandle(nullptr);
+			return (int)vkCreateWin32SurfaceKHR((VkInstance)vk_instance, &createInfo, (VkAllocationCallbacks*)vk_allocator, (VkSurfaceKHR*)out_vk_surface);
+		};
 }
 
 void WindowsViewport::PumpMessages()

@@ -1,15 +1,16 @@
 #include <Hydrogen/Hydrogen.hpp>
+#include <imgui.h>
 
-class RuntimeApp : public Hydrogen::Application
+class EditorApp : public Hydrogen::Application
 {
 public:
 	virtual void OnSetup() override
 	{
-		ApplicationSpec.Name = "Hydrogen Runtime";
+		ApplicationSpec.Name = "Hydrogen Editor";
 		ApplicationSpec.Version = { 1, 0 };
-		ApplicationSpec.ViewportTitle = "Hydrogen Runtime";
+		ApplicationSpec.ViewportTitle = "Hydrogen Editor";
 		ApplicationSpec.ViewportSize = { 1080, 720 };
-		ApplicationSpec.UseDebugGUI = false;
+		ApplicationSpec.UseDebugGUI = true;
 	}
 
 	virtual void OnStartup() override
@@ -31,5 +32,5 @@ public:
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication()
 {
-	return std::make_shared<RuntimeApp>();
+	return std::make_shared<EditorApp>();
 }
