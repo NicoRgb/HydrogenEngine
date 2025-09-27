@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 
 #include "Hydrogen/Viewport.hpp"
+#include "Hydrogen/AssetManager.hpp"
 
 namespace Hydrogen
 {
@@ -37,6 +38,7 @@ namespace Hydrogen
 		};
 
 		ApplicationSpecification ApplicationSpec;
+		AssetManager MainAssetManager;
 		std::shared_ptr<Viewport> MainViewport;
 	};
 }

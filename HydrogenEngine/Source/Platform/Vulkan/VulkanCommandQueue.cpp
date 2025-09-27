@@ -1,6 +1,8 @@
 #include "Hydrogen/Platform/Vulkan/VulkanCommandQueue.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderAPI.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanVertexBuffer.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanIndexBuffer.hpp"
 #include "Hydrogen/Core.hpp"
 
 using namespace Hydrogen;
@@ -8,13 +10,15 @@ using namespace Hydrogen;
 VulkanCommandQueue::VulkanCommandQueue(const std::shared_ptr<RenderContext>& renderContext)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
+	m_CommandBuffers.resize(m_RenderContext->GetMaxFramesInFlight());
+		
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.commandPool = m_RenderContext->GetCommandPool();
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = 1;
+	allocInfo.commandBufferCount = (uint32_t)m_RenderContext->GetMaxFramesInFlight();
 
-	HY_ASSERT(vkAllocateCommandBuffers(m_RenderContext->GetDevice(), &allocInfo, &m_CommandBuffer) == VK_SUCCESS, "Failed to allocate vulkan command buffer");
+	HY_ASSERT(vkAllocateCommandBuffers(m_RenderContext->GetDevice(), &allocInfo, m_CommandBuffers.data()) == VK_SUCCESS, "Failed to allocate vulkan command buffer");
 }
 
 VulkanCommandQueue::~VulkanCommandQueue()
@@ -25,18 +29,18 @@ void VulkanCommandQueue::StartRecording(const std::shared_ptr<RenderAPI>& render
 {
 	m_RenderAPI = RenderAPI::Get<VulkanRenderAPI>(renderAPI);
 
-	vkResetCommandBuffer(m_CommandBuffer, 0);
+	vkResetCommandBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0);
 
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	HY_ASSERT(vkBeginCommandBuffer(m_CommandBuffer, &beginInfo) == VK_SUCCESS, "Failed to begin recording vulkan command buffer");
+	HY_ASSERT(vkBeginCommandBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], &beginInfo) == VK_SUCCESS, "Failed to begin recording vulkan command buffer");
 }
 
 void VulkanCommandQueue::EndRecording()
 {
 	m_RenderAPI = nullptr;
-	HY_ASSERT(vkEndCommandBuffer(m_CommandBuffer) == VK_SUCCESS, "Failed to record vulkan command buffer");
+	HY_ASSERT(vkEndCommandBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()]) == VK_SUCCESS, "Failed to record vulkan command buffer");
 }
 
 void VulkanCommandQueue::BindPipeline(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer)
@@ -55,14 +59,27 @@ void VulkanCommandQueue::BindPipeline(const std::shared_ptr<Pipeline>& pipeline,
 	renderPassInfo.clearValueCount = 1;
 	renderPassInfo.pClearValues = &clearColor;
 
-	vkCmdBeginRenderPass(m_CommandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetPipeline());
+	vkCmdBindPipeline(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetPipeline());
 }
 
 void VulkanCommandQueue::UnbindPipeline()
 {
-	vkCmdEndRenderPass(m_CommandBuffer);
+	vkCmdEndRenderPass(m_CommandBuffers[m_RenderContext->GetCurrentFrame()]);
+}
+
+void VulkanCommandQueue::BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer)
+{
+	VkBuffer vertexBuffers[] = { VertexBuffer::Get<VulkanVertexBuffer>(vertexBuffer)->GetBuffer() };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, vertexBuffers, offsets);
+}
+
+void VulkanCommandQueue::BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer)
+{
+	auto buffer = IndexBuffer::Get<VulkanIndexBuffer>(indexBuffer)->GetBuffer();
+	vkCmdBindIndexBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], buffer, 0, VK_INDEX_TYPE_UINT16);
 }
 
 void VulkanCommandQueue::SetViewport()
@@ -74,7 +91,7 @@ void VulkanCommandQueue::SetViewport()
 	viewport.height = static_cast<float>(m_RenderContext->GetSwapChainExtent().height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
+	vkCmdSetViewport(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, &viewport);
 }
 
 void VulkanCommandQueue::SetScissor()
@@ -82,10 +99,15 @@ void VulkanCommandQueue::SetScissor()
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
 	scissor.extent = m_RenderContext->GetSwapChainExtent();
-	vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
+	vkCmdSetScissor(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, &scissor);
 }
 
 void VulkanCommandQueue::Draw()
 {
-	vkCmdDraw(m_CommandBuffer, 3, 1, 0, 0);
+	vkCmdDraw(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 3, 1, 0, 0);
+}
+
+void VulkanCommandQueue::DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer)
+{
+	vkCmdDrawIndexed(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], (uint32_t)indexBuffer->GetNumIndices(), 1, 0, 0, 0);
 }

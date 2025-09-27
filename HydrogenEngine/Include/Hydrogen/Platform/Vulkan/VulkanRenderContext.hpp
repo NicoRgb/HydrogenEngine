@@ -35,6 +35,10 @@ namespace Hydrogen
 		const VkCommandPool GetCommandPool() const { return m_CommandPool; }
 		const std::shared_ptr<Viewport> GetViewport() const { return m_Viewport; }
 
+		const uint8_t GetMaxFramesInFlight() const { return m_MaxFramesInFlight; }
+		const uint8_t GetCurrentFrame() const { return m_CurrentFrame; }
+		const void SetCurrentFrame(const uint8_t newFrame) { m_CurrentFrame = newFrame; }
+
 	private:
 		uint64_t ScorePhysicalDevice(VkPhysicalDevice physicalDevice, const std::vector<const char*>& deviceExtensions);
 		bool FindQueueFamilies(VkPhysicalDevice physicalDevice);
@@ -63,5 +67,8 @@ namespace Hydrogen
 		VkExtent2D m_SwapChainExtent;
 
 		VkCommandPool m_CommandPool;
+
+		const uint8_t m_MaxFramesInFlight;
+		uint8_t m_CurrentFrame;
 	};
 }

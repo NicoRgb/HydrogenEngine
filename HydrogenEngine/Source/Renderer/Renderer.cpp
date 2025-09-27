@@ -32,12 +32,14 @@ void Renderer::EndFrame()
 	s_RenderAPI->SubmitFrame(s_CommandQueue);
 }
 
-void Renderer::Draw(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer)
+void Renderer::Draw(const std::shared_ptr<VertexBuffer>& vertexBuffer, const std::shared_ptr<IndexBuffer>& indexBuffer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer)
 {
 	s_CommandQueue->BindPipeline(pipeline, framebuffer);
 	s_CommandQueue->SetViewport();
 	s_CommandQueue->SetScissor();
-	s_CommandQueue->Draw();
+	s_CommandQueue->BindVertexBuffer(vertexBuffer);
+	s_CommandQueue->BindIndexBuffer(indexBuffer);
+	s_CommandQueue->DrawIndexed(indexBuffer);
 	s_CommandQueue->UnbindPipeline();
 }
 

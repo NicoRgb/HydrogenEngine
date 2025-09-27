@@ -100,5 +100,5 @@ void VulkanDebugGUI::EndFrame()
 void VulkanDebugGUI::Render(const std::shared_ptr<CommandQueue>& commandQueue)
 {
 	auto c = CommandQueue::Get<VulkanCommandQueue>(commandQueue);
-	ImGui_ImplVulkan_RenderDrawData(main_draw_data, c->GetCommandBuffer());
+	ImGui_ImplVulkan_RenderDrawData(main_draw_data, c->GetCommandBuffers()[m_RenderContext->GetCurrentFrame()]);
 }

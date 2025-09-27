@@ -1,6 +1,8 @@
 #include <Hydrogen/Hydrogen.hpp>
 #include <imgui.h>
 
+#include <backends/imgui_impl_vulkan.h>
+
 class EditorApp : public Hydrogen::Application
 {
 public:
@@ -9,7 +11,7 @@ public:
 		ApplicationSpec.Name = "Hydrogen Editor";
 		ApplicationSpec.Version = { 1, 0 };
 		ApplicationSpec.ViewportTitle = "Hydrogen Editor";
-		ApplicationSpec.ViewportSize = { 1080, 720 };
+		ApplicationSpec.ViewportSize = { 1920, 1080 };
 		ApplicationSpec.UseDebugGUI = true;
 	}
 
@@ -27,6 +29,9 @@ public:
 
 	virtual void OnImGuiRender() override
 	{
+		ImGui::Begin("Assets");
+
+		ImGui::End();
 	}
 };
 

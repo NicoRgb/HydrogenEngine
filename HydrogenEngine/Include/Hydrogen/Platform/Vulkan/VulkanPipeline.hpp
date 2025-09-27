@@ -8,7 +8,7 @@ namespace Hydrogen
 	class VulkanPipeline : public Pipeline
 	{
 	public:
-		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset);
+		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout);
 		~VulkanPipeline();
 
 		const VkRenderPass GetRenderPass() const { return m_RenderPass; }

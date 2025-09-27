@@ -30,9 +30,9 @@ namespace Hydrogen
 
 		FrameInfo m_CurrentFrame;
 
-		VkSemaphore m_ImageAvailableSemaphore;
-		VkSemaphore m_RenderFinishedSemaphore;
-		VkFence m_InFlightFence;
+		std::vector<VkSemaphore> m_ImageAvailableSemaphores;
+		std::vector<VkSemaphore> m_RenderFinishedSemaphores;
+		std::vector<VkFence> m_InFlightFences;
 
 		bool m_FrameFinished;
 		Event<> m_FrameFinishedEvent;

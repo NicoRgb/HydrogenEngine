@@ -85,6 +85,39 @@ namespace Hydrogen
 		std::vector<uint32_t> m_ByteCode;
 	};
 
+	class TextureAsset : public Asset
+	{
+	public:
+		TextureAsset(std::string path, json config) : Asset(path, config)
+		{
+			Parse(path);
+		}
+
+		~TextureAsset() = default;
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		const uint32_t GetWidth() const { return m_Width; }
+		const uint32_t GetHeight() const { return m_Height; }
+		const uint8_t GetChannels() const { return m_Channels; }
+
+		const std::vector<uint32_t>& GetImage() const { return m_Image; }
+
+	private:
+		void Parse(std::string path);
+
+		uint32_t m_Width, m_Height;
+		uint8_t m_Channels;
+
+		std::vector<uint32_t> m_Image;
+	};
+
 	class AssetManager
 	{
 	public:

@@ -2,6 +2,7 @@
 
 #include "RenderContext.hpp"
 #include "Hydrogen/AssetManager.hpp"
+#include "Hydrogen/Renderer/VertexBuffer.hpp"
 
 namespace Hydrogen
 {
@@ -18,6 +19,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(pipeline);
 		}
 
-		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset);
+		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout);
 	};
 }

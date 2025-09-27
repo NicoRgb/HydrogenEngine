@@ -1,5 +1,8 @@
 #include "Hydrogen/AssetManager.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include <shaderc/shaderc.hpp>
 
 using namespace Hydrogen;
@@ -66,10 +69,17 @@ void AssetManager::LoadAssets(const std::string& directory)
 		}
 		else
 		{
+			HY_ENGINE_WARN("No asset configuration file for '{}' -> Create default", filePath);
+
 			std::string assetType = "";
 			if (ext == ".glsl")
 			{
 				assetType = "Shader";
+				assetConfig["preferences"]["stage"] = "vertex";
+			}
+			if (ext == ".png")
+			{
+				assetType = "Texture";
 			}
 			else
 			{
@@ -77,10 +87,8 @@ void AssetManager::LoadAssets(const std::string& directory)
 				continue;
 			}
 
-			HY_ENGINE_WARN("No asset configuration file for '{}' -> Create default", filePath);
 			assetConfig["name"] = entry.path().filename();
 			assetConfig["type"] = assetType;
-			assetConfig["preferences"]["stage"] = "vertex";
 
 			std::ofstream fout(assetFilePath);
 			fout << assetConfig.dump();
@@ -103,9 +111,33 @@ void AssetManager::LoadAssets(const std::string& directory)
 				m_Assets[entry.path().filename().string()] = std::move(shader);
 			}
 		}
+		else if (assetConfig["type"] == "Texture")
+		{
+			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(texture);
+		}
 		else
 		{
 			HY_ENGINE_ERROR("Unknown asset type for file '{}'", filePath);
 		}
 	}
+}
+
+void TextureAsset::Parse(std::string path)
+{
+	int x, y, channels;
+
+	HY_ASSERT(stbi_info("image.png", &x, &y, &channels), "Failed to load image");
+	
+	m_Width = y;
+	m_Height = x;
+	m_Channels = channels;
+
+	m_Image.resize(x * y * channels);
+
+	unsigned char* data = stbi_load("image.png", &x, &y, &channels, 0);
+	HY_ASSERT(data, "Failed to load image");
+
+	memcpy(m_Image.data(), data, m_Image.size());
+	stbi_image_free(data);
 }

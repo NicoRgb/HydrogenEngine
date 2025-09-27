@@ -22,29 +22,46 @@ void Application::Run()
 	MainViewport = Viewport::Create(ApplicationSpec.ViewportTitle, (int)ApplicationSpec.ViewportSize.x, (int)ApplicationSpec.ViewportSize.y, (int)ApplicationSpec.ViewportPos.x, (int)ApplicationSpec.ViewportPos.y);
 	MainViewport->Open();
 
-	AssetManager assetManager;
-	assetManager.LoadAssets("Assets");
+	MainAssetManager.LoadAssets("Assets");
 
 	auto renderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
 	Renderer::Init(renderContext);
 
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 
-	auto pipeline = Pipeline::Create(renderContext, assetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), assetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
+	auto pipeline = Pipeline::Create(renderContext, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
+		{ {VertexElementType::Float2}, {VertexElementType::Float3} });
+
 	auto framebuffer = Framebuffer::Create(renderContext, pipeline, false);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer](int width, int height) { framebuffer->OnResize(width, height); });
 
+	const std::vector<float> vertices = {
+		-0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
+		0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
+		-0.5f, 0.5f, 1.0f, 1.0f, 1.0f
+	};
+
+	const std::vector<uint16_t> indices = {
+		0, 1, 2, 2, 3, 0
+	};
+
+	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float2}, {VertexElementType::Float3} }, (void*)vertices.data(), vertices.size() / 5);
+	auto indexBuffer = IndexBuffer::Create(renderContext, indices);
+
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
+	std::shared_ptr<Framebuffer> framebufferTexture = nullptr;
+	std::vector<VkDescriptorSet> images;
+
 	if (ApplicationSpec.UseDebugGUI)
 	{
 		debugGUI = DebugGUI::Create(renderContext, pipeline);
+		framebufferTexture = Framebuffer::Create(renderContext, pipeline, true);
+		images = Framebuffer::Get<VulkanFramebuffer>(framebufferTexture)->GetImGuiTextures();
 	}
-
-	auto framebufferTexture = Framebuffer::Create(renderContext, pipeline, true);
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
 
-	const auto& images = Framebuffer::Get<VulkanFramebuffer>(framebufferTexture)->GetImGuiTextures();
 
 	OnStartup();
 	while (MainViewport->IsOpen())
@@ -92,10 +109,14 @@ void Application::Run()
 		}
 
 		Renderer::BeginFrame();
-			Renderer::Draw(pipeline, framebufferTexture);
 			if (debugGUI)
 			{
+				Renderer::Draw(vertexBuffer, indexBuffer, pipeline, framebufferTexture);
 				Renderer::DrawDebugGui(pipeline, framebuffer, debugGUI);
+			}
+			else
+			{
+				Renderer::Draw(vertexBuffer, indexBuffer, pipeline, framebuffer);
 			}
 		Renderer::EndFrame();
 

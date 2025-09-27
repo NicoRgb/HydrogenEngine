@@ -16,7 +16,7 @@ namespace Hydrogen
 
 		static void BeginFrame();
 		static void EndFrame();
-		static void Draw(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer);
+		static void Draw(const std::shared_ptr<VertexBuffer>& vertexBuffer, const std::shared_ptr<IndexBuffer>& indexBuffer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer);
 		static void DrawDebugGui(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<DebugGUI>& debugGUI);
 
 		static const std::shared_ptr<RenderContext>& GetContext() { return s_RenderContext; }

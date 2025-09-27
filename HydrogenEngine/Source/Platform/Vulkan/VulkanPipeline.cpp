@@ -3,9 +3,62 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
+
+	uint32_t currentOffset = 0;
+	for (size_t i = 0; i < attributeDescriptions.size(); i++)
+	{
+		attributeDescriptions[i].binding = 0;
+		attributeDescriptions[i].location = i;
+		attributeDescriptions[i].offset = currentOffset;
+
+		switch (vertexLayout[i].type)
+		{
+		case VertexElementType::Float:
+			attributeDescriptions[i].format = VK_FORMAT_R32_SFLOAT;
+			currentOffset += 4;
+			break;
+		case VertexElementType::Float2:
+			attributeDescriptions[i].format = VK_FORMAT_R32G32_SFLOAT;
+			currentOffset += 8;
+			break;
+		case VertexElementType::Float3:
+			attributeDescriptions[i].format = VK_FORMAT_R32G32B32_SFLOAT;
+			currentOffset += 12;
+			break;
+		case VertexElementType::Float4:
+			attributeDescriptions[i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+			currentOffset += 16;
+			break;
+		case VertexElementType::Int:
+			attributeDescriptions[i].format = VK_FORMAT_R32_SINT;
+			currentOffset += 4;
+			break;
+		case VertexElementType::Int2:
+			attributeDescriptions[i].format = VK_FORMAT_R32G32_SINT;
+			currentOffset += 8;
+			break;
+		case VertexElementType::Int3:
+			attributeDescriptions[i].format = VK_FORMAT_R32G32B32_SINT;
+			currentOffset += 12;
+			break;
+		case VertexElementType::Int4:
+			attributeDescriptions[i].format = VK_FORMAT_R32G32B32A32_SINT;
+			currentOffset += 16;
+			break;
+		default:
+			HY_ASSERT(false, "Invalid Vertex Attribute Type");
+		}
+	}
+
+	VkVertexInputBindingDescription bindingDescription{};
+	bindingDescription.binding = 0;
+	bindingDescription.stride = currentOffset;
+	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
 	VkAttachmentDescription colorAttachment{};
 	colorAttachment.format = m_RenderContext->GetSwapChainImageFormat();
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -73,10 +126,10 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 0;
-	vertexInputInfo.pVertexBindingDescriptions = nullptr;
-	vertexInputInfo.vertexAttributeDescriptionCount = 0;
-	vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+	vertexInputInfo.vertexBindingDescriptionCount = 1;
+	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;

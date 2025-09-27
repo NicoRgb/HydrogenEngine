@@ -3,6 +3,8 @@
 #include <memory>
 
 #include "Hydrogen/Renderer/Framebuffer.hpp"
+#include "Hydrogen/Renderer/VertexBuffer.hpp"
+#include "Hydrogen/Renderer/IndexBuffer.hpp"
 
 namespace Hydrogen
 {
@@ -17,10 +19,14 @@ namespace Hydrogen
 		virtual void BindPipeline(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer) = 0;
 		virtual void UnbindPipeline() = 0;
 
+		virtual void BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer) = 0;
+		virtual void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
+
 		virtual void SetViewport() = 0;
 		virtual void SetScissor() = 0;
 
 		virtual void Draw() = 0;
+		virtual void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<CommandQueue>& commandQueue)
