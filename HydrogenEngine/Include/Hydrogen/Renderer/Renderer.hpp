@@ -11,21 +11,23 @@ namespace Hydrogen
 	class Renderer
 	{
 	public:
-		static void Init(const std::shared_ptr<RenderContext>& renderContext);
-		static void Shutdown();
+		Renderer(const std::shared_ptr<RenderContext>& renderContext);
+		~Renderer();
 
-		static void BeginFrame();
-		static void EndFrame();
-		static void Draw(const std::shared_ptr<VertexBuffer>& vertexBuffer, const std::shared_ptr<IndexBuffer>& indexBuffer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer);
-		static void DrawDebugGui(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<DebugGUI>& debugGUI);
+		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer);
+		void EndFrame();
+		void Draw(const std::shared_ptr<VertexBuffer>& vertexBuffer, const std::shared_ptr<IndexBuffer>& indexBuffer, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Pipeline>& pipeline);
+		void DrawDebugGui(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<DebugGUI>& debugGUI);
 
-		static const std::shared_ptr<RenderContext>& GetContext() { return s_RenderContext; }
-		static const std::shared_ptr<RenderAPI>& GetAPI() { return s_RenderAPI; }
-		static const std::shared_ptr<CommandQueue>& GetCommandQueue() { return s_CommandQueue; }
+		const std::shared_ptr<RenderContext>& GetContext() { return m_RenderContext; }
+		const std::shared_ptr<RenderAPI>& GetAPI() { return m_RenderAPI; }
+		const std::shared_ptr<CommandQueue>& GetCommandQueue() { return m_CommandQueue; }
 
 	private:
-		static std::shared_ptr<RenderContext> s_RenderContext;
-		static std::shared_ptr<RenderAPI> s_RenderAPI;
-		static std::shared_ptr<CommandQueue> s_CommandQueue;
+		std::shared_ptr<RenderContext> m_RenderContext;
+		std::shared_ptr<RenderAPI> m_RenderAPI;
+		std::shared_ptr<CommandQueue> m_CommandQueue;
+
+		std::shared_ptr<Framebuffer> m_CurrentFramebuffer;
 	};
 }

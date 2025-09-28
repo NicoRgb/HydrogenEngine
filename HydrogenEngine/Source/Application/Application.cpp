@@ -2,7 +2,6 @@
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Renderer/Renderer.hpp"
-#include "imgui.h"
 
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
@@ -25,15 +24,22 @@ void Application::Run()
 	MainAssetManager.LoadAssets("Assets");
 
 	auto renderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
-	Renderer::Init(renderContext);
 
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 
-	auto pipeline = Pipeline::Create(renderContext, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
+	std::shared_ptr<Texture> texture = nullptr;
+
+	if (ApplicationSpec.UseDebugGUI)
+	{
+		texture = Texture::Create(renderContext, TextureFormat::FormatR8G8B8A8, 1920, 1080);
+	}
+
+	auto renderPass = RenderPass::Create(renderContext, texture);
+	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
 		{ {VertexElementType::Float2}, {VertexElementType::Float3} });
 
-	auto framebuffer = Framebuffer::Create(renderContext, pipeline, false);
-	MainViewport->GetResizeEvent().AddListener([&framebuffer](int width, int height) { framebuffer->OnResize(width, height); });
+	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
+	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
 	const std::vector<float> vertices = {
 		-0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
@@ -49,19 +55,21 @@ void Application::Run()
 	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float2}, {VertexElementType::Float3} }, (void*)vertices.data(), vertices.size() / 5);
 	auto indexBuffer = IndexBuffer::Create(renderContext, indices);
 
+	std::shared_ptr<RenderPass> renderPassDebugGUI = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
 	std::shared_ptr<Framebuffer> framebufferTexture = nullptr;
-	std::vector<VkDescriptorSet> images;
+
+	Renderer MainRenderer(renderContext);
+	Renderer ImGuiRenderer(renderContext);
 
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		debugGUI = DebugGUI::Create(renderContext, pipeline);
-		framebufferTexture = Framebuffer::Create(renderContext, pipeline, true);
-		images = Framebuffer::Get<VulkanFramebuffer>(framebufferTexture)->GetImGuiTextures();
+		renderPassDebugGUI = RenderPass::Create(renderContext);
+		debugGUI = DebugGUI::Create(renderContext, renderPass);
+		framebufferTexture = Framebuffer::Create(renderContext, renderPass, texture);
 	}
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
-
 
 	OnStartup();
 	while (MainViewport->IsOpen())
@@ -101,27 +109,32 @@ void Application::Run()
 			ImGui::End();
 
 			ImGui::Begin("Scene");
-			ImGui::Image((ImTextureID)images[0], ImVec2(ApplicationSpec.ViewportSize.x, ApplicationSpec.ViewportSize.y));
+			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
+			if (contentRegion.x != m_ViewportSize.x || contentRegion.y != m_ViewportSize.y)
+			{
+				m_ViewportSize = contentRegion;
+
+				texture->Resize((size_t)contentRegion.x, (size_t)contentRegion.y);
+				framebufferTexture->OnResize((int)contentRegion.x, (int)contentRegion.y);
+			}
+
+			ImGui::Image(texture->GetImGuiImage(), contentRegion);
 			ImGui::End();
 
 			OnImGuiRender();
 			debugGUI->EndFrame();
 		}
 
-		Renderer::BeginFrame();
-			if (debugGUI)
-			{
-				Renderer::Draw(vertexBuffer, indexBuffer, pipeline, framebufferTexture);
-				Renderer::DrawDebugGui(pipeline, framebuffer, debugGUI);
-			}
-			else
-			{
-				Renderer::Draw(vertexBuffer, indexBuffer, pipeline, framebuffer);
-			}
-		Renderer::EndFrame();
+		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer);
+		MainRenderer.Draw(vertexBuffer, indexBuffer, renderPass, pipeline);
+		MainRenderer.EndFrame();
 
 		if (debugGUI)
 		{
+			ImGuiRenderer.BeginFrame(framebuffer);
+			ImGuiRenderer.DrawDebugGui(renderPassDebugGUI, debugGUI);
+			ImGuiRenderer.EndFrame();
+
 			auto& io = ImGui::GetIO();
 			if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
 			{
@@ -130,7 +143,6 @@ void Application::Run()
 			}
 		}
 	}
-	OnShutdown();
 
-	Renderer::Shutdown();
+	OnShutdown();
 }

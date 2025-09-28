@@ -40,25 +40,29 @@ VulkanRenderAPI::~VulkanRenderAPI()
 	}
 }
 
-void VulkanRenderAPI::BeginFrame()
+void VulkanRenderAPI::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer)
 {
 	m_FrameFinished = false;
 
 	vkWaitForFences(m_RenderContext->GetDevice(), 1, &m_InFlightFences[m_RenderContext->GetCurrentFrame()], VK_TRUE, UINT64_MAX);
 
-	VkResult result = vkAcquireNextImageKHR(m_RenderContext->GetDevice(), m_RenderContext->GetSwapChain(), UINT64_MAX, m_ImageAvailableSemaphores[m_RenderContext->GetCurrentFrame()], VK_NULL_HANDLE, &m_CurrentFrame.swapChainImageIndex);
+	m_CurrentFrame.framebuffer = framebuffer;
+	if (!framebuffer->RenderToTexture())
+	{
+		VkResult result = vkAcquireNextImageKHR(m_RenderContext->GetDevice(), m_RenderContext->GetSwapChain(), UINT64_MAX, m_ImageAvailableSemaphores[m_RenderContext->GetCurrentFrame()], VK_NULL_HANDLE, &m_CurrentFrame.swapChainImageIndex);
 
-	if (result == VK_ERROR_OUT_OF_DATE_KHR)
-	{
-		HY_ENGINE_ERROR("vkAcquireNextImageKHR returned VK_ERROR_OUT_OF_DATE_KHR");
-	}
-	if (result == VK_SUBOPTIMAL_KHR)
-	{
-		HY_ENGINE_WARN("vkAcquireNextImageKHR returned VK_SUBOPTIMAL_KHR");
-	}
-	else if (result != VK_SUCCESS)
-	{
-		HY_ASSERT(false, "Failed to acquire next swap chain image");
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+		{
+			HY_ENGINE_ERROR("vkAcquireNextImageKHR returned VK_ERROR_OUT_OF_DATE_KHR");
+		}
+		if (result == VK_SUBOPTIMAL_KHR)
+		{
+			HY_ENGINE_WARN("vkAcquireNextImageKHR returned VK_SUBOPTIMAL_KHR");
+		}
+		else if (result != VK_SUCCESS)
+		{
+			HY_ASSERT(false, "Failed to acquire next swap chain image");
+		}
 	}
 
 	vkResetFences(m_RenderContext->GetDevice(), 1, &m_InFlightFences[m_RenderContext->GetCurrentFrame()]);
@@ -73,30 +77,33 @@ void VulkanRenderAPI::SubmitFrame(const std::shared_ptr<CommandQueue>& commandQu
 
 	VkSemaphore waitSemaphores[] = { m_ImageAvailableSemaphores[m_RenderContext->GetCurrentFrame()] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.waitSemaphoreCount = m_CurrentFrame.framebuffer->RenderToTexture() ? 0 : 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &vkCommandBuffer;
 
 	VkSemaphore signalSemaphores[] = { m_RenderFinishedSemaphores[m_RenderContext->GetCurrentFrame()] };
-	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.signalSemaphoreCount = m_CurrentFrame.framebuffer->RenderToTexture() ? 0 : 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	HY_ASSERT(vkQueueSubmit(m_RenderContext->GetGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_RenderContext->GetCurrentFrame()]) == VK_SUCCESS, "Failed to submit vulkan command buffer");
 
-	VkPresentInfoKHR presentInfo{};
-	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	if (!m_CurrentFrame.framebuffer->RenderToTexture())
+	{
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = signalSemaphores;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
 
-	VkSwapchainKHR swapChains[] = { m_RenderContext->GetSwapChain() };
-	presentInfo.swapchainCount = 1;
-	presentInfo.pSwapchains = swapChains;
-	presentInfo.pImageIndices = &m_CurrentFrame.swapChainImageIndex;
+		VkSwapchainKHR swapChains[] = { m_RenderContext->GetSwapChain() };
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapChains;
+		presentInfo.pImageIndices = &m_CurrentFrame.swapChainImageIndex;
 
-	vkQueuePresentKHR(m_RenderContext->GetPresentQueue(), &presentInfo);
+		vkQueuePresentKHR(m_RenderContext->GetPresentQueue(), &presentInfo);
+	}
 
 	m_FrameFinished = true;
 	m_FrameFinishedEvent.Invoke();

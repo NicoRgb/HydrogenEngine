@@ -328,6 +328,8 @@ void VulkanRenderContext::CreateSwapChain()
 
 void VulkanRenderContext::OnResize(int width, int height)
 {
+	vkDeviceWaitIdle(m_Device);
+
 	for (auto imageView : m_SwapChainImageViews)
 	{
 		vkDestroyImageView(m_Device, imageView, nullptr);
@@ -471,7 +473,6 @@ VkExtent2D VulkanRenderContext::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR&
 	{
 		return capabilities.currentExtent;
 	}
-
 
 	VkExtent2D actualExtent = { static_cast<uint32_t>(m_Viewport->GetWidth()), static_cast<uint32_t>(m_Viewport->GetHeight()) };
 

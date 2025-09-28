@@ -16,14 +16,15 @@ namespace Hydrogen
 		virtual void StartRecording(const std::shared_ptr<class RenderAPI>& renderAPI) = 0;
 		virtual void EndRecording() = 0;
 
-		virtual void BindPipeline(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer) = 0;
-		virtual void UnbindPipeline() = 0;
+		virtual void BeginRenderPass(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+		virtual void EndRenderPass() = 0;
 
+		virtual void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) = 0;
 		virtual void BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer) = 0;
 		virtual void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
-		virtual void SetViewport() = 0;
-		virtual void SetScissor() = 0;
+		virtual void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+		virtual void SetScissor(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
 
 		virtual void Draw() = 0;
 		virtual void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;

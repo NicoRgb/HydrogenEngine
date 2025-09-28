@@ -6,6 +6,8 @@
 #include "Hydrogen/Viewport.hpp"
 #include "Hydrogen/AssetManager.hpp"
 
+#include "imgui.h"
+
 namespace Hydrogen
 {
 	class Application
@@ -40,5 +42,8 @@ namespace Hydrogen
 		ApplicationSpecification ApplicationSpec;
 		AssetManager MainAssetManager;
 		std::shared_ptr<Viewport> MainViewport;
+
+	private:
+		ImVec2 m_ViewportSize;
 	};
 }

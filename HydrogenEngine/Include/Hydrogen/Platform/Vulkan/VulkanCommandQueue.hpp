@@ -15,14 +15,15 @@ namespace Hydrogen
 		void StartRecording(const std::shared_ptr<RenderAPI>& renderAPI) override;
 		void EndRecording() override;
 
-		void BindPipeline(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer) override;
-		void UnbindPipeline() override;
+		void BeginRenderPass(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Framebuffer>& framebuffer) override;
+		void EndRenderPass() override;
 
+		void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) override;
 		void BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer) override;
 		void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) override;
 
-		void SetViewport() override;
-		void SetScissor() override;
+		void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) override;
+		void SetScissor(const std::shared_ptr<Framebuffer>& framebuffer) override;
 
 		void Draw() override;
 		void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) override;

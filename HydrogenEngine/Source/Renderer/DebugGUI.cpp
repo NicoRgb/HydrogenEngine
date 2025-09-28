@@ -3,7 +3,7 @@
 
 using namespace Hydrogen;
 
-std::shared_ptr<DebugGUI> DebugGUI::Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline)
+std::shared_ptr<DebugGUI> DebugGUI::Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass)
 {
-	return std::make_shared<VulkanDebugGUI>(renderContext, pipeline);
+	return std::make_shared<VulkanDebugGUI>(renderContext, renderPass);
 }

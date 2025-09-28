@@ -127,7 +127,7 @@ void TextureAsset::Parse(std::string path)
 {
 	int x, y, channels;
 
-	HY_ASSERT(stbi_info("image.png", &x, &y, &channels), "Failed to load image");
+	HY_ASSERT(stbi_info(path.c_str(), &x, &y, &channels), "Failed to load image");
 	
 	m_Width = y;
 	m_Height = x;
@@ -135,7 +135,7 @@ void TextureAsset::Parse(std::string path)
 
 	m_Image.resize(x * y * channels);
 
-	unsigned char* data = stbi_load("image.png", &x, &y, &channels, 0);
+	unsigned char* data = stbi_load(path.c_str(), &x, &y, &channels, 0);
 	HY_ASSERT(data, "Failed to load image");
 
 	memcpy(m_Image.data(), data, m_Image.size());

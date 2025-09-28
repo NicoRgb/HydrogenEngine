@@ -1,6 +1,8 @@
 #include "Hydrogen/Platform/Vulkan/VulkanCommandQueue.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderAPI.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanRenderPass.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanPipeline.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanVertexBuffer.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanIndexBuffer.hpp"
 #include "Hydrogen/Core.hpp"
@@ -43,30 +45,42 @@ void VulkanCommandQueue::EndRecording()
 	HY_ASSERT(vkEndCommandBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()]) == VK_SUCCESS, "Failed to record vulkan command buffer");
 }
 
-void VulkanCommandQueue::BindPipeline(const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer)
+void VulkanCommandQueue::BeginRenderPass(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Framebuffer>& framebuffer)
 {
-	const auto vulkanPipeline = Pipeline::Get<VulkanPipeline>(pipeline);
+	const auto vulkanRenderPass = RenderPass::Get<VulkanRenderPass>(renderPass);
 	const auto vulkanFramebuffer = Framebuffer::Get<VulkanFramebuffer>(framebuffer);
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = vulkanPipeline->GetRenderPass();
+	renderPassInfo.renderPass = vulkanRenderPass->GetRenderPass();
 	renderPassInfo.framebuffer = vulkanFramebuffer->GetFramebuffers()[m_RenderAPI->GetCurrentFrame().swapChainImageIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_RenderContext->GetSwapChainExtent();
+	if (framebuffer->RenderToTexture())
+	{
+		VkExtent2D extent = { static_cast<uint32_t>(framebuffer->GetTexture()->GetWidth()), static_cast<uint32_t>(framebuffer->GetTexture()->GetHeight()) };
+		renderPassInfo.renderArea.extent = extent;
+	}
+	else
+	{
+		renderPassInfo.renderArea.extent = m_RenderContext->GetSwapChainExtent();
+	}
 
 	VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
 	renderPassInfo.clearValueCount = 1;
 	renderPassInfo.pClearValues = &clearColor;
 
 	vkCmdBeginRenderPass(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	vkCmdBindPipeline(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetPipeline());
 }
 
-void VulkanCommandQueue::UnbindPipeline()
+void VulkanCommandQueue::EndRenderPass()
 {
 	vkCmdEndRenderPass(m_CommandBuffers[m_RenderContext->GetCurrentFrame()]);
+}
+
+void VulkanCommandQueue::BindPipeline(const std::shared_ptr<Pipeline>& pipeline)
+{
+	const auto vulkanPipeline = Pipeline::Get<VulkanPipeline>(pipeline);
+	vkCmdBindPipeline(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetPipeline());
 }
 
 void VulkanCommandQueue::BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer)
@@ -82,23 +96,41 @@ void VulkanCommandQueue::BindIndexBuffer(const std::shared_ptr<IndexBuffer>& ind
 	vkCmdBindIndexBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], buffer, 0, VK_INDEX_TYPE_UINT16);
 }
 
-void VulkanCommandQueue::SetViewport()
+void VulkanCommandQueue::SetViewport(const std::shared_ptr<Framebuffer>& framebuffer)
 {
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = static_cast<float>(m_RenderContext->GetSwapChainExtent().width);
-	viewport.height = static_cast<float>(m_RenderContext->GetSwapChainExtent().height);
+	if (framebuffer->RenderToTexture())
+	{
+		viewport.width = (float)framebuffer->GetTexture()->GetWidth();
+		viewport.height = (float)framebuffer->GetTexture()->GetHeight();
+	}
+	else
+	{
+		viewport.width = static_cast<float>(m_RenderContext->GetSwapChainExtent().width);
+		viewport.height = static_cast<float>(m_RenderContext->GetSwapChainExtent().height);
+	}
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, &viewport);
 }
 
-void VulkanCommandQueue::SetScissor()
+void VulkanCommandQueue::SetScissor(const std::shared_ptr<Framebuffer>& framebuffer)
 {
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = m_RenderContext->GetSwapChainExtent();
+
+	if (framebuffer->RenderToTexture())
+	{
+		VkExtent2D extent = { static_cast<uint32_t>(framebuffer->GetTexture()->GetWidth()), static_cast<uint32_t>(framebuffer->GetTexture()->GetHeight()) };
+		scissor.extent = extent;
+	}
+	else
+	{
+		scissor.extent = m_RenderContext->GetSwapChainExtent();
+	}
+
 	vkCmdSetScissor(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, &scissor);
 }
 

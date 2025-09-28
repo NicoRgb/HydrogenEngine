@@ -3,6 +3,7 @@
 #include "Hydrogen/Renderer/RenderAPI.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanCommandQueue.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
 
 namespace Hydrogen
 {
@@ -12,7 +13,7 @@ namespace Hydrogen
 		VulkanRenderAPI(const std::shared_ptr<RenderContext>& renderContext);
 		~VulkanRenderAPI();
 
-		void BeginFrame() override;
+		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer) override;
 		void SubmitFrame(const std::shared_ptr<CommandQueue>& commandQueue) override;
 
 		bool FrameFinished() override { return m_FrameFinished; }
@@ -20,6 +21,7 @@ namespace Hydrogen
 
 		struct FrameInfo
 		{
+			std::shared_ptr<Framebuffer> framebuffer;
 			uint32_t swapChainImageIndex;
 		};
 

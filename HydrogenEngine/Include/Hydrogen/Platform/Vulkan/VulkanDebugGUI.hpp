@@ -11,7 +11,7 @@ namespace Hydrogen
 	class VulkanDebugGUI : public DebugGUI
 	{
 	public:
-		VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Pipeline>& pipeline);
+		VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass);
 		~VulkanDebugGUI();
 
 		void BeginFrame() override;
