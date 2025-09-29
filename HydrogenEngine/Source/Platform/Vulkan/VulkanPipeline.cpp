@@ -4,7 +4,7 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
@@ -59,6 +59,38 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	bindingDescription.binding = 0;
 	bindingDescription.stride = currentOffset;
 	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings(descriptorBindings.size());
+	for (size_t i = 0; i < layoutBindings.size(); i++)
+	{
+		layoutBindings[i].binding = descriptorBindings[i].binding;
+		layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		layoutBindings[i].descriptorCount = 1;
+		layoutBindings[i].stageFlags = 0;
+
+		if ((descriptorBindings[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Vertex)
+		{
+			layoutBindings[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
+		}
+		if ((descriptorBindings[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
+		{
+			layoutBindings[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+
+		VkDeviceSize bufferSize = (VkDeviceSize)descriptorBindings[i].size;
+
+		m_UniformBuffersMapped[descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
+
+		for (size_t j = 0; j < m_RenderContext->GetMaxFramesInFlight(); j++)
+		{
+			m_UniformBuffers[descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
+				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+			m_UniformBuffers[descriptorBindings[i].binding][j].AllocateMemory();
+
+			vkMapMemory(m_RenderContext->GetDevice(), m_UniformBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_UniformBuffersMapped[descriptorBindings[i].binding][i]);
+		}
+	}
 
 	VkShaderModule vertexShaderModule = CreateShaderModule(vertexShaderAsset->GetByteCode());
 	VkShaderModule fragmentShaderModule = CreateShaderModule(fragmentShaderAsset->GetByteCode());
@@ -162,12 +194,21 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
 
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(layoutBindings.size());
+	layoutInfo.pBindings = layoutBindings.data();
+
+	if (vkCreateDescriptorSetLayout(m_RenderContext->GetDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0; // Optional
-	pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
-	pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
-	pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+	pipelineLayoutInfo.setLayoutCount = 1;
+	pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
+	pipelineLayoutInfo.pushConstantRangeCount = 0;
+	pipelineLayoutInfo.pPushConstantRanges = nullptr;
 
 	HY_ASSERT(vkCreatePipelineLayout(m_RenderContext->GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS, "Failed to create vulkan pipeline layout");
 
@@ -197,8 +238,14 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 VulkanPipeline::~VulkanPipeline()
 {
+	vkDestroyDescriptorSetLayout(m_RenderContext->GetDevice(), m_DescriptorSetLayout, nullptr);
 	vkDestroyPipeline(m_RenderContext->GetDevice(), m_Pipeline, nullptr);
 	vkDestroyPipelineLayout(m_RenderContext->GetDevice(), m_PipelineLayout, nullptr);
+}
+
+void VulkanPipeline::UploadUniformBufferData(uint32_t binding, void* data, size_t size)
+{
+	memcpy(m_UniformBuffersMapped[binding][m_RenderContext->GetCurrentFrame()], data, size);
 }
 
 VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<uint32_t>& code) const

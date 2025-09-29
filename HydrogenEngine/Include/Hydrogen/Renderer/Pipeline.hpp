@@ -7,10 +7,48 @@
 
 namespace Hydrogen
 {
+	enum class DescriptorType
+	{
+		UniformBuffer,
+		//StorageBuffer,
+		//CombinedImageSampler,
+		//StorageImage,
+		//Sampler,
+		//SampledImage,
+		//InputAttachment,
+	};
+
+	enum class ShaderStage : uint32_t
+	{
+		Vertex = 0x1,
+		Fragment = 0x2,
+		All = 0x7
+	};
+
+	struct DescriptorBinding
+	{
+		uint32_t binding;
+		DescriptorType type;
+		ShaderStage stageFlags;
+		size_t size;
+	};
+
+	inline ShaderStage operator|(ShaderStage a, ShaderStage b)
+	{
+		return static_cast<ShaderStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+	}
+
+	inline ShaderStage operator&(ShaderStage a, ShaderStage b)
+	{
+		return static_cast<ShaderStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+	}
+
 	class Pipeline
 	{
 	public:
 		virtual ~Pipeline() = default;
+
+		virtual void UploadUniformBufferData(uint32_t binding, void* data, size_t size) = 0;
 
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<Pipeline>& pipeline)
@@ -20,6 +58,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(pipeline);
 		}
 
-		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout);
+		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings);
 	};
 }

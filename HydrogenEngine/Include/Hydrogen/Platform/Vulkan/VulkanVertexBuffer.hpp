@@ -13,11 +13,42 @@ namespace Hydrogen
 		VulkanBuffer(const std::shared_ptr<VulkanRenderContext>& renderContext, VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags);
 		~VulkanBuffer();
 
-		const VkBuffer GetBuffer() const { return m_Buffer; }
+		VulkanBuffer(const VulkanBuffer&) = delete;
+		VulkanBuffer& operator=(const VulkanBuffer&) = delete;
 
-	protected:
+		VulkanBuffer(VulkanBuffer&& other) noexcept
+			: m_RenderContext(other.m_RenderContext),
+			m_Buffer(other.m_Buffer),
+			m_BufferMemory(other.m_BufferMemory),
+			m_PropertyFlags(other.m_PropertyFlags)
+		{
+			other.m_Buffer = VK_NULL_HANDLE;
+			other.m_BufferMemory = VK_NULL_HANDLE;
+		}
+
+		VulkanBuffer& operator=(VulkanBuffer&& other) noexcept
+		{
+			if (this != &other)
+			{
+				m_RenderContext = other.m_RenderContext;
+				m_Buffer = other.m_Buffer;
+				m_BufferMemory = other.m_BufferMemory;
+				m_PropertyFlags = other.m_PropertyFlags;
+
+				other.m_Buffer = VK_NULL_HANDLE;
+				other.m_BufferMemory = VK_NULL_HANDLE;
+			}
+
+			return *this;
+		}
+
+		const VkBuffer GetBuffer() const { return m_Buffer; }
+		const VkDeviceMemory GetBufferMemory() const { return m_BufferMemory; }
+
 		void AllocateMemory();
 		void UploadBufferData(void* data, size_t size);
+
+	protected:
 
 		VkBuffer m_Buffer;
 		VkDeviceMemory m_BufferMemory = nullptr;
@@ -26,7 +57,7 @@ namespace Hydrogen
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		VkMemoryPropertyFlags m_PropertyFlags;
 
-		const std::shared_ptr<VulkanRenderContext> m_RenderContext;
+		std::shared_ptr<VulkanRenderContext> m_RenderContext;
 
 		friend class VulkanVertexBuffer;
 		friend class VulkanIndexBuffer;

@@ -2,10 +2,19 @@
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Renderer/Renderer.hpp"
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
 using namespace Hydrogen;
+
+struct UniformBuffer
+{
+	glm::mat4 Model;
+	glm::mat4 View;
+	glm::mat4 Proj;
+};
 
 void Application::OnResize(int width, int height)
 {
@@ -36,7 +45,7 @@ void Application::Run()
 
 	auto renderPass = RenderPass::Create(renderContext, texture);
 	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
-		{ {VertexElementType::Float2}, {VertexElementType::Float3} });
+		{ {VertexElementType::Float2}, {VertexElementType::Float3} }, { {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer)} });
 
 	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
@@ -126,6 +135,22 @@ void Application::Run()
 		}
 
 		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer);
+		{
+			static auto startTime = std::chrono::high_resolution_clock::now();
+
+			auto currentTime = std::chrono::high_resolution_clock::now();
+			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+			UniformBuffer uniformBuffer{};
+			uniformBuffer.Model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			uniformBuffer.View = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			uniformBuffer.Proj = glm::perspective(glm::radians(45.0f),
+				(float)(debugGUI ? texture->GetWidth() : MainViewport->GetWidth()) / (float)(debugGUI ? texture->GetHeight() : MainViewport->GetHeight()), 0.1f, 10.0f);
+
+			uniformBuffer.Proj[1][1] *= -1;
+
+			pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
+		}
 		MainRenderer.Draw(vertexBuffer, indexBuffer, renderPass, pipeline);
 		MainRenderer.EndFrame();
 

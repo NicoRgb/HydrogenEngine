@@ -3,7 +3,7 @@
 
 using namespace Hydrogen;
 
-std::shared_ptr<Pipeline> Pipeline::Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout)
+std::shared_ptr<Pipeline> Pipeline::Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings)
 {
-    return std::make_shared<VulkanPipeline>(renderContext, renderPass, vertexShaderAsset, fragmentShaderAsset, vertexLayout);
+    return std::make_shared<VulkanPipeline>(renderContext, renderPass, vertexShaderAsset, fragmentShaderAsset, vertexLayout, descriptorBindings);
 }
