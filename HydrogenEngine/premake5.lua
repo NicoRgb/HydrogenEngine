@@ -21,6 +21,9 @@ project "HydrogenEngine"
 	filter "system:windows"
 		defines { "HY_SYSTEM_WINDOWS" }
 
+	filter "system:macosx"
+		defines { "HY_SYSTEM_MACOS" }
+
 	filter "configurations:Debug"
 		defines { "HY_DEBUG" }
 		optimize "Off"

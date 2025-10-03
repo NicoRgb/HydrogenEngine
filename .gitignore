@@ -9,7 +9,9 @@
 *.vcxproj.filters
 *.vcxproj.user
 *.vcxproj.FileListAbsolute.txt
-*.sln
+*.sl
+*.xcworkspace
+*.xcodeproj
 
 # Compiled Debug Symbols
 *.pdb
@@ -54,3 +56,6 @@
 *.ilk
 *.recipe
 *.idb
+
+# Included files
+!premake5.exe
