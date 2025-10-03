@@ -9,7 +9,10 @@ project "HydrogenRuntime"
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
 	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "Include" }
-	links { "HydrogenEngine" }
+	links { "HydrogenEngine", "vulkan", "shaderc_shared" }
+	
+	filter "system:macosx"
+		linkoptions { "-rpath" .. os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/lib" }
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
 

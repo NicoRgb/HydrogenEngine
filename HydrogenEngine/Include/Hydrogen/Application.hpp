@@ -6,7 +6,11 @@
 #include "Hydrogen/Viewport.hpp"
 #include "Hydrogen/AssetManager.hpp"
 
+#ifdef HY_WITH_IMGUI
 #include "imgui.h"
+#else
+using ImVec2 = int;
+#endif
 
 namespace Hydrogen
 {

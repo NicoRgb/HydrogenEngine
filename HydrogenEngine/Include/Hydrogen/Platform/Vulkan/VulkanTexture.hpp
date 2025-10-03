@@ -3,8 +3,6 @@
 #include "Hydrogen/Renderer/Texture.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 
-#include "imgui.h"
-
 namespace Hydrogen
 {
 	class VulkanTexture : public Texture

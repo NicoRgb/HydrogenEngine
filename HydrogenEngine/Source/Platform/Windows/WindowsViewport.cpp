@@ -1,3 +1,5 @@
+#ifdef HY_SYSTEM_WINDOWS
+
 #define VK_USE_PLATFORM_WIN32_KHR
 
 #include "Hydrogen/Platform/Windows/WindowsViewport.hpp"
@@ -169,3 +171,5 @@ LRESULT WindowsViewport::WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM 
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
+
+#endif

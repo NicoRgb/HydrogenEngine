@@ -1,10 +1,9 @@
+#ifdef HY_WITH_IMGUI
 #pragma once
 
 #include "Hydrogen/Renderer/DebugGUI.hpp"
 #include "Hydrogen/Renderer/CommandQueue.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
-
-#include "imgui.h"
 
 namespace Hydrogen
 {
@@ -25,3 +24,5 @@ namespace Hydrogen
 		ImDrawData* main_draw_data = nullptr;
 	};
 }
+
+#endif

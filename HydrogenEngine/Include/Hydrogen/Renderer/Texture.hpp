@@ -3,7 +3,12 @@
 #include <memory>
 
 #include "Hydrogen/Renderer/RenderContext.hpp"
+
+#ifdef HY_WITH_IMGUI
 #include "imgui.h"
+#else
+using ImTextureID = int;
+#endif
 
 namespace Hydrogen
 {

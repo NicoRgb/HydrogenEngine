@@ -24,6 +24,13 @@ void Application::Run()
 {
 	OnSetup();
 
+	#ifdef HY_NO_IMGUI
+	if (ApplicationSpec.UseDebugGUI)
+	{
+		HY_ASSERT(false, "Cant use DebugGUI when it is not build with engine")
+	}
+	#endif
+
 	EngineLogger::Init();
 	AppLogger::Init();
 
@@ -91,6 +98,7 @@ void Application::Run()
 			continue;
 		}
 
+#ifdef HY_WITH_IMGUI
 		if (debugGUI)
 		{
 			debugGUI->BeginFrame();
@@ -133,6 +141,7 @@ void Application::Run()
 			OnImGuiRender();
 			debugGUI->EndFrame();
 		}
+#endif
 
 		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer);
 		{
@@ -154,6 +163,7 @@ void Application::Run()
 		MainRenderer.Draw(vertexBuffer, indexBuffer, renderPass, pipeline);
 		MainRenderer.EndFrame();
 
+#ifdef HY_WITH_IMGUI
 		if (debugGUI)
 		{
 			ImGuiRenderer.BeginFrame(framebuffer);
@@ -167,6 +177,7 @@ void Application::Run()
 				ImGui::RenderPlatformWindowsDefault();
 			}
 		}
+#endif
 	}
 
 	OnShutdown();

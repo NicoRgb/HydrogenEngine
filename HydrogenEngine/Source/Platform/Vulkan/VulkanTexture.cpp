@@ -1,7 +1,9 @@
 #include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
 #include "Hydrogen/Core.hpp"
 
+#ifdef HY_WITH_IMGUI
 #include "backends/imgui_impl_vulkan.h"
+#endif
 
 using namespace Hydrogen;
 
@@ -43,6 +45,7 @@ VulkanTexture::~VulkanTexture()
 
 ImTextureID VulkanTexture::GetImGuiImage()
 {
+#ifdef HY_WITH_IMGUI
 	if (m_ImGuiImage == 0)
 	{
 		m_ImGuiImage = (ImTextureID)ImGui_ImplVulkan_AddTexture(
@@ -53,6 +56,9 @@ ImTextureID VulkanTexture::GetImGuiImage()
 	}
 
 	return m_ImGuiImage;
+#else
+	return 0;
+#endif
 }
 
 void VulkanTexture::Resize(size_t width, size_t height)
@@ -62,11 +68,13 @@ void VulkanTexture::Resize(size_t width, size_t height)
 
 	vkDeviceWaitIdle(m_RenderContext->GetDevice());
 
-	if (m_ImGuiImage != 0)
-	{
-		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)m_ImGuiImage);
-		m_ImGuiImage = 0;
-	}
+#ifdef HY_WITH_IMGUI
+if (m_ImGuiImage != 0)
+{
+	ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)m_ImGuiImage);
+	m_ImGuiImage = 0;
+}
+#endif
 
 	vkFreeMemory(m_RenderContext->GetDevice(), m_ImageMemory, nullptr);
 	vkDestroySampler(m_RenderContext->GetDevice(), m_Sampler, nullptr);

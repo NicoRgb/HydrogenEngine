@@ -13,7 +13,7 @@ namespace Hydrogen
 		VulkanFramebuffer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Texture>& texture);
 		~VulkanFramebuffer();
 
-		bool RenderToTexture() { return m_Texture != nullptr; }
+		bool RenderToTexture() override { return m_Texture != nullptr; }
 		const std::shared_ptr<Texture> GetTexture() override { return m_Texture; }
 
 		void OnResize(int width, int height) override;

@@ -1,3 +1,5 @@
+#ifdef HY_SYSTEM_WINDOWS
+
 #pragma once
 
 #include "Hydrogen/Viewport.hpp"
@@ -34,3 +36,5 @@ namespace Hydrogen
 		HWND m_hWnd;
 	};
 }
+
+#endif

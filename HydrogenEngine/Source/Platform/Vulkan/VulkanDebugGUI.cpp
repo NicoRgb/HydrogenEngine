@@ -1,3 +1,5 @@
+#ifdef HY_WITH_IMGUI
+
 #include "Hydrogen/Platform/Vulkan/VulkanDebugGUI.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderPass.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanCommandQueue.hpp"
@@ -102,3 +104,5 @@ void VulkanDebugGUI::Render(const std::shared_ptr<CommandQueue>& commandQueue)
 	auto c = CommandQueue::Get<VulkanCommandQueue>(commandQueue);
 	ImGui_ImplVulkan_RenderDrawData(main_draw_data, c->GetCommandBuffers()[m_RenderContext->GetCurrentFrame()]);
 }
+
+#endif

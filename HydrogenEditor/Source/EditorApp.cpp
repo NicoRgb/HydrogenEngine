@@ -1,5 +1,4 @@
-#include <Hydrogen/Hydrogen.hpp>
-#include <imgui.h>
+#include "Hydrogen/Hydrogen.hpp"
 
 class EditorApp : public Hydrogen::Application
 {
@@ -27,9 +26,6 @@ public:
 
 	virtual void OnImGuiRender() override
 	{
-		ImGui::Begin("Assets");
-
-		ImGui::End();
 	}
 };
 

@@ -1,5 +1,10 @@
+newoption {
+	trigger = "with-imgui",
+	description = "Enable ImGui integration"
+}
+
 workspace "HydrogenEngine"
-	configurations { "Debug", "Release", "Dist" }
+	configurations { "Debug", "Release", "Dist", "Debug-NoImGui", "Release-NoImGui", "Dist-NoImGui" }
 	platforms { "x86_64", "arm64" }
 	startproject "HydrogenRuntime"
 

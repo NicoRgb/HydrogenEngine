@@ -8,8 +8,15 @@ project "HydrogenEditor"
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/json/single_include/nlohmann", "Include" }
-	links { "HydrogenEngine" }
+	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "Include" }
+	links { "HydrogenEngine", "vulkan", "shaderc_shared" }
+
+	filter "system:macosx"
+		linkoptions { "-rpath" .. os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/lib" }
+
+	if _OPTIONS["with-imgui"] then
+		includedirs { "%{wks.location}/Extern/imgui-docking" }
+	end
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
 
