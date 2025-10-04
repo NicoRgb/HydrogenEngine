@@ -12,7 +12,16 @@ project "HydrogenEditor"
 	links { "HydrogenEngine", "vulkan", "shaderc_shared" }
 
 	filter "system:macosx"
-		linkoptions { "-rpath" .. os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/lib" }
+		linkoptions { "-rpath " .. os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/lib" }
+		links { "glfw3" }
+		links {
+			"Cocoa.framework",
+			"IOKit.framework",
+			"CoreFoundation.framework",
+			"CoreVideo.framework",
+			"CoreGraphics.framework",
+			"QuartzCore.framework"
+		}
 
 	if _OPTIONS["with-imgui"] then
 		includedirs { "%{wks.location}/Extern/imgui-docking" }

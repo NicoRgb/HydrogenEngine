@@ -109,7 +109,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 }
 
 VulkanRenderContext::VulkanRenderContext(std::string appName, glm::vec2 appVersion, const std::shared_ptr<Viewport>& viewport)
-	: m_Viewport(viewport), m_MaxFramesInFlight(2), m_CurrentFrame(0)
+	: m_Viewport(viewport), m_MaxFramesInFlight(1), m_CurrentFrame(0)
 {
 	std::vector<const char*> extensions = viewport->GetVulkanExtensions();
 #ifdef HY_DEBUG
@@ -123,7 +123,11 @@ VulkanRenderContext::VulkanRenderContext(std::string appName, glm::vec2 appVersi
 		}
 	}
 
-	const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+#ifdef HY_SYSTEM_MACOS
+	deviceExtensions.push_back("VK_KHR_portability_subset");
+#endif
 
 	const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 	for (const char* validationLayer : validationLayers)
@@ -155,6 +159,9 @@ VulkanRenderContext::VulkanRenderContext(std::string appName, glm::vec2 appVersi
 	createInfo.pApplicationInfo = &appInfo;
 	createInfo.enabledExtensionCount = (uint32_t)extensions.size();
 	createInfo.ppEnabledExtensionNames = extensions.data();
+#ifdef HY_SYSTEM_MACOS
+	createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 #ifdef HY_DEBUG
 	createInfo.enabledLayerCount = (uint32_t)validationLayers.size();
 	createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -372,6 +379,10 @@ uint64_t VulkanRenderContext::ScorePhysicalDevice(VkPhysicalDevice physicalDevic
 	{
 		memoryCount += deviceMemoryProperties.memoryHeaps[i].size;
 	}
+
+	score += memoryCount;
+
+	HY_ENGINE_INFO("GPU found with score {}", score);
 
 	return score;
 }

@@ -27,9 +27,20 @@ project "HydrogenEngine"
 			"%{wks.location}/Extern/imgui-docking/imgui_widgets.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.h",
-			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.cpp",
-			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.h"
 		}
+
+		filter "system:windows"
+			files {
+				"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.cpp",
+				"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.h"
+			}
+
+		filter "system:macosx"
+			files {
+				"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_glfw.cpp",
+				"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_glfw.h"
+			}
+
 		defines { "HY_WITH_IMGUI" }
 	else
 		defines { "HY_NO_IMGUI" }
@@ -44,9 +55,9 @@ project "HydrogenEngine"
 	filter "system:macosx"
 		defines { "HY_SYSTEM_MACOS" }
 		-- Adjust path if Vulkan SDK is installed somewhere else
-		includedirs { os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/include" }
-		libdirs { os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/lib" }
-		links { "vulkan" }
+		includedirs { os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/include", "%{wks.location}/Extern/GLFW/include", }
+		libdirs { os.getenv("HOME") .. "/VulkanSDK/1.4.321.0/macOS/lib", "%{wks.location}/Extern/GLFW/lib-arm64" }
+		links { "vulkan", "glfw3" }
 		linkoptions { "-rpath $(HOME)/VulkanSDK/1.4.321.0/macOS/lib" }
 		-- buildoptions { "-fobjc-arc" }
 

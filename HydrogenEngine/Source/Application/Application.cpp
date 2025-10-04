@@ -23,6 +23,9 @@ void Application::OnResize(int width, int height)
 void Application::Run()
 {
 	OnSetup();
+	
+	EngineLogger::Init();
+	AppLogger::Init();
 
 	#ifdef HY_NO_IMGUI
 	if (ApplicationSpec.UseDebugGUI)
@@ -30,9 +33,6 @@ void Application::Run()
 		HY_ASSERT(false, "Cant use DebugGUI when it is not build with engine")
 	}
 	#endif
-
-	EngineLogger::Init();
-	AppLogger::Init();
 
 	MainViewport = Viewport::Create(ApplicationSpec.ViewportTitle, (int)ApplicationSpec.ViewportSize.x, (int)ApplicationSpec.ViewportSize.y, (int)ApplicationSpec.ViewportPos.x, (int)ApplicationSpec.ViewportPos.y);
 	MainViewport->Open();

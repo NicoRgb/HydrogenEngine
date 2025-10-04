@@ -1,5 +1,6 @@
 #include "Hydrogen/Viewport.hpp"
 #include "Hydrogen/Platform/Windows/WindowsViewport.hpp"
+#include "Hydrogen/Platform/MacOS/MacOSViewport.hpp"
 
 using namespace Hydrogen;
 
@@ -7,6 +8,8 @@ void Viewport::PumpMessages()
 {
 #ifdef HY_SYSTEM_WINDOWS
     return WindowsViewport::PumpMessages();
+#elif HY_SYSTEM_MACOS
+    return MacOSViewport::PumpMessages();
 #endif
 }
 
@@ -14,6 +17,8 @@ std::shared_ptr<Viewport> Viewport::Create(std::string name, int width, int heig
 {
 #ifdef HY_SYSTEM_WINDOWS
 	return std::make_shared<WindowsViewport>(name, width, height, x, y);
+#elif HY_SYSTEM_MACOS
+    return std::make_shared<MacOSViewport>(name, width, height, x, y);
 #else
     return nullptr;
 #endif

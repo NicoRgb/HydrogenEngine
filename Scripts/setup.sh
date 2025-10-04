@@ -1,3 +1,3 @@
 #!/bin/bash
 
-Extern/Bin/premake5/premake5 xcode4
+Extern/Bin/premake5/premake5 gmake --with-imgui

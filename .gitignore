@@ -62,3 +62,5 @@
 
 .DS_Store
 .vscode
+bin/Debug-macosx-ARM64/HydrogenEditor
+bin/Debug-macosx-ARM64/HydrogenRuntime
