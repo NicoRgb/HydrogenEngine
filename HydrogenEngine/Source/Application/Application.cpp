@@ -11,9 +11,9 @@ using namespace Hydrogen;
 
 struct UniformBuffer
 {
-	glm::mat4 Model;
-	glm::mat4 View;
-	glm::mat4 Proj;
+	alignas(16) glm::mat4 Model;
+	alignas(16) glm::mat4 View;
+	alignas(16) glm::mat4 Proj;
 };
 
 void Application::OnResize(int width, int height)
@@ -43,28 +43,33 @@ void Application::Run()
 		texture = Texture::Create(renderContext, TextureFormat::FormatR8G8B8A8, 1920, 1080);
 	}
 
-	auto renderPass = RenderPass::Create(renderContext, texture);
+	auto statueTextureAsset = MainAssetManager.GetAsset<TextureAsset>("statue.jpg");
+	auto statueTexture = VulkanTexture::Create(renderContext, TextureFormat::FormatR8G8B8A8, statueTextureAsset->GetWidth(), statueTextureAsset->GetHeight());
+	statueTexture->UploadData((void*)statueTextureAsset->GetImage().data());
+
+	auto renderPass = RenderPass::Create(renderContext);
 	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
-		{ {VertexElementType::Float2}, {VertexElementType::Float3} }, { {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer)} });
+		{ {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float2} },
+		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, statueTexture } });
 
 	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
 	const std::vector<float> vertices = {
-		-0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-		0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-		-0.5f, 0.5f, 1.0f, 1.0f, 1.0f
+		-0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+		0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+		0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+		-0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
 	};
 
 	const std::vector<uint16_t> indices = {
 		0, 1, 2, 2, 3, 0
 	};
 
-	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float2}, {VertexElementType::Float3} }, (void*)vertices.data(), vertices.size() / 5);
+	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vertices.data(), vertices.size() / 5);
 	auto indexBuffer = IndexBuffer::Create(renderContext, indices);
 
-	std::shared_ptr<RenderPass> renderPassDebugGUI = nullptr;
+	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
 	std::shared_ptr<Framebuffer> framebufferTexture = nullptr;
 
@@ -73,9 +78,9 @@ void Application::Run()
 
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		renderPassDebugGUI = RenderPass::Create(renderContext);
+		renderPassTexture = RenderPass::Create(renderContext, texture);
 		debugGUI = DebugGUI::Create(renderContext, renderPass);
-		framebufferTexture = Framebuffer::Create(renderContext, renderPass, texture);
+		framebufferTexture = Framebuffer::Create(renderContext, renderPassTexture, texture);
 	}
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
@@ -151,13 +156,13 @@ void Application::Run()
 
 			pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
 		}
-		MainRenderer.Draw(vertexBuffer, indexBuffer, renderPass, pipeline);
+		MainRenderer.Draw(vertexBuffer, indexBuffer, debugGUI ? renderPassTexture : renderPass, pipeline);
 		MainRenderer.EndFrame();
 
 		if (debugGUI)
 		{
 			ImGuiRenderer.BeginFrame(framebuffer);
-			ImGuiRenderer.DrawDebugGui(renderPassDebugGUI, debugGUI);
+			ImGuiRenderer.DrawDebugGui(renderPass, debugGUI);
 			ImGuiRenderer.EndFrame();
 
 			auto& io = ImGui::GetIO();

@@ -19,10 +19,13 @@ namespace Hydrogen
 		size_t GetHeight() const override { return m_Height; }
 
 		void Resize(size_t width, size_t height) override;
+		void UploadData(void* data) override;
 
 		VkImageView GetImageView() const { return m_ImageView; }
+		VkSampler GetSampler() const { return m_Sampler; }
 
 	private:
+		void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout);
 		void CreateTexture();
 
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;

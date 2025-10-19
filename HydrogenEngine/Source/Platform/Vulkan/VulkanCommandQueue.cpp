@@ -81,6 +81,9 @@ void VulkanCommandQueue::BindPipeline(const std::shared_ptr<Pipeline>& pipeline)
 {
 	const auto vulkanPipeline = Pipeline::Get<VulkanPipeline>(pipeline);
 	vkCmdBindPipeline(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetPipeline());
+
+	vkCmdBindDescriptorSets(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline->GetPipelineLayout(),
+		0, 1, &vulkanPipeline->GetDescriptorSets()[m_RenderContext->GetCurrentFrame()], 0, nullptr);
 }
 
 void VulkanCommandQueue::BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer)

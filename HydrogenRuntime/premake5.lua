@@ -8,7 +8,7 @@ project "HydrogenRuntime"
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "Include" }
+	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/json/single_include/nlohmann", "Include" }
 	links { "HydrogenEngine" }
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }

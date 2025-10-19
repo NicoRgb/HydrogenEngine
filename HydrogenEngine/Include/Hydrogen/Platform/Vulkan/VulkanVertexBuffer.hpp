@@ -20,7 +20,8 @@ namespace Hydrogen
 			: m_RenderContext(other.m_RenderContext),
 			m_Buffer(other.m_Buffer),
 			m_BufferMemory(other.m_BufferMemory),
-			m_PropertyFlags(other.m_PropertyFlags)
+			m_PropertyFlags(other.m_PropertyFlags),
+			m_Size(other.m_Size)
 		{
 			other.m_Buffer = VK_NULL_HANDLE;
 			other.m_BufferMemory = VK_NULL_HANDLE;
@@ -45,6 +46,8 @@ namespace Hydrogen
 		const VkBuffer GetBuffer() const { return m_Buffer; }
 		const VkDeviceMemory GetBufferMemory() const { return m_BufferMemory; }
 
+		const size_t GetSize() const { return m_Size; }
+
 		void AllocateMemory();
 		void UploadBufferData(void* data, size_t size);
 
@@ -52,6 +55,7 @@ namespace Hydrogen
 
 		VkBuffer m_Buffer;
 		VkDeviceMemory m_BufferMemory = nullptr;
+		size_t m_Size = 0;
 
 	private:
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);

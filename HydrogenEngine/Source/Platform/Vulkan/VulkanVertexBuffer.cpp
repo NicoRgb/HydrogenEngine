@@ -4,7 +4,7 @@
 using namespace Hydrogen;
 
 VulkanBuffer::VulkanBuffer(const std::shared_ptr<VulkanRenderContext>& renderContext, VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags)
-	: m_RenderContext(renderContext), m_PropertyFlags(propertyFlags)
+	: m_RenderContext(renderContext), m_PropertyFlags(propertyFlags), m_Size(size)
 {
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;

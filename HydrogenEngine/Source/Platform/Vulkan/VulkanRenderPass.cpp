@@ -7,7 +7,6 @@ VulkanRenderPass::VulkanRenderPass(const std::shared_ptr<RenderContext>& renderC
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	VkAttachmentDescription colorAttachment{};
-	colorAttachment.format = m_RenderContext->GetSwapChainImageFormat();
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -16,10 +15,12 @@ VulkanRenderPass::VulkanRenderPass(const std::shared_ptr<RenderContext>& renderC
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	if (texture)
 	{
+		colorAttachment.format = VK_FORMAT_R8G8B8A8_SRGB;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 	else
 	{
+		colorAttachment.format = m_RenderContext->GetSwapChainImageFormat();
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	}
 

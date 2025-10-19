@@ -11,7 +11,7 @@ namespace Hydrogen
 	{
 		UniformBuffer,
 		//StorageBuffer,
-		//CombinedImageSampler,
+		CombinedImageSampler,
 		//StorageImage,
 		//Sampler,
 		//SampledImage,
@@ -31,6 +31,7 @@ namespace Hydrogen
 		DescriptorType type;
 		ShaderStage stageFlags;
 		size_t size;
+		std::shared_ptr<Texture> texture;
 	};
 
 	inline ShaderStage operator|(ShaderStage a, ShaderStage b)

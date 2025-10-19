@@ -77,7 +77,7 @@ void AssetManager::LoadAssets(const std::string& directory)
 				assetType = "Shader";
 				assetConfig["preferences"]["stage"] = "vertex";
 			}
-			if (ext == ".png")
+			if (ext == ".png" || ext == ".jpg")
 			{
 				assetType = "Texture";
 			}
@@ -129,14 +129,15 @@ void TextureAsset::Parse(std::string path)
 
 	HY_ASSERT(stbi_info(path.c_str(), &x, &y, &channels), "Failed to load image");
 	
-	m_Width = y;
-	m_Height = x;
-	m_Channels = channels;
+	m_Width = x;
+	m_Height = y;
 
-	m_Image.resize(x * y * channels);
-
-	unsigned char* data = stbi_load(path.c_str(), &x, &y, &channels, 0);
+	unsigned char* data = stbi_load(path.c_str(), &x, &y, &channels, STBI_rgb_alpha);
 	HY_ASSERT(data, "Failed to load image");
+
+	m_Channels = 4;
+
+	m_Image.resize(m_Width * m_Height * 4);
 
 	memcpy(m_Image.data(), data, m_Image.size());
 	stbi_image_free(data);

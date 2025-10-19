@@ -14,11 +14,15 @@ namespace Hydrogen
 
 		void UploadUniformBufferData(uint32_t binding, void* data, size_t size) override;
 
+		const VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
 		const VkPipeline GetPipeline() const { return m_Pipeline; }
+		const std::vector<VkDescriptorSet> GetDescriptorSets() const { return m_DescriptorSets; }
 
 	private:
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;
 		VkDescriptorSetLayout m_DescriptorSetLayout;
+		VkDescriptorPool m_DescriptorPool;
+		std::vector<VkDescriptorSet> m_DescriptorSets;
 		VkPipelineLayout m_PipelineLayout;
 		VkPipeline m_Pipeline;
 

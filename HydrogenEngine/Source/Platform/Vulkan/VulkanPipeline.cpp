@@ -1,5 +1,6 @@
 #include "Hydrogen/Platform/Vulkan/VulkanPipeline.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderPass.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
 #include "Hydrogen/Core.hpp"
 
 using namespace Hydrogen;
@@ -64,11 +65,21 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	for (size_t i = 0; i < layoutBindings.size(); i++)
 	{
 		layoutBindings[i].binding = descriptorBindings[i].binding;
-		layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		switch (descriptorBindings[i].type)
+		{
+		case DescriptorType::UniformBuffer:
+			layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			break;
+		case DescriptorType::CombinedImageSampler:
+			layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			break;
+		default:
+			HY_ASSERT(false, "Unsupported descriptor type");
+		}
 		layoutBindings[i].descriptorCount = 1;
 		layoutBindings[i].stageFlags = 0;
 
-		if ((descriptorBindings[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Vertex)
+		if ((descriptorBindings[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
 		{
 			layoutBindings[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
@@ -77,18 +88,21 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 			layoutBindings[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
-		VkDeviceSize bufferSize = (VkDeviceSize)descriptorBindings[i].size;
-
-		m_UniformBuffersMapped[descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
-
-		for (size_t j = 0; j < m_RenderContext->GetMaxFramesInFlight(); j++)
+		if (descriptorBindings[i].type == DescriptorType::UniformBuffer)
 		{
-			m_UniformBuffers[descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
-				VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-			m_UniformBuffers[descriptorBindings[i].binding][j].AllocateMemory();
+			VkDeviceSize bufferSize = (VkDeviceSize)descriptorBindings[i].size;
 
-			vkMapMemory(m_RenderContext->GetDevice(), m_UniformBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_UniformBuffersMapped[descriptorBindings[i].binding][i]);
+			m_UniformBuffersMapped[descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
+
+			for (size_t j = 0; j < m_RenderContext->GetMaxFramesInFlight(); j++)
+			{
+				m_UniformBuffers[descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
+					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+				m_UniformBuffers[descriptorBindings[i].binding][j].AllocateMemory();
+
+				vkMapMemory(m_RenderContext->GetDevice(), m_UniformBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_UniformBuffersMapped[descriptorBindings[i].binding][j]);
+			}
 		}
 	}
 
@@ -158,7 +172,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;
 	rasterizer.depthBiasClamp = 0.0f;
@@ -203,6 +217,106 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
 
+	uint32_t uniformBufferCount = 0;
+	uint32_t combinedImageSamplerCount = 0;
+	for (const auto& binding : descriptorBindings) {
+		switch (binding.type) {
+		case DescriptorType::UniformBuffer:
+			uniformBufferCount++;
+			break;
+		case DescriptorType::CombinedImageSampler:
+			combinedImageSamplerCount++;
+			break;
+		default:
+			HY_ASSERT(false, "Unsupported descriptor type");
+		}
+	}
+
+	std::vector<VkDescriptorPoolSize> poolSizes;
+	if (uniformBufferCount > 0)
+	{
+		VkDescriptorPoolSize uboPool{};
+		uboPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uboPool.descriptorCount = uniformBufferCount * m_RenderContext->GetMaxFramesInFlight();
+		poolSizes.push_back(uboPool);
+	}
+	if (combinedImageSamplerCount > 0)
+	{
+		VkDescriptorPoolSize samplerPool{};
+		samplerPool.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerPool.descriptorCount = combinedImageSamplerCount * m_RenderContext->GetMaxFramesInFlight();
+		poolSizes.push_back(samplerPool);
+	}
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	poolInfo.pPoolSizes = poolSizes.data();
+	poolInfo.maxSets = static_cast<uint32_t>(m_RenderContext->GetMaxFramesInFlight());
+
+	HY_ASSERT(vkCreateDescriptorPool(m_RenderContext->GetDevice(), &poolInfo, nullptr, &m_DescriptorPool) == VK_SUCCESS, "Failed to create vulkan descriptor pool");
+
+	std::vector<VkDescriptorSetLayout> layouts(m_RenderContext->GetMaxFramesInFlight(), m_DescriptorSetLayout);
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = m_DescriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(m_RenderContext->GetMaxFramesInFlight());
+	allocInfo.pSetLayouts = layouts.data();
+
+	m_DescriptorSets.resize(m_RenderContext->GetMaxFramesInFlight());
+	HY_ASSERT(vkAllocateDescriptorSets(m_RenderContext->GetDevice(), &allocInfo, m_DescriptorSets.data()) == VK_SUCCESS, "Failed to allocate vulkan descriptor sets");
+
+	for (size_t i = 0; i < m_RenderContext->GetMaxFramesInFlight(); i++)
+	{
+		size_t offset = 0;
+		for (size_t j = 0; j < layoutBindings.size(); j++)
+		{
+			switch (descriptorBindings[j].type)
+			{
+			case DescriptorType::UniformBuffer:
+			{
+				VkDescriptorBufferInfo bufferInfo{};
+				bufferInfo.buffer = m_UniformBuffers[layoutBindings[j].binding][i].GetBuffer();
+				bufferInfo.offset = offset;
+				bufferInfo.range = m_UniformBuffers[layoutBindings[j].binding][i].GetSize();
+				offset += m_UniformBuffers[layoutBindings[j].binding][i].GetSize();
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = m_DescriptorSets[i];
+				descriptorWrite.dstBinding = layoutBindings[j].binding;
+				descriptorWrite.dstArrayElement = 0;
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				descriptorWrite.descriptorCount = 1;
+				descriptorWrite.pBufferInfo = &bufferInfo;
+
+				vkUpdateDescriptorSets(m_RenderContext->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+				break;
+			}
+
+			case DescriptorType::CombinedImageSampler:
+			{
+				VkDescriptorImageInfo imageInfo{};
+				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.imageView = Texture::Get<VulkanTexture>(descriptorBindings[j].texture)->GetImageView();
+				imageInfo.sampler = Texture::Get<VulkanTexture>(descriptorBindings[j].texture)->GetSampler();
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = m_DescriptorSets[i];
+				descriptorWrite.dstBinding = layoutBindings[j].binding;
+				descriptorWrite.dstArrayElement = 0;
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				descriptorWrite.descriptorCount = 1;
+				descriptorWrite.pImageInfo = &imageInfo;
+
+				vkUpdateDescriptorSets(m_RenderContext->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+				break;
+			}
+			}
+		}
+	}
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
@@ -238,6 +352,8 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 VulkanPipeline::~VulkanPipeline()
 {
+	vkDestroyDescriptorPool(m_RenderContext->GetDevice(), m_DescriptorPool, nullptr);
+
 	vkDestroyDescriptorSetLayout(m_RenderContext->GetDevice(), m_DescriptorSetLayout, nullptr);
 	vkDestroyPipeline(m_RenderContext->GetDevice(), m_Pipeline, nullptr);
 	vkDestroyPipelineLayout(m_RenderContext->GetDevice(), m_PipelineLayout, nullptr);
