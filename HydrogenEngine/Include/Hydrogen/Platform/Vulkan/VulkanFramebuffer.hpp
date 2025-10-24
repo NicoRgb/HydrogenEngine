@@ -28,5 +28,9 @@ namespace Hydrogen
 		const std::shared_ptr<VulkanTexture> m_Texture;
 
 		std::vector<VkFramebuffer> m_Framebuffers;
+
+		VkImage m_DepthImage;
+		VkDeviceMemory m_DepthImageMemory;
+		VkImageView m_DepthImageView;
 	};
 }

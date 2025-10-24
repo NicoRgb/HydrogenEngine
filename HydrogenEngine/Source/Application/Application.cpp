@@ -1,7 +1,11 @@
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Renderer/Renderer.hpp"
+
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
