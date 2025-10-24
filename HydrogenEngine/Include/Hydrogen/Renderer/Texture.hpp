@@ -9,7 +9,8 @@ namespace Hydrogen
 {
 	enum class TextureFormat
 	{
-		FormatR8G8B8A8, // VK_FORMAT_R8G8B8A8_UNORM
+		ViewportDefault,
+		FormatR8G8B8A8,
 	};
 
 	class Texture

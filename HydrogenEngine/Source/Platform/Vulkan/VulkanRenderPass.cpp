@@ -1,4 +1,5 @@
 #include "Hydrogen/Platform/Vulkan/VulkanRenderPass.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
 #include "Hydrogen/Core.hpp"
 
 using namespace Hydrogen;
@@ -15,7 +16,7 @@ VulkanRenderPass::VulkanRenderPass(const std::shared_ptr<RenderContext>& renderC
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	if (texture)
 	{
-		colorAttachment.format = VK_FORMAT_R8G8B8A8_SRGB;
+		colorAttachment.format = Texture::Get<VulkanTexture>(texture)->GetFormat();
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 	else

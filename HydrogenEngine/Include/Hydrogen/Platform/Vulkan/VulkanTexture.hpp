@@ -23,6 +23,7 @@ namespace Hydrogen
 
 		VkImageView GetImageView() const { return m_ImageView; }
 		VkSampler GetSampler() const { return m_Sampler; }
+		VkFormat GetFormat() const { return m_Format; }
 
 	private:
 		void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout);
@@ -31,7 +32,7 @@ namespace Hydrogen
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;
 
 		size_t m_Width, m_Height;
-		TextureFormat m_Format;
+		VkFormat m_Format;
 
 		VkDeviceMemory m_ImageMemory;
 

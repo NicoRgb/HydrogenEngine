@@ -40,7 +40,7 @@ void Application::Run()
 
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		texture = Texture::Create(renderContext, TextureFormat::FormatR8G8B8A8, 1920, 1080);
+		texture = Texture::Create(renderContext, TextureFormat::ViewportDefault, 1920, 1080);
 	}
 
 	auto statueTextureAsset = MainAssetManager.GetAsset<TextureAsset>("statue.jpg");
@@ -49,24 +49,30 @@ void Application::Run()
 
 	auto renderPass = RenderPass::Create(renderContext);
 	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
-		{ {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float2} },
+		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
 		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, statueTexture } });
 
 	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
 	const std::vector<float> vertices = {
-		-0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-		-0.5f, 0.5f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f
+		-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+		-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
+
+		-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+		0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
+		0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+		-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f
 	};
 
 	const std::vector<uint16_t> indices = {
-		0, 1, 2, 2, 3, 0
+		0, 1, 2, 2, 3, 0,
+		4, 5, 6, 6, 7, 4
 	};
 
-	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vertices.data(), vertices.size() / 5);
+	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vertices.data(), vertices.size() / 5);
 	auto indexBuffer = IndexBuffer::Create(renderContext, indices);
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;

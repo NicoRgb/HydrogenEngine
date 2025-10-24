@@ -27,9 +27,20 @@ static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags proper
 VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
-	m_Format = format;
 	m_Width = width;
 	m_Height = height;
+
+	switch (format)
+	{
+	case TextureFormat::ViewportDefault:
+		m_Format = m_RenderContext->GetSwapChainImageFormat();
+		break;
+	case TextureFormat::FormatR8G8B8A8:
+		m_Format = VK_FORMAT_R8G8B8A8_SRGB;
+		break;
+	default:
+		HY_ASSERT(false, "Invalid TextureFormat");
+	}
 
 	CreateTexture();
 }
@@ -200,7 +211,7 @@ void VulkanTexture::CreateTexture()
 	VkImageCreateInfo imageInfo{};
 	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	imageInfo.imageType = VK_IMAGE_TYPE_2D;
-	imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	imageInfo.format = m_Format;
 	imageInfo.extent.width = (uint32_t)m_Width;
 	imageInfo.extent.height = (uint32_t)m_Height;
 	imageInfo.extent.depth = 1;
@@ -233,7 +244,7 @@ void VulkanTexture::CreateTexture()
 	createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	createInfo.image = m_Image;
 	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+	createInfo.format = m_Format;
 	createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 	createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 	createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
