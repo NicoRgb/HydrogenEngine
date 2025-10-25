@@ -20,6 +20,6 @@ namespace Hydrogen
 
         virtual const size_t GetNumIndices() const = 0;
 
-        static std::shared_ptr<IndexBuffer> Create(const std::shared_ptr<RenderContext>& renderContext, const std::vector<uint16_t>& indices);
+        static std::shared_ptr<IndexBuffer> Create(const std::shared_ptr<RenderContext>& renderContext, const std::vector<uint32_t>& indices);
     };
 }

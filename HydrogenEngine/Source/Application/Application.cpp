@@ -47,37 +47,22 @@ void Application::Run()
 		texture = Texture::Create(renderContext, TextureFormat::ViewportDefault, 1920, 1080);
 	}
 
-	auto statueTextureAsset = MainAssetManager.GetAsset<TextureAsset>("statue.jpg");
-	auto statueTexture = VulkanTexture::Create(renderContext, TextureFormat::FormatR8G8B8A8, statueTextureAsset->GetWidth(), statueTextureAsset->GetHeight());
-	statueTexture->UploadData((void*)statueTextureAsset->GetImage().data());
+	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
+	auto vikingRoomTexture = VulkanTexture::Create(renderContext, TextureFormat::FormatR8G8B8A8, vikingRoomTextureAsset->GetWidth(), vikingRoomTextureAsset->GetHeight());
+	vikingRoomTexture->UploadData((void*)vikingRoomTextureAsset->GetImage().data());
+
+	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
 
 	auto renderPass = RenderPass::Create(renderContext);
 	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
-		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, statueTexture } });
+		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTexture } });
 
 	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
-	const std::vector<float> vertices = {
-		-0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-		0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-		-0.5f, 0.5f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
-
-		-0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-		0.5f, -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-		-0.5f, 0.5f, -0.5f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f
-	};
-
-	const std::vector<uint16_t> indices = {
-		0, 1, 2, 2, 3, 0,
-		4, 5, 6, 6, 7, 4
-	};
-
-	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vertices.data(), vertices.size() / 5);
-	auto indexBuffer = IndexBuffer::Create(renderContext, indices);
+	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vikingRoom->GetVertices().data(), vikingRoom->GetVertices().size() / 5);
+	auto indexBuffer = IndexBuffer::Create(renderContext, vikingRoom->GetIndices());
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
@@ -155,6 +140,7 @@ void Application::Run()
 
 			auto currentTime = std::chrono::high_resolution_clock::now();
 			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+			//time = 0;
 
 			UniformBuffer uniformBuffer{};
 			uniformBuffer.Model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));

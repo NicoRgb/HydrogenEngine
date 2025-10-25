@@ -10,7 +10,7 @@ workspace "HydrogenEngine"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
-group "Engine"
-	include "HydrogenEngine"
-	include "HydrogenEditor"
-	include "HydrogenRuntime"
+include "HydrogenEngine"
+include "HydrogenEditor"
+include "HydrogenRuntime"
+include "HydrogenTools"

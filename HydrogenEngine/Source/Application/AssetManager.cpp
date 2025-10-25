@@ -3,6 +3,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 #include <shaderc/shaderc.hpp>
 
 using namespace Hydrogen;
@@ -77,9 +80,13 @@ void AssetManager::LoadAssets(const std::string& directory)
 				assetType = "Shader";
 				assetConfig["preferences"]["stage"] = "vertex";
 			}
-			if (ext == ".png" || ext == ".jpg")
+			else if (ext == ".png" || ext == ".jpg")
 			{
 				assetType = "Texture";
+			}
+			else if (ext == ".obj")
+			{
+				assetType = "Mesh";
 			}
 			else
 			{
@@ -116,6 +123,11 @@ void AssetManager::LoadAssets(const std::string& directory)
 			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(texture);
 		}
+		else if (assetConfig["type"] == "Mesh")
+		{
+			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(mesh);
+		}
 		else
 		{
 			HY_ENGINE_ERROR("Unknown asset type for file '{}'", filePath);
@@ -141,4 +153,31 @@ void TextureAsset::Parse(std::string path)
 
 	memcpy(m_Image.data(), data, m_Image.size());
 	stbi_image_free(data);
+}
+
+void MeshAsset::Parse(std::string path)
+{
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+	
+	HY_ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str()), "Failed to load object {}", err);
+
+	for (const auto& shape : shapes) // TODO: this is really rudimentary -> no support for materials, textures and duplicate vertices
+	{
+		for (const auto& index : shape.mesh.indices)
+		{
+			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
+			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
+			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
+			m_Vertices.push_back(1.0f);
+			m_Vertices.push_back(1.0f);
+			m_Vertices.push_back(1.0f);
+			m_Vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
+			m_Vertices.push_back(1.0f - attrib.texcoords[2 * index.texcoord_index + 1]);
+
+			m_Indices.push_back(m_Indices.size());
+		}
+	}
 }

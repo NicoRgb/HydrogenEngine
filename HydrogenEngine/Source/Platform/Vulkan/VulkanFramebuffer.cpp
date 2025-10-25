@@ -148,5 +148,9 @@ void VulkanFramebuffer::OnResize(int width, int height)
 		vkDestroyFramebuffer(m_RenderContext->GetDevice(), framebuffer, nullptr);
 	}
 
+	vkDestroyImageView(m_RenderContext->GetDevice(), m_DepthImageView, nullptr);
+	vkDestroyImage(m_RenderContext->GetDevice(), m_DepthImage, nullptr);
+	vkFreeMemory(m_RenderContext->GetDevice(), m_DepthImageMemory, nullptr);
+
 	CreateFramebuffers();
 }

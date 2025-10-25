@@ -3,7 +3,7 @@
 
 using namespace Hydrogen;
 
-std::shared_ptr<IndexBuffer> IndexBuffer::Create(const std::shared_ptr<RenderContext>& renderContext, const std::vector<uint16_t>& indices)
+std::shared_ptr<IndexBuffer> IndexBuffer::Create(const std::shared_ptr<RenderContext>& renderContext, const std::vector<uint32_t>& indices)
 {
 	return std::make_shared<VulkanIndexBuffer>(renderContext, indices);
 }

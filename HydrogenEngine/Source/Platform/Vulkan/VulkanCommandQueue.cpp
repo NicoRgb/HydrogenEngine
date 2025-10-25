@@ -99,7 +99,7 @@ void VulkanCommandQueue::BindVertexBuffer(const std::shared_ptr<VertexBuffer>& v
 void VulkanCommandQueue::BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer)
 {
 	auto buffer = IndexBuffer::Get<VulkanIndexBuffer>(indexBuffer)->GetBuffer();
-	vkCmdBindIndexBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], buffer, 0, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
 void VulkanCommandQueue::SetViewport(const std::shared_ptr<Framebuffer>& framebuffer)

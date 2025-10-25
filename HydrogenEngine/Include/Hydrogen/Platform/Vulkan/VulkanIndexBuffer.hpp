@@ -11,7 +11,7 @@ namespace Hydrogen
 	class VulkanIndexBuffer : public IndexBuffer, public VulkanBuffer
 	{
 	public:
-		VulkanIndexBuffer(const std::shared_ptr<RenderContext>& renderContext, const std::vector<uint16_t>& indices);
+		VulkanIndexBuffer(const std::shared_ptr<RenderContext>& renderContext, const std::vector<uint32_t>& indices);
 		~VulkanIndexBuffer();
 
 		const size_t GetNumIndices() const override { return m_NumIndices; }

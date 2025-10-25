@@ -1,5 +1,9 @@
 #pragma once
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+#include <glm/glm.hpp>
+
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Core.hpp"
 
@@ -116,6 +120,34 @@ namespace Hydrogen
 		uint8_t m_Channels;
 
 		std::vector<uint32_t> m_Image;
+	};
+
+	class MeshAsset : public Asset
+	{
+	public:
+		MeshAsset(std::string path, json config) : Asset(path, config)
+		{
+			Parse(path);
+		}
+
+		~MeshAsset() = default;
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		const std::vector<float>& GetVertices() const { return m_Vertices; }
+		const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
+
+	private:
+		void Parse(std::string path);
+
+		std::vector<float> m_Vertices;
+		std::vector<uint32_t> m_Indices;
 	};
 
 	class AssetManager
