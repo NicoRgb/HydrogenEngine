@@ -5,7 +5,7 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
@@ -327,12 +327,32 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		}
 	}
 
+	std::vector<VkPushConstantRange> vkPushConstantsRanges(pushConstantsRanges.size());
+	uint32_t pushConstantRangeOffset = 0;
+	for (size_t i = 0; i < pushConstantsRanges.size(); i++)
+	{
+		vkPushConstantsRanges[i].offset = pushConstantRangeOffset;
+		vkPushConstantsRanges[i].size = pushConstantsRanges[i].size;
+		vkPushConstantsRanges[i].stageFlags = 0;
+
+		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
+		{
+			vkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
+		}
+		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
+		{
+			vkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+		}
+
+		pushConstantRangeOffset += pushConstantsRanges[i].size;
+	}
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
 	pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
-	pipelineLayoutInfo.pPushConstantRanges = nullptr;
+	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantsRanges.size());
+	pipelineLayoutInfo.pPushConstantRanges = vkPushConstantsRanges.data();
 
 	HY_ASSERT(vkCreatePipelineLayout(m_RenderContext->GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS, "Failed to create vulkan pipeline layout");
 

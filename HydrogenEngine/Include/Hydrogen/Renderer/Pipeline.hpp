@@ -34,6 +34,12 @@ namespace Hydrogen
 		std::shared_ptr<Texture> texture;
 	};
 
+	struct PushConstantsRange
+	{
+		size_t size;
+		ShaderStage stageFlags;
+	};
+
 	inline ShaderStage operator|(ShaderStage a, ShaderStage b)
 	{
 		return static_cast<ShaderStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
@@ -59,6 +65,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(pipeline);
 		}
 
-		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings);
+		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges);
 	};
 }

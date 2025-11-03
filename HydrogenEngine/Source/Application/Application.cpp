@@ -6,8 +6,8 @@
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Renderer/Renderer.hpp"
 
-#include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
@@ -15,7 +15,6 @@ using namespace Hydrogen;
 
 struct UniformBuffer
 {
-	alignas(16) glm::mat4 Model;
 	alignas(16) glm::mat4 View;
 	alignas(16) glm::mat4 Proj;
 };
@@ -36,6 +35,8 @@ void Application::Run()
 
 	MainAssetManager.LoadAssets("Assets");
 
+	CurrentScene = std::make_shared<Scene>();
+
 	auto renderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
 
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
@@ -52,17 +53,22 @@ void Application::Run()
 	vikingRoomTexture->UploadData((void*)vikingRoomTextureAsset->GetImage().data());
 
 	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
+	auto cube = MainAssetManager.GetAsset<MeshAsset>("cube.obj");
 
 	auto renderPass = RenderPass::Create(renderContext);
 	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
-		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTexture } });
+		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTexture } },
+		{ { sizeof(glm::mat4), ShaderStage::Vertex } });
 
 	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
 	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vikingRoom->GetVertices().data(), vikingRoom->GetVertices().size() / 5);
 	auto indexBuffer = IndexBuffer::Create(renderContext, vikingRoom->GetIndices());
+
+	auto cubeVertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)cube->GetVertices().data(), cube->GetVertices().size() / 5);
+	auto cubeIndexBuffer = IndexBuffer::Create(renderContext, cube->GetIndices());
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
@@ -79,6 +85,12 @@ void Application::Run()
 	}
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
+
+	Entity e0(CurrentScene);
+	e0.AddComponent<MeshRendererComponent>(cubeVertexBuffer, cubeIndexBuffer, vikingRoomTexture);
+
+	Entity e1(CurrentScene);
+	e1.AddComponent<MeshRendererComponent>(vertexBuffer, indexBuffer, vikingRoomTexture);
 
 	OnStartup();
 	while (MainViewport->IsOpen())
@@ -117,7 +129,7 @@ void Application::Run()
 
 			ImGui::End();
 
-			ImGui::Begin("Scene");
+			ImGui::Begin("Viewport");
 			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
 			if (contentRegion.x != m_ViewportSize.x || contentRegion.y != m_ViewportSize.y)
 			{
@@ -134,31 +146,26 @@ void Application::Run()
 			debugGUI->EndFrame();
 		}
 
-		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer);
-		{
-			static auto startTime = std::chrono::high_resolution_clock::now();
+		UniformBuffer uniformBuffer{};
+		uniformBuffer.View = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		uniformBuffer.Proj = glm::perspective(glm::radians(45.0f),
+			(float)(debugGUI ? texture->GetWidth() : MainViewport->GetWidth()) / (float)(debugGUI ? texture->GetHeight() : MainViewport->GetHeight()), 0.1f, 10.0f);
+		uniformBuffer.Proj[1][1] *= -1;
 
-			auto currentTime = std::chrono::high_resolution_clock::now();
-			float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-			//time = 0;
+		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : renderPass);
 
-			UniformBuffer uniformBuffer{};
-			uniformBuffer.Model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			uniformBuffer.View = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			uniformBuffer.Proj = glm::perspective(glm::radians(45.0f),
-				(float)(debugGUI ? texture->GetWidth() : MainViewport->GetWidth()) / (float)(debugGUI ? texture->GetHeight() : MainViewport->GetHeight()), 0.1f, 10.0f);
+		CurrentScene->IterateComponents<TransformComponent, MeshRendererComponent>([&](const TransformComponent& transform, const MeshRendererComponent& mesh)
+			{
+				pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
+				MainRenderer.Draw(mesh.VertexBuf, mesh.IndexBuf, pipeline, transform.Transform);
+			});
 
-			uniformBuffer.Proj[1][1] *= -1;
-
-			pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
-		}
-		MainRenderer.Draw(vertexBuffer, indexBuffer, debugGUI ? renderPassTexture : renderPass, pipeline);
 		MainRenderer.EndFrame();
 
 		if (debugGUI)
 		{
-			ImGuiRenderer.BeginFrame(framebuffer);
-			ImGuiRenderer.DrawDebugGui(renderPass, debugGUI);
+			ImGuiRenderer.BeginFrame(framebuffer, renderPass);
+			ImGuiRenderer.DrawDebugGui(debugGUI);
 			ImGuiRenderer.EndFrame();
 
 			auto& io = ImGui::GetIO();

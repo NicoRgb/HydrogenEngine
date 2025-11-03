@@ -9,7 +9,7 @@ project "HydrogenEngine"
 	targetdir ("%{wks.location}/bin/" .. outputdir)
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
-	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "%{wks.location}/Extern/imgui-docking", "$(VULKAN_SDK)/Include" }
+	includedirs { "Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "$(VULKAN_SDK)/Include" }
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp",
 			"%{wks.location}/Extern/imgui-docking/imgui.cpp", "%{wks.location}/Extern/imgui-docking/imgui_draw.cpp", "%{wks.location}/Extern/imgui-docking/imgui_tables.cpp", "%{wks.location}/Extern/imgui-docking/imgui_widgets.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.h", "%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.cpp",

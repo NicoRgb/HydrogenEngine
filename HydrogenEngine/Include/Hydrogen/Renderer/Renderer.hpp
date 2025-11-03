@@ -14,10 +14,10 @@ namespace Hydrogen
 		Renderer(const std::shared_ptr<RenderContext>& renderContext);
 		~Renderer();
 
-		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer);
+		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
 		void EndFrame();
-		void Draw(const std::shared_ptr<VertexBuffer>& vertexBuffer, const std::shared_ptr<IndexBuffer>& indexBuffer, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Pipeline>& pipeline);
-		void DrawDebugGui(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<DebugGUI>& debugGUI);
+		void Draw(const std::shared_ptr<VertexBuffer>& vertexBuffer, const std::shared_ptr<IndexBuffer>& indexBuffer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
+		void DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI);
 
 		const std::shared_ptr<RenderContext>& GetContext() { return m_RenderContext; }
 		const std::shared_ptr<RenderAPI>& GetAPI() { return m_RenderAPI; }

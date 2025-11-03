@@ -177,7 +177,7 @@ void MeshAsset::Parse(std::string path)
 			m_Vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
 			m_Vertices.push_back(1.0f - attrib.texcoords[2 * index.texcoord_index + 1]);
 
-			m_Indices.push_back(m_Indices.size());
+			m_Indices.push_back((uint32_t)m_Indices.size());
 		}
 	}
 }

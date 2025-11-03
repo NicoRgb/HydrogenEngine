@@ -109,7 +109,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 }
 
 VulkanRenderContext::VulkanRenderContext(std::string appName, glm::vec2 appVersion, const std::shared_ptr<Viewport>& viewport)
-	: m_Viewport(viewport), m_MaxFramesInFlight(2), m_CurrentFrame(0)
+	: m_Viewport(viewport), m_MaxFramesInFlight(1), m_CurrentFrame(0)
 {
 	std::vector<const char*> extensions = viewport->GetVulkanExtensions();
 #ifdef HY_DEBUG

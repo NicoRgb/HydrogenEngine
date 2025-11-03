@@ -5,6 +5,7 @@
 #include <Hydrogen/Logger.hpp>
 #include <Hydrogen/Viewport.hpp>
 #include <Hydrogen/AssetManager.hpp>
+#include <Hydrogen/Scene.hpp>
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication();
 

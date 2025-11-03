@@ -11,3 +11,6 @@
 	path = Extern/imgui-docking
 	url = https://github.com/ocornut/imgui/
 	branch = docking
+[submodule "Extern/entt"]
+	path = Extern/entt
+	url = https://github.com/skypjack/entt

@@ -26,6 +26,8 @@ namespace Hydrogen
 		virtual void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
 		virtual void SetScissor(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
 
+		virtual void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, PushConstantsRange range, void* data) = 0;
+
 		virtual void Draw() = 0;
 		virtual void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
