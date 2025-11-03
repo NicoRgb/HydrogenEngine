@@ -42,7 +42,7 @@ void VulkanBuffer::AllocateMemory()
 void VulkanBuffer::UploadBufferData(void* data, size_t size)
 {
 	void* mem;
-	vkMapMemory(m_RenderContext->GetDevice(), m_BufferMemory, 0, (VkDeviceSize)size, 0, &mem);
+	HY_ASSERT(vkMapMemory(m_RenderContext->GetDevice(), m_BufferMemory, 0, (VkDeviceSize)size, 0, &mem) == VK_SUCCESS, "Failed to map memory");
 	memcpy(mem, data, size);
 	vkUnmapMemory(m_RenderContext->GetDevice(), m_BufferMemory);
 }

@@ -50,6 +50,9 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 {
 	HY_ASSERT(fs::exists(directory), "Asset directory '{}' does not exist", directory);
 
+	m_Directory = directory;
+	m_RenderContext = renderContext;
+
 	for (const auto& entry : fs::recursive_directory_iterator(directory))
 	{
 		if (!entry.is_regular_file() || entry.path().extension() == ".hyasset")
@@ -184,6 +187,6 @@ void MeshAsset::Parse(std::string path)
 		}
 	}
 
-	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)m_Vertices.data(), m_Vertices.size() / 5);
+	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)m_Vertices.data(), m_Vertices.size() / 8);
 	m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
 }

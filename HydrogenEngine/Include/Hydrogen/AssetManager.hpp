@@ -177,10 +177,21 @@ namespace Hydrogen
 		{
 			static_assert(std::is_base_of_v<Asset, T>);
 
-			return std::dynamic_pointer_cast<T>(m_Assets[name]);
+			auto res = std::dynamic_pointer_cast<T>(m_Assets[name]);
+			if (res == nullptr)
+			{
+				LoadAssets(m_Directory, m_RenderContext);
+				res = std::dynamic_pointer_cast<T>(m_Assets[name]);
+				HY_ASSERT(res, "Failed to load asset");
+			}
+
+			return res;
 		}
 
 	private:
+		std::string m_Directory;
+		std::shared_ptr<RenderContext> m_RenderContext;
+
 		std::unordered_map<std::string, std::shared_ptr<Asset>> m_Assets;
 	};
 }

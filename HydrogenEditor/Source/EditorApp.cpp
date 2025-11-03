@@ -197,6 +197,13 @@ public:
 		else
 		{
 			std::ifstream fin(m_CurrentFile.string() + ".hyasset");
+			if (!fin)
+			{
+				Hydrogen::Application::Get()->MainAssetManager.LoadAssets("assets", Hydrogen::Application::Get()->_RenderContext);
+				fin = std::ifstream(m_CurrentFile.string() + ".hyasset");
+				HY_ASSERT(fin, "Invalid asset file");
+			}
+
 			auto config = json::parse(fin);
 			fin.close();
 
