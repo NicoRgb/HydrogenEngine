@@ -109,7 +109,7 @@ public:
 	{
 	}
 
-	void LoadTextures(std::shared_ptr<Hydrogen::Texture>& folderTexture, std::shared_ptr<Hydrogen::Texture>& fileTexture)
+	void LoadTextures(std::shared_ptr<Hydrogen::Texture> folderTexture, std::shared_ptr<Hydrogen::Texture> fileTexture)
 	{
 		m_FolderTexture = folderTexture;
 		m_FileTexture = fileTexture;
@@ -231,14 +231,9 @@ public:
 	virtual void OnStartup() override
 	{
 		auto folderTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("folder_icon.png");
-		auto folderTexture = Hydrogen::Texture::Create(_RenderContext, Hydrogen::TextureFormat::FormatR8G8B8A8, folderTextureAsset->GetWidth(), folderTextureAsset->GetHeight());
-		folderTexture->UploadData((void*)folderTextureAsset->GetImage().data());
-
 		auto fileTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("file_icon.png");
-		auto fileTexture = Hydrogen::Texture::Create(_RenderContext, Hydrogen::TextureFormat::FormatR8G8B8A8, fileTextureAsset->GetWidth(), fileTextureAsset->GetHeight());
-		fileTexture->UploadData((void*)fileTextureAsset->GetImage().data());
 
-		EditorAssetBrowserPanel.LoadTextures(folderTexture, fileTexture);
+		EditorAssetBrowserPanel.LoadTextures(folderTextureAsset->GetTexture(), fileTextureAsset->GetTexture());
 	}
 
 	virtual void OnShutdown() override

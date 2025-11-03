@@ -6,6 +6,10 @@
 
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Core.hpp"
+#include "Hydrogen/Renderer/RenderContext.hpp"
+#include "Hydrogen/Renderer/Texture.hpp"
+#include "Hydrogen/Renderer/VertexBuffer.hpp"
+#include "Hydrogen/Renderer/IndexBuffer.hpp"
 
 #include <json.hpp>
 
@@ -30,6 +34,8 @@ namespace Hydrogen
 
 		virtual void LoadCache(std::string cachePath) = 0;
 		virtual void Cache() = 0;
+
+		std::string GetPath() { return m_Filepath; }
 
 	protected:
 		std::string m_Filepath;
@@ -92,7 +98,8 @@ namespace Hydrogen
 	class TextureAsset : public Asset
 	{
 	public:
-		TextureAsset(std::string path, json config) : Asset(path, config)
+		TextureAsset(std::string path, json config, const std::shared_ptr<RenderContext>& renderContext)
+			: Asset(path, config), m_RenderContext(renderContext)
 		{
 			Parse(path);
 		}
@@ -111,21 +118,26 @@ namespace Hydrogen
 		const uint32_t GetHeight() const { return m_Height; }
 		const uint8_t GetChannels() const { return m_Channels; }
 
-		const std::vector<uint32_t>& GetImage() const { return m_Image; }
+		const std::shared_ptr<Texture>& GetTexture() const { return m_Texture; }
 
 	private:
 		void Parse(std::string path);
+
+		const std::shared_ptr<RenderContext> m_RenderContext;
 
 		uint32_t m_Width, m_Height;
 		uint8_t m_Channels;
 
 		std::vector<uint32_t> m_Image;
+
+		std::shared_ptr<Texture> m_Texture;
 	};
 
 	class MeshAsset : public Asset
 	{
 	public:
-		MeshAsset(std::string path, json config) : Asset(path, config)
+		MeshAsset(std::string path, json config, const std::shared_ptr<RenderContext>& renderContext)
+			: Asset(path, config), m_RenderContext(renderContext)
 		{
 			Parse(path);
 		}
@@ -140,20 +152,25 @@ namespace Hydrogen
 		{
 		}
 
-		const std::vector<float>& GetVertices() const { return m_Vertices; }
-		const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
+		const std::shared_ptr<VertexBuffer>& GetVertexBuffer() const { return m_VertexBuffer; }
+		const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const { return m_IndexBuffer; }
 
 	private:
 		void Parse(std::string path);
 
+		const std::shared_ptr<RenderContext> m_RenderContext;
+
 		std::vector<float> m_Vertices;
 		std::vector<uint32_t> m_Indices;
+
+		std::shared_ptr<VertexBuffer> m_VertexBuffer;
+		std::shared_ptr<IndexBuffer> m_IndexBuffer;
 	};
 
 	class AssetManager
 	{
 	public:
-		void LoadAssets(const std::string& directory);
+		void LoadAssets(const std::string& directory, const std::shared_ptr<RenderContext>& renderContext);
 
 		template<typename T>
 		std::shared_ptr<T> GetAsset(std::string name)

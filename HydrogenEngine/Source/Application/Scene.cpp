@@ -1,4 +1,5 @@
 #include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Application.hpp"
 
 using namespace Hydrogen;
 
@@ -18,4 +19,26 @@ Entity::Entity()
 void Entity::Delete()
 {
 	m_Scene->m_Registry.destroy(m_Entity);
+}
+
+void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
+{
+	if (ImGui::TreeNode("Mesh Renderer"))
+	{
+		ImGui::Text(t.Mesh->GetPath().c_str());
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<MeshAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.Mesh = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+		ImGui::TreePop();
+	}
 }

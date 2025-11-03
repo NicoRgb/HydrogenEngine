@@ -46,7 +46,7 @@ void ShaderAsset::Compile()
 	m_ByteCode = CompileShader(m_Content, shaderKind);
 }
 
-void AssetManager::LoadAssets(const std::string& directory)
+void AssetManager::LoadAssets(const std::string& directory, const std::shared_ptr<RenderContext>& renderContext)
 {
 	HY_ASSERT(fs::exists(directory), "Asset directory '{}' does not exist", directory);
 
@@ -120,12 +120,12 @@ void AssetManager::LoadAssets(const std::string& directory)
 		}
 		else if (assetConfig["type"] == "Texture")
 		{
-			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
+			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig, renderContext);
 			m_Assets[entry.path().filename().string()] = std::move(texture);
 		}
 		else if (assetConfig["type"] == "Mesh")
 		{
-			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig);
+			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig, renderContext);
 			m_Assets[entry.path().filename().string()] = std::move(mesh);
 		}
 		else
@@ -153,6 +153,9 @@ void TextureAsset::Parse(std::string path)
 
 	memcpy(m_Image.data(), data, m_Image.size());
 	stbi_image_free(data);
+
+	m_Texture = Texture::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, m_Width, m_Height);
+	m_Texture->UploadData((void*)m_Image.data());
 }
 
 void MeshAsset::Parse(std::string path)
@@ -180,4 +183,7 @@ void MeshAsset::Parse(std::string path)
 			m_Indices.push_back((uint32_t)m_Indices.size());
 		}
 	}
+
+	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)m_Vertices.data(), m_Vertices.size() / 5);
+	m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
 }

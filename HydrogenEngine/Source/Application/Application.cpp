@@ -13,6 +13,8 @@
 
 using namespace Hydrogen;
 
+Application* Application::s_Instance;
+
 struct UniformBuffer
 {
 	alignas(16) glm::mat4 View;
@@ -33,11 +35,10 @@ void Application::Run()
 	MainViewport = Viewport::Create(ApplicationSpec.ViewportTitle, (int)ApplicationSpec.ViewportSize.x, (int)ApplicationSpec.ViewportSize.y, (int)ApplicationSpec.ViewportPos.x, (int)ApplicationSpec.ViewportPos.y);
 	MainViewport->Open();
 
-	MainAssetManager.LoadAssets("Assets");
-
 	CurrentScene = std::make_shared<Scene>();
 
 	_RenderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
+	MainAssetManager.LoadAssets("Assets", _RenderContext);
 
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 
@@ -49,26 +50,15 @@ void Application::Run()
 	}
 
 	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
-	auto vikingRoomTexture = Texture::Create(_RenderContext, TextureFormat::FormatR8G8B8A8, vikingRoomTextureAsset->GetWidth(), vikingRoomTextureAsset->GetHeight());
-	vikingRoomTexture->UploadData((void*)vikingRoomTextureAsset->GetImage().data());
-
-	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
-	auto cube = MainAssetManager.GetAsset<MeshAsset>("cube.obj");
 
 	auto renderPass = RenderPass::Create(_RenderContext);
 	auto pipeline = Pipeline::Create(_RenderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
-		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTexture } },
+		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTextureAsset->GetTexture()}},
 		{ { sizeof(glm::mat4), ShaderStage::Vertex } });
 
 	auto framebuffer = Framebuffer::Create(_RenderContext, renderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, this](int width, int height) { _RenderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
-
-	auto vertexBuffer = VertexBuffer::Create(_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vikingRoom->GetVertices().data(), vikingRoom->GetVertices().size() / 5);
-	auto indexBuffer = IndexBuffer::Create(_RenderContext, vikingRoom->GetIndices());
-
-	auto cubeVertexBuffer = VertexBuffer::Create(_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)cube->GetVertices().data(), cube->GetVertices().size() / 5);
-	auto cubeIndexBuffer = IndexBuffer::Create(_RenderContext, cube->GetIndices());
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
@@ -86,11 +76,14 @@ void Application::Run()
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
 
+	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
+	auto cube = MainAssetManager.GetAsset<MeshAsset>("cube.obj");
+
 	Entity e0(CurrentScene, "Cube");
-	e0.AddComponent<MeshRendererComponent>(cubeVertexBuffer, cubeIndexBuffer, vikingRoomTexture);
+	e0.AddComponent<MeshRendererComponent>(vikingRoomTextureAsset, cube);
 
 	Entity e1(CurrentScene, "Viking Room");
-	e1.AddComponent<MeshRendererComponent>(vertexBuffer, indexBuffer, vikingRoomTexture);
+	e1.AddComponent<MeshRendererComponent>(vikingRoomTextureAsset, vikingRoom);
 
 	OnStartup();
 	while (MainViewport->IsOpen())
@@ -158,7 +151,7 @@ void Application::Run()
 			{
 				(void)entity;
 				pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
-				MainRenderer.Draw(mesh.VertexBuf, mesh.IndexBuf, pipeline, transform.Transform);
+				MainRenderer.Draw(mesh.Mesh->GetVertexBuffer(), mesh.Mesh->GetIndexBuffer(), pipeline, transform.Transform);
 			});
 
 		MainRenderer.EndFrame();

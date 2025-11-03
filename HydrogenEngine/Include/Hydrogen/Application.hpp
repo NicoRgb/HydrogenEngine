@@ -14,8 +14,16 @@ namespace Hydrogen
 	class Application
 	{
 	public:
-		Application() = default;
+		Application()
+		{
+			s_Instance = this;
+		}
 		~Application() = default;
+
+		static Application* Get()
+		{
+			return s_Instance;
+		}
 
 		void OnResize(int width, int height);
 		void Run();
@@ -27,7 +35,7 @@ namespace Hydrogen
 		virtual void OnUpdate() = 0;
 		virtual void OnImGuiRender() = 0;
 
-	protected:
+	public:
 		struct ApplicationSpecification
 		{
 			std::string Name = "Hydrogen Application";
@@ -48,6 +56,7 @@ namespace Hydrogen
 		std::shared_ptr<RenderContext> _RenderContext;
 
 	private:
+		static Application* s_Instance;
 		ImVec2 m_ViewportSize;
 	};
 }

@@ -126,6 +126,37 @@ namespace Hydrogen
 			}
 		}
 
+		static void ToJson(json& j, const TransformComponent& t)
+		{
+			glm::vec3 translation, rotation, scale;
+			DecomposeTransform(t.Transform, translation, rotation, scale);
+
+			j = json{ { "translation", { { "x", translation.x }, { "y", translation.y }, { "z", translation.z } } },
+					  { "rotation", { { "x", rotation.x }, { "y", rotation.y }, { "z", rotation.z } } },
+					  { "scale", { { "x", scale.x }, { "y", scale.y }, { "z", scale.z } } } };
+		}
+
+		static void FromJson(const json& j, TransformComponent& t)
+		{
+			float translationX = j.at("translation").at("x").get<float>();
+			float translationY = j.at("translation").at("y").get<float>();
+			float translationZ = j.at("translation").at("z").get<float>();
+
+			float rotationX = j.at("rotation").at("x").get<float>();
+			float rotationY = j.at("rotation").at("y").get<float>();
+			float rotationZ = j.at("rotation").at("z").get<float>();
+
+			float scaleX = j.at("scale").at("x").get<float>();
+			float scaleY = j.at("scale").at("y").get<float>();
+			float scaleZ = j.at("scale").at("z").get<float>();
+
+			glm::vec3 translation(translationX, translationY, translationZ);
+			glm::vec3 rotation(rotationX, rotationY, rotationZ);
+			glm::vec3 scale(scaleX, scaleY, scaleZ);
+
+			t.Transform = RecomposeTransform(translation, rotation, scale);
+		}
+
 	private:
 		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale)
 		{
@@ -136,37 +167,26 @@ namespace Hydrogen
 
 			decompose(matrix, scale, orientation, translation, skew, perspective);
 
-			rotation = degrees(eulerAngles(conjugate(orientation)));
+			rotation = glm::degrees(glm::eulerAngles(orientation));
 		}
 
 		static glm::mat4 RecomposeTransform(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
 		{
 			glm::quat q = glm::quat(glm::radians(rotation));
 
-			glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), translation);
-			glm::mat4 rotationMat = glm::toMat4(q);
-			glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), scale);
+			glm::mat4 transform = glm::translate(glm::mat4(1.0f), translation)
+				* glm::mat4_cast(q)
+				* glm::scale(glm::mat4(1.0f), scale);
 
-			return translationMat * rotationMat * scaleMat;
+			return transform;
 		}
 	};
 
 	struct MeshRendererComponent
 	{
-		//const std::shared_ptr<TextureAsset> Texture;
-		//const std::shared_ptr<MeshAsset> Mesh;
+		std::shared_ptr<TextureAsset> Texture;
+		std::shared_ptr<MeshAsset> Mesh;
 
-		const std::shared_ptr<VertexBuffer> VertexBuf;
-		const std::shared_ptr<IndexBuffer> IndexBuf;
-
-		const std::shared_ptr<Texture> _Texture;
-
-		static void OnImGuiRender(MeshRendererComponent& t)
-		{
-			if (ImGui::TreeNode("Mesh Renderer"))
-			{
-				ImGui::TreePop();
-			}
-		}
+		static void OnImGuiRender(MeshRendererComponent& t);
 	};
 }
