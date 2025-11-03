@@ -45,6 +45,8 @@ namespace Hydrogen
 		std::shared_ptr<Viewport> MainViewport;
 		std::shared_ptr<Scene> CurrentScene;
 
+		std::shared_ptr<RenderContext> _RenderContext;
+
 	private:
 		ImVec2 m_ViewportSize;
 	};

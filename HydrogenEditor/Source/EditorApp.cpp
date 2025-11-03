@@ -1,35 +1,220 @@
 #include <Hydrogen/Hydrogen.hpp>
 #include <imgui.h>
+#include <json.hpp>
 
-#include <glm/gtx/matrix_decompose.hpp>
+#include <filesystem>
 
-void ImGuiTransform(glm::mat4& transform, const char* label = "Transform")
+void DrawFileConfig(json& j, const std::string& label = "")
 {
-    ImGui::PushID(label);
+	std::string assetType = j["type"].get<std::string>();
 
-    glm::vec3 translation, scale, skew;
-    glm::vec4 perspective;
-    glm::quat rotation;
-    glm::decompose(transform, scale, rotation, translation, skew, perspective);
+	ImGui::Text(j["name"].get<std::string>().c_str());
+	ImGui::Indent();
+	ImGui::Text(assetType.c_str());
+	ImGui::Unindent();
 
-    glm::vec3 euler = glm::degrees(glm::eulerAngles(rotation));
+	if (ImGui::TreeNode("Preferences"))
+	{
+		if (assetType == "Shader")
+		{
+			std::string stage = j["preferences"]["stage"];
+			const char* current_item = stage.c_str();
+			/*const char* items[] = {"vertex", "fragment"};
+			if (ImGui::BeginCombo("##combo", current_item))
+			{
+				for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+				{
+					bool is_selected = (current_item == items[n]);
+					if (ImGui::Selectable(items[n], is_selected))
+					{
+						current_item = items[n];
+						if (is_selected)
+						{
+							ImGui::SetItemDefaultFocus();
+						}
+					}
+				}
+				ImGui::EndCombo();
+			}*/
+			ImGui::Text(current_item);
+		}
 
-    bool changed = false;
-
-    ImGui::TextUnformatted(label);
-    changed |= ImGui::DragFloat3("Translation", &translation.x, 0.1f);
-    changed |= ImGui::DragFloat3("Rotation", &euler.x, 0.5f);
-    changed |= ImGui::DragFloat3("Scale", &scale.x, 0.01f);
-
-    if (changed) {
-        rotation = glm::quat(glm::radians(euler));
-        transform = glm::translate(glm::mat4(1.0f), translation)
-                  * glm::mat4_cast(rotation)
-                  * glm::scale(glm::mat4(1.0f), scale);
-    }
-
-    ImGui::PopID();
+		ImGui::TreePop();
+	}
 }
+
+static Hydrogen::Entity SelectedEntity;
+
+void DrawSceneHierarchy(const std::shared_ptr<Hydrogen::Scene>& scene)
+{
+	ImGui::Begin("Scene Hierarchy");
+
+	if (scene != nullptr)
+	{
+		scene->IterateComponents<Hydrogen::TagComponent>([&](Hydrogen::Entity entity, const auto& tag)
+			{
+			std::string name = tag.Name;
+
+			bool isSelected = (SelectedEntity == entity);
+			if (ImGui::Selectable(name.c_str(), isSelected))
+			{
+				SelectedEntity = entity;
+			}
+			});
+	}
+	else
+	{
+		SelectedEntity = Hydrogen::Entity();
+	}
+
+	ImGui::End();
+}
+
+template<typename T>
+void DrawComponent(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity entity)
+{
+	T& component = entity.GetComponent<T>();
+	T::OnImGuiRender(component);
+}
+
+using ComponentTypes = std::tuple<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent>;
+
+template<typename... Ts>
+void DrawAllComponents(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity entity, std::tuple<Ts...>)
+{
+	(DrawComponent<Ts>(scene, entity), ...);
+}
+
+void DrawInspector(const std::shared_ptr<Hydrogen::Scene>& scene)
+{
+	ImGui::Begin("Inspector");
+
+	if (SelectedEntity.IsValid())
+	{
+		DrawAllComponents(scene, SelectedEntity, ComponentTypes{});
+	}
+	else
+	{
+		ImGui::Text("No entity selected");
+	}
+
+	ImGui::End();
+}
+
+class AssetBrowserPanel
+{
+public:
+	AssetBrowserPanel(const std::filesystem::path& assetDirectory)
+		: m_AssetDirectory(assetDirectory), m_CurrentDirectory(assetDirectory), m_CurrentFile("")
+	{
+	}
+
+	void LoadTextures(std::shared_ptr<Hydrogen::Texture>& folderTexture, std::shared_ptr<Hydrogen::Texture>& fileTexture)
+	{
+		m_FolderTexture = folderTexture;
+		m_FileTexture = fileTexture;
+	}
+
+	void OnImGuiRender()
+	{
+		ImGui::Begin("Asset Browser");
+
+		if (m_CurrentDirectory != m_AssetDirectory)
+		{
+			if (ImGui::Button("<-"))
+			{
+				m_CurrentDirectory = m_CurrentDirectory.parent_path();
+			}
+		}
+
+		static float thumbnailSize = 64.0f;
+		static float padding = 16.0f;
+		float cellSize = thumbnailSize + padding;
+		float panelWidth = ImGui::GetContentRegionAvail().x;
+		int columnCount = (int)(panelWidth / cellSize);
+		if (columnCount < 1)
+			columnCount = 1;
+
+		ImGui::Columns(columnCount, 0, false);
+
+		for (auto& entry : std::filesystem::directory_iterator(m_CurrentDirectory))
+		{
+			const auto& path = entry.path();
+			if (path.extension() == ".hyasset")
+			{
+				continue;
+			}
+
+			std::string filename = path.filename().string();
+
+			ImGui::PushID(filename.c_str());
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.f, 0.f, 0.f, 0.f));
+
+			if (entry.is_directory())
+			{
+				ImGui::ImageButton("[DIR]", m_FolderTexture->GetImGuiImage(), {thumbnailSize, thumbnailSize});
+			}
+			else
+			{
+				ImGui::ImageButton("[FILE]", m_FileTexture->GetImGuiImage(), {thumbnailSize, thumbnailSize});
+				if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+				{
+					std::string pathStr = path.string();
+					ImGui::SetDragDropPayload("ASSET_FILE", pathStr.c_str(), pathStr.size() + 1);
+					ImGui::Text("%s", filename.c_str());
+					ImGui::EndDragDropSource();
+				}
+			}
+
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && entry.is_directory())
+			{
+				m_CurrentDirectory /= path.filename();
+			}
+
+			if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !entry.is_directory())
+			{
+				m_CurrentFile = path;
+			}
+
+			ImGui::PopStyleColor(1);
+
+			ImGui::TextWrapped("%s", filename.c_str());
+
+			ImGui::NextColumn();
+			ImGui::PopID();
+		}
+
+		ImGui::Columns(1);
+
+		ImGui::End();
+
+		ImGui::Begin("Asset Inspector");
+		if (m_CurrentFile.empty())
+		{
+			ImGui::Text("No entity selected");
+		}
+		else
+		{
+			std::ifstream fin(m_CurrentFile.string() + ".hyasset");
+			auto config = json::parse(fin);
+			fin.close();
+
+			DrawFileConfig(config);
+		}
+		ImGui::End();
+	}
+
+private:
+	std::filesystem::path m_AssetDirectory;
+	std::filesystem::path m_CurrentDirectory;
+	std::filesystem::path m_CurrentFile;
+
+	std::shared_ptr<Hydrogen::Texture> m_FolderTexture;
+	std::shared_ptr<Hydrogen::Texture> m_FileTexture;
+};
+
+static AssetBrowserPanel EditorAssetBrowserPanel("assets");
 
 class EditorApp : public Hydrogen::Application
 {
@@ -45,6 +230,15 @@ public:
 
 	virtual void OnStartup() override
 	{
+		auto folderTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("folder_icon.png");
+		auto folderTexture = Hydrogen::Texture::Create(_RenderContext, Hydrogen::TextureFormat::FormatR8G8B8A8, folderTextureAsset->GetWidth(), folderTextureAsset->GetHeight());
+		folderTexture->UploadData((void*)folderTextureAsset->GetImage().data());
+
+		auto fileTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("file_icon.png");
+		auto fileTexture = Hydrogen::Texture::Create(_RenderContext, Hydrogen::TextureFormat::FormatR8G8B8A8, fileTextureAsset->GetWidth(), fileTextureAsset->GetHeight());
+		fileTexture->UploadData((void*)fileTextureAsset->GetImage().data());
+
+		EditorAssetBrowserPanel.LoadTextures(folderTexture, fileTexture);
 	}
 
 	virtual void OnShutdown() override
@@ -57,15 +251,9 @@ public:
 
 	virtual void OnImGuiRender() override
 	{
-		ImGui::Begin("Scene");
-		ImGui::Text("Current Scene");
-		int i = 0;
-		CurrentScene->IterateComponents<Hydrogen::TransformComponent>([&](Hydrogen::TransformComponent& transform)
-			{
-				char c = (char)((int)'0' + i++);
-				ImGuiTransform(transform.Transform, &c);
-			});
-		ImGui::End();
+		EditorAssetBrowserPanel.OnImGuiRender();
+		DrawSceneHierarchy(CurrentScene);
+		DrawInspector(CurrentScene);
 	}
 };
 

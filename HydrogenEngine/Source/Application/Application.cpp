@@ -37,7 +37,7 @@ void Application::Run()
 
 	CurrentScene = std::make_shared<Scene>();
 
-	auto renderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
+	_RenderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
 
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 
@@ -45,51 +45,51 @@ void Application::Run()
 
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		texture = Texture::Create(renderContext, TextureFormat::ViewportDefault, 1920, 1080);
+		texture = Texture::Create(_RenderContext, TextureFormat::ViewportDefault, 1920, 1080);
 	}
 
 	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
-	auto vikingRoomTexture = VulkanTexture::Create(renderContext, TextureFormat::FormatR8G8B8A8, vikingRoomTextureAsset->GetWidth(), vikingRoomTextureAsset->GetHeight());
+	auto vikingRoomTexture = Texture::Create(_RenderContext, TextureFormat::FormatR8G8B8A8, vikingRoomTextureAsset->GetWidth(), vikingRoomTextureAsset->GetHeight());
 	vikingRoomTexture->UploadData((void*)vikingRoomTextureAsset->GetImage().data());
 
 	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
 	auto cube = MainAssetManager.GetAsset<MeshAsset>("cube.obj");
 
-	auto renderPass = RenderPass::Create(renderContext);
-	auto pipeline = Pipeline::Create(renderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
+	auto renderPass = RenderPass::Create(_RenderContext);
+	auto pipeline = Pipeline::Create(_RenderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
 		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTexture } },
 		{ { sizeof(glm::mat4), ShaderStage::Vertex } });
 
-	auto framebuffer = Framebuffer::Create(renderContext, renderPass);
-	MainViewport->GetResizeEvent().AddListener([&framebuffer, &renderContext](int width, int height) { renderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
+	auto framebuffer = Framebuffer::Create(_RenderContext, renderPass);
+	MainViewport->GetResizeEvent().AddListener([&framebuffer, this](int width, int height) { _RenderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
-	auto vertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vikingRoom->GetVertices().data(), vikingRoom->GetVertices().size() / 5);
-	auto indexBuffer = IndexBuffer::Create(renderContext, vikingRoom->GetIndices());
+	auto vertexBuffer = VertexBuffer::Create(_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)vikingRoom->GetVertices().data(), vikingRoom->GetVertices().size() / 5);
+	auto indexBuffer = IndexBuffer::Create(_RenderContext, vikingRoom->GetIndices());
 
-	auto cubeVertexBuffer = VertexBuffer::Create(renderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)cube->GetVertices().data(), cube->GetVertices().size() / 5);
-	auto cubeIndexBuffer = IndexBuffer::Create(renderContext, cube->GetIndices());
+	auto cubeVertexBuffer = VertexBuffer::Create(_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)cube->GetVertices().data(), cube->GetVertices().size() / 5);
+	auto cubeIndexBuffer = IndexBuffer::Create(_RenderContext, cube->GetIndices());
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
 	std::shared_ptr<Framebuffer> framebufferTexture = nullptr;
 
-	Renderer MainRenderer(renderContext);
-	Renderer ImGuiRenderer(renderContext);
+	Renderer MainRenderer(_RenderContext);
+	Renderer ImGuiRenderer(_RenderContext);
 
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		renderPassTexture = RenderPass::Create(renderContext, texture);
-		debugGUI = DebugGUI::Create(renderContext, renderPass);
-		framebufferTexture = Framebuffer::Create(renderContext, renderPassTexture, texture);
+		renderPassTexture = RenderPass::Create(_RenderContext, texture);
+		debugGUI = DebugGUI::Create(_RenderContext, renderPass);
+		framebufferTexture = Framebuffer::Create(_RenderContext, renderPassTexture, texture);
 	}
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
 
-	Entity e0(CurrentScene);
+	Entity e0(CurrentScene, "Cube");
 	e0.AddComponent<MeshRendererComponent>(cubeVertexBuffer, cubeIndexBuffer, vikingRoomTexture);
 
-	Entity e1(CurrentScene);
+	Entity e1(CurrentScene, "Viking Room");
 	e1.AddComponent<MeshRendererComponent>(vertexBuffer, indexBuffer, vikingRoomTexture);
 
 	OnStartup();
@@ -154,8 +154,9 @@ void Application::Run()
 
 		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : renderPass);
 
-		CurrentScene->IterateComponents<TransformComponent, MeshRendererComponent>([&](const TransformComponent& transform, const MeshRendererComponent& mesh)
+		CurrentScene->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
 			{
+				(void)entity;
 				pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
 				MainRenderer.Draw(mesh.VertexBuf, mesh.IndexBuf, pipeline, transform.Transform);
 			});

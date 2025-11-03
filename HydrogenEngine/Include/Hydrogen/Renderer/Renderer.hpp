@@ -12,6 +12,7 @@ namespace Hydrogen
 	{
 	public:
 		Renderer(const std::shared_ptr<RenderContext>& renderContext);
+		Renderer() = default;
 		~Renderer();
 
 		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
