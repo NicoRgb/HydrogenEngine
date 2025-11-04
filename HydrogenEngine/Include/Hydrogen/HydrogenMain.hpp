@@ -7,3 +7,11 @@
 #include <Hydrogen/AssetManager.hpp>
 #include <Hydrogen/Renderer/Renderer.hpp>
 #include <Hydrogen/Scene.hpp>
+
+extern std::shared_ptr<Hydrogen::Application> GetApplication();
+
+int main(void)
+{
+	auto app = GetApplication();
+	app->Run();
+}

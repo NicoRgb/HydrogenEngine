@@ -90,6 +90,8 @@ namespace Hydrogen
 		void Compile();
 		const std::vector<uint32_t>& GetByteCode() const { return m_ByteCode; }
 
+		std::string GetContent() { return m_Content; }
+
 	private:
 		std::string m_Content;
 		std::vector<uint32_t> m_ByteCode;

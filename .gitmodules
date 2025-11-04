@@ -14,3 +14,10 @@
 [submodule "Extern/entt"]
 	path = Extern/entt
 	url = https://github.com/skypjack/entt
+[submodule "Extern/sol2"]
+	path = Extern/sol2
+	url = https://github.com/ThePhD/sol2
+[submodule "Extern/ImTextEdit"]
+	path = Extern/ImTextEdit
+	url = https://github.com/ChemistAion/ImTextEdit
+	branch = madX

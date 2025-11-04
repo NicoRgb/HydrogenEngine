@@ -4,7 +4,6 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/AssetManager.hpp"
-#include "Hydrogen/Renderer/Renderer.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -51,13 +50,13 @@ void Application::Run()
 
 	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
 
-	auto renderPass = RenderPass::Create(_RenderContext);
-	auto pipeline = Pipeline::Create(_RenderContext, renderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
+	_RenderPass = RenderPass::Create(_RenderContext);
+	MainPipeline = Pipeline::Create(_RenderContext, _RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
 		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTextureAsset->GetTexture()}},
 		{ { sizeof(glm::mat4), ShaderStage::Vertex } });
 
-	auto framebuffer = Framebuffer::Create(_RenderContext, renderPass);
+	auto framebuffer = Framebuffer::Create(_RenderContext, _RenderPass);
 	MainViewport->GetResizeEvent().AddListener([&framebuffer, this](int width, int height) { _RenderContext->OnResize(width, height); framebuffer->OnResize(width, height); });
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
@@ -70,7 +69,7 @@ void Application::Run()
 	if (ApplicationSpec.UseDebugGUI)
 	{
 		renderPassTexture = RenderPass::Create(_RenderContext, texture);
-		debugGUI = DebugGUI::Create(_RenderContext, renderPass);
+		debugGUI = DebugGUI::Create(_RenderContext, _RenderPass);
 		framebufferTexture = Framebuffer::Create(_RenderContext, renderPassTexture, texture);
 	}
 
@@ -145,20 +144,20 @@ void Application::Run()
 			(float)(debugGUI ? texture->GetWidth() : MainViewport->GetWidth()) / (float)(debugGUI ? texture->GetHeight() : MainViewport->GetHeight()), 0.1f, 10.0f);
 		uniformBuffer.Proj[1][1] *= -1;
 
-		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : renderPass);
+		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : _RenderPass);
 
 		CurrentScene->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
 			{
 				(void)entity;
-				pipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
-				MainRenderer.Draw(mesh.Mesh->GetVertexBuffer(), mesh.Mesh->GetIndexBuffer(), pipeline, transform.Transform);
+				MainPipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(UniformBuffer));
+				MainRenderer.Draw(mesh.Mesh->GetVertexBuffer(), mesh.Mesh->GetIndexBuffer(), MainPipeline, transform.Transform);
 			});
 
 		MainRenderer.EndFrame();
 
 		if (debugGUI)
 		{
-			ImGuiRenderer.BeginFrame(framebuffer, renderPass);
+			ImGuiRenderer.BeginFrame(framebuffer, _RenderPass);
 			ImGuiRenderer.DrawDebugGui(debugGUI);
 			ImGuiRenderer.EndFrame();
 
@@ -172,4 +171,14 @@ void Application::Run()
 	}
 
 	OnShutdown();
+}
+
+void Application::ReloadShader()
+{
+	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
+
+	MainPipeline = Pipeline::Create(_RenderContext, _RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"),
+		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
+		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), nullptr}, { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, vikingRoomTextureAsset->GetTexture()} },
+		{ { sizeof(glm::mat4), ShaderStage::Vertex } });
 }

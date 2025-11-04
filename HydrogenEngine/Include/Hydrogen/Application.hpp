@@ -6,6 +6,7 @@
 #include "Hydrogen/Viewport.hpp"
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Renderer/Renderer.hpp"
 
 #include "imgui.h"
 
@@ -27,6 +28,7 @@ namespace Hydrogen
 
 		void OnResize(int width, int height);
 		void Run();
+		void ReloadShader();
 
 		virtual void OnSetup() = 0;
 
@@ -54,6 +56,8 @@ namespace Hydrogen
 		std::shared_ptr<Scene> CurrentScene;
 
 		std::shared_ptr<RenderContext> _RenderContext;
+		std::shared_ptr<RenderPass> _RenderPass;
+		std::shared_ptr<Pipeline> MainPipeline;
 
 	private:
 		static Application* s_Instance;
