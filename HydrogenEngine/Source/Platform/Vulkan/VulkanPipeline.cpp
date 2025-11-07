@@ -76,7 +76,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
 		}
-		layoutBindings[i].descriptorCount = descriptorBindings[i].num_elements;
+		layoutBindings[i].descriptorCount = (uint32_t)descriptorBindings[i].num_elements;
 		layoutBindings[i].stageFlags = 0;
 
 		if ((descriptorBindings[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
@@ -234,10 +234,10 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		switch (binding.type)
 		{
 		case DescriptorType::UniformBuffer:
-			uniformBufferCount += binding.num_elements;
+			uniformBufferCount += (uint32_t)binding.num_elements;
 			break;
 		case DescriptorType::CombinedImageSampler:
-			combinedImageSamplerCount += binding.num_elements;
+			combinedImageSamplerCount += (uint32_t)binding.num_elements;
 			break;
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
@@ -317,7 +317,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	for (size_t i = 0; i < pushConstantsRanges.size(); i++)
 	{
 		m_VkPushConstantsRanges[i].offset = pushConstantRangeOffset;
-		m_VkPushConstantsRanges[i].size = pushConstantsRanges[i].size;
+		m_VkPushConstantsRanges[i].size = (uint32_t)pushConstantsRanges[i].size;
 		m_VkPushConstantsRanges[i].stageFlags = 0;
 
 		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
@@ -329,7 +329,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
-		pushConstantRangeOffset += pushConstantsRanges[i].size;
+		pushConstantRangeOffset += (uint32_t)pushConstantsRanges[i].size;
 	}
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};

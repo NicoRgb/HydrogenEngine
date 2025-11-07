@@ -7,6 +7,7 @@
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Renderer/Renderer.hpp"
+#include "Hydrogen/AssetManager.hpp"
 
 #include "imgui.h"
 
@@ -53,7 +54,7 @@ namespace Hydrogen
 		ApplicationSpecification ApplicationSpec;
 		AssetManager MainAssetManager;
 		std::shared_ptr<Viewport> MainViewport;
-		std::shared_ptr<Scene> CurrentScene;
+		std::shared_ptr<SceneAsset> CurrentScene;
 
 		std::shared_ptr<RenderContext> _RenderContext;
 		std::shared_ptr<RenderPass> _RenderPass;

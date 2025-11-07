@@ -28,9 +28,9 @@ reactphysics3d::RigidBody* PhysicsWorld::CreateRigidbody(const TransformComponen
 	return m_PhysicsWorld->createRigidBody(t);
 }
 
-void PhysicsWorld::Update(double timestep)
+void PhysicsWorld::Update(float timestep)
 {
-	m_PhysicsWorld->update(timestep);
+	m_PhysicsWorld->update((reactphysics3d::decimal)timestep);
 	m_Scene->IterateComponents<TransformComponent, RigidbodyComponent>([&](Entity entity, TransformComponent& transform, const RigidbodyComponent& rb)
 		{
 			(void)entity;

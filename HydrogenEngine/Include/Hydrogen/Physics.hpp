@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Hydrogen/Scene.hpp"
+
 #include <reactphysics3d/reactphysics3d.h>
 #include <imgui.h>
 #include <glm/glm.hpp>
@@ -15,7 +16,7 @@ namespace Hydrogen
 
 		reactphysics3d::RigidBody* CreateRigidbody(const TransformComponent& transform);
 
-		void Update(double timestep);
+		void Update(float timestep);
 
 	private:
 		std::shared_ptr<Scene> m_Scene;
@@ -34,6 +35,14 @@ namespace Hydrogen
 			{
 				ImGui::TreePop();
 			}
+		}
+
+		static void ToJson(json& j, const RigidbodyComponent& rb)
+		{
+		}
+
+		static void FromJson(const json& j, RigidbodyComponent& rb, AssetManager* assetManager)
+		{
 		}
 	};
 }

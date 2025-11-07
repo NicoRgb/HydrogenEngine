@@ -17,7 +17,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext)
 	m_CommandQueue = CommandQueue::Create(renderContext);
 
 	m_DefaultTexture = Texture::Create(renderContext, TextureFormat::FormatR8G8B8A8, 1, 1);
-	uint8_t data = 0xFFFFFFFF;
+	uint32_t data = 0xFFFFFFFF;
 	m_DefaultTexture->UploadData(&data);
 }
 
@@ -78,7 +78,7 @@ void Renderer::Draw(const MeshRendererComponent& meshRenderer, const std::shared
 
 	const auto& texture = meshRenderer.Texture->GetTexture();
 
-	size_t index = 0;
+	uint32_t index = 0;
 	auto it = std::find(m_FrameInfo.Textures.begin(), m_FrameInfo.Textures.end(), texture);
 	if (it != m_FrameInfo.Textures.end())
 	{

@@ -198,6 +198,44 @@ namespace Hydrogen
 		std::string m_Content;
 	};
 
+	class SceneAsset : public Asset
+	{
+	public:
+		SceneAsset(std::string path, json config)
+			: Asset(path, config)
+		{
+			std::ifstream fin(path);
+			std::stringstream buffer;
+			buffer << fin.rdbuf();
+			m_Content = std::move(buffer.str());
+			fin.close();
+
+			if (m_Content.empty())
+			{
+				m_Content = "{}";
+			}
+		}
+
+		~SceneAsset() = default;
+
+		void Load(class AssetManager* assetManager);
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		void Save() const;
+		const std::shared_ptr<class Scene>& GetScene() { return m_Scene; }
+
+	private:
+		std::string m_Content;
+		class std::shared_ptr<class Scene> m_Scene;
+	};
+
 	class AssetManager
 	{
 	public:

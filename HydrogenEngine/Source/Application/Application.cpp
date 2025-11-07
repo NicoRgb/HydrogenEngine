@@ -1,6 +1,5 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
-#include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Physics.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
@@ -25,10 +24,11 @@ void Application::Run()
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 	MainViewport->Open();
 
-	CurrentScene = std::make_shared<Scene>();
-
 	_RenderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
 	MainAssetManager.LoadAssets("Assets", _RenderContext);
+
+	CurrentScene = MainAssetManager.GetAsset<SceneAsset>("Scene.hyscene");
+	CurrentScene->Load(&MainAssetManager);
 
 	std::shared_ptr<Texture> texture = nullptr;
 
@@ -58,18 +58,7 @@ void Application::Run()
 
 	MainPipeline = MainRenderer.CreatePipeline(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 
-	PhysicsWorld physicsWorld(CurrentScene, glm::vec3(0.0f, 0.0f, -9.81f));
-
-	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
-	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
-	auto cube = MainAssetManager.GetAsset<MeshAsset>("cube.obj");
-
-	Entity e0(CurrentScene, "Cube");
-	e0.AddComponent<MeshRendererComponent>(vikingRoomTextureAsset, cube);
-	e0.AddComponent<RigidbodyComponent>(physicsWorld.CreateRigidbody(e0.GetComponent<TransformComponent>()));
-
-	Entity e1(CurrentScene, "Viking Room");
-	e1.AddComponent<MeshRendererComponent>(vikingRoomTextureAsset, vikingRoom);
+	PhysicsWorld physicsWorld(CurrentScene->GetScene(), glm::vec3(0.0f, 0.0f, -9.81f));
 
 	OnStartup();
 
@@ -101,6 +90,7 @@ void Application::Run()
 		if (debugGUI)
 		{
 			debugGUI->BeginFrame();
+
 			static bool dockingEnabled = true;
 			ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
 
@@ -121,6 +111,19 @@ void Application::Run()
 
 			ImGuiID dockspace_id = ImGui::GetID("DockSpace");
 			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+
+			if (ImGui::BeginMenuBar())
+			{
+				if (ImGui::BeginMenu("File"))
+				{
+					if (ImGui::MenuItem("Save Scene"))
+					{
+						CurrentScene->Save();
+					}
+					ImGui::EndMenu();
+				}
+				ImGui::EndMenuBar();
+			}
 
 			ImGui::End();
 
@@ -145,7 +148,7 @@ void Application::Run()
 			debugGUI ? texture->GetWidth() : MainViewport->GetWidth(),
 			debugGUI ? texture->GetHeight() : MainViewport->GetHeight());
 
-		CurrentScene->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
+		CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
 			{
 				(void)entity;
 				MainRenderer.Draw(mesh, MainPipeline, transform.Transform);

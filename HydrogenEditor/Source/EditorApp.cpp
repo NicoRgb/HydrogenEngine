@@ -28,7 +28,7 @@ public:
 		auto fileTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("file_icon.png");
 
 		_BrowserPanel.LoadTextures(folderTextureAsset->GetTexture(), fileTextureAsset->GetTexture());
-		_SceneHierarchy.SetContext(CurrentScene);
+		_SceneHierarchy.SetContext(CurrentScene->GetScene());
 	}
 
 	virtual void OnShutdown() override
@@ -45,7 +45,7 @@ public:
 		_EditorPanel.OnImGuiRender();
 		_SceneHierarchy.OnImGuiRender();
 
-		_Inspector.SetContext(CurrentScene, _SceneHierarchy.GetSelectedEntity());
+		_Inspector.SetContext(CurrentScene->GetScene(), _SceneHierarchy.GetSelectedEntity());
 		_Inspector.OnImGuiRender();
 	}
 };

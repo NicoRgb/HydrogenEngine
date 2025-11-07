@@ -36,6 +36,9 @@ namespace Hydrogen
 			}
 		}
 
+		json SerializeScene();
+		void DeserializeScene(const json& j, AssetManager* assetManager);
+
 	private:
 		entt::registry m_Registry;
 
@@ -106,6 +109,16 @@ namespace Hydrogen
 				t.Name = std::string(buffer);
 			}
 		}
+
+		static void ToJson(json& j, const TagComponent& t)
+		{
+			j["name"] = t.Name;
+		}
+
+		static void FromJson(const json& j, TagComponent& t, AssetManager* assetManager)
+		{
+			t.Name = j.at("name");
+		}
 	};
 
 	struct TransformComponent
@@ -142,7 +155,7 @@ namespace Hydrogen
 					  { "scale", { { "x", scale.x }, { "y", scale.y }, { "z", scale.z } } } };
 		}
 
-		static void FromJson(const json& j, TransformComponent& t)
+		static void FromJson(const json& j, TransformComponent& t, AssetManager* assetManager)
 		{
 			float translationX = j.at("translation").at("x").get<float>();
 			float translationY = j.at("translation").at("y").get<float>();
@@ -211,5 +224,17 @@ namespace Hydrogen
 		std::shared_ptr<MeshAsset> Mesh;
 
 		static void OnImGuiRender(MeshRendererComponent& t);
+
+		static void ToJson(json& j, const MeshRendererComponent& t)
+		{
+			j = json{ { "Texture", std::filesystem::path(t.Texture->GetPath()).filename().string() },
+					  { "Mesh", std::filesystem::path(t.Mesh->GetPath()).filename().string() } };
+		}
+
+		static void FromJson(const json& j, MeshRendererComponent& t, AssetManager* assetManager)
+		{
+			t.Texture = assetManager->GetAsset<TextureAsset>(j.at("Texture"));
+			t.Mesh = assetManager->GetAsset<MeshAsset>(j.at("Mesh"));
+		}
 	};
 }

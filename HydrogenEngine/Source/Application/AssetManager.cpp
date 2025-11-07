@@ -96,6 +96,10 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 			{
 				assetType = "Script";
 			}
+			else if (ext == ".hyscene")
+			{
+				assetType = "Scene";
+			}
 			else
 			{
 				HY_ENGINE_WARN("Ignoring file '{}'", filePath);
@@ -140,6 +144,11 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 		{
 			auto script = std::make_shared<ScriptAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(script);
+		}
+		else if (assetConfig["type"] == "Scene")
+		{
+			auto scene = std::make_shared<SceneAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(scene);
 		}
 		else
 		{
@@ -199,4 +208,19 @@ void MeshAsset::Parse(std::string path)
 
 	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} }, (void*)m_Vertices.data(), m_Vertices.size() / 8);
 	m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
+}
+
+void SceneAsset::Load(AssetManager* assetManager)
+{
+	m_Scene = std::make_shared<Scene>();
+	m_Scene->DeserializeScene(json::parse(m_Content), assetManager);
+}
+
+void SceneAsset::Save() const
+{
+	std::string content = m_Scene->SerializeScene().dump();
+
+	std::ofstream fout(m_Filepath);
+	fout << content;
+	fout.close();
 }
