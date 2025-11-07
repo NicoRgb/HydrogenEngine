@@ -54,3 +54,7 @@
 *.ilk
 *.recipe
 *.idb
+
+!*Extern/bin/*.lib
+!*Extern/bin/*.pdb
+!*Extern/bin/*.exe

@@ -1,6 +1,7 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/AssetManager.hpp"
+#include "Hydrogen/Physics.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
 using namespace Hydrogen;
@@ -57,21 +58,40 @@ void Application::Run()
 
 	MainPipeline = MainRenderer.CreatePipeline(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 
+	PhysicsWorld physicsWorld(CurrentScene, glm::vec3(0.0f, 0.0f, -9.81f));
+
 	auto vikingRoomTextureAsset = MainAssetManager.GetAsset<TextureAsset>("viking_room_texture.png");
 	auto vikingRoom = MainAssetManager.GetAsset<MeshAsset>("viking_room.obj");
 	auto cube = MainAssetManager.GetAsset<MeshAsset>("cube.obj");
 
 	Entity e0(CurrentScene, "Cube");
 	e0.AddComponent<MeshRendererComponent>(vikingRoomTextureAsset, cube);
+	e0.AddComponent<RigidbodyComponent>(physicsWorld.CreateRigidbody(e0.GetComponent<TransformComponent>()));
 
 	Entity e1(CurrentScene, "Viking Room");
 	e1.AddComponent<MeshRendererComponent>(vikingRoomTextureAsset, vikingRoom);
 
 	OnStartup();
+
+	const float fixedTimeStep = 1.0f / 60.0f;
+	float accumulator = 0.0f;
+	auto previousTime = std::chrono::high_resolution_clock::now();
+
 	while (MainViewport->IsOpen())
 	{
 		Viewport::PumpMessages();
 		OnUpdate();
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float deltaTime = std::chrono::duration<float>(currentTime - previousTime).count();
+		previousTime = currentTime;
+		accumulator += deltaTime;
+
+		while (accumulator >= fixedTimeStep)
+		{
+			physicsWorld.Update(fixedTimeStep);
+			accumulator -= fixedTimeStep;
+		}
 
 		if (MainViewport->GetWidth() == 0 || MainViewport->GetHeight() == 0)
 		{

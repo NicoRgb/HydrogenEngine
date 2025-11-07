@@ -9,8 +9,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenEngine", "HydrogenE
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenTools", "HydrogenTools\HydrogenTools.vcxproj", "{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "reactphysics3d", "Extern\reactphysics3d\reactphysics3d.vcxproj", "{2ECAB41A-1A98-A820-032C-1947EF988485}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win64 = Debug|Win64
@@ -42,12 +40,6 @@ Global
 		{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}.Dist|Win64.Build.0 = Dist Win64|x64
 		{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}.Release|Win64.ActiveCfg = Release Win64|x64
 		{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}.Release|Win64.Build.0 = Release Win64|x64
-		{2ECAB41A-1A98-A820-032C-1947EF988485}.Debug|Win64.ActiveCfg = Debug Win64|x64
-		{2ECAB41A-1A98-A820-032C-1947EF988485}.Debug|Win64.Build.0 = Debug Win64|x64
-		{2ECAB41A-1A98-A820-032C-1947EF988485}.Dist|Win64.ActiveCfg = Dist Win64|x64
-		{2ECAB41A-1A98-A820-032C-1947EF988485}.Dist|Win64.Build.0 = Dist Win64|x64
-		{2ECAB41A-1A98-A820-032C-1947EF988485}.Release|Win64.ActiveCfg = Release Win64|x64
-		{2ECAB41A-1A98-A820-032C-1947EF988485}.Release|Win64.Build.0 = Release Win64|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

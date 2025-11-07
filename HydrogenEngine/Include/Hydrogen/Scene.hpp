@@ -78,6 +78,12 @@ namespace Hydrogen
 			return m_Scene->m_Registry.get<T>(m_Entity);
 		}
 
+		template <typename T>
+		bool HasComponent()
+		{
+			return m_Scene->m_Registry.any_of<T>(m_Entity);
+		}
+
 	private:
 		entt::entity m_Entity;
 		std::shared_ptr<Scene> m_Scene;
@@ -157,7 +163,15 @@ namespace Hydrogen
 			t.Transform = RecomposeTransform(translation, rotation, scale);
 		}
 
-	private:
+		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::quat& rotation, glm::vec3& scale)
+		{
+			using namespace glm;
+			vec3 skew;
+			vec4 perspective;
+
+			decompose(matrix, scale, rotation, translation, skew, perspective);
+		}
+
 		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale)
 		{
 			using namespace glm;
@@ -168,6 +182,15 @@ namespace Hydrogen
 			decompose(matrix, scale, orientation, translation, skew, perspective);
 
 			rotation = glm::degrees(glm::eulerAngles(orientation));
+		}
+
+		static glm::mat4 RecomposeTransform(const glm::vec3& translation, const glm::quat& q, const glm::vec3& scale)
+		{
+			glm::mat4 transform = glm::translate(glm::mat4(1.0f), translation)
+				* glm::mat4_cast(q)
+				* glm::scale(glm::mat4(1.0f), scale);
+
+			return transform;
 		}
 
 		static glm::mat4 RecomposeTransform(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)

@@ -4,11 +4,16 @@
 template<typename T>
 static void DrawComponent(Hydrogen::Entity entity)
 {
+    if (!entity.HasComponent<T>())
+    {
+        return;
+    }
+
     T& component = entity.GetComponent<T>();
     T::OnImGuiRender(component);
 }
 
-using ComponentTypes = std::tuple<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent>;
+using ComponentTypes = std::tuple<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent>;
 
 template<typename... Ts>
 static void DrawAllComponents(Hydrogen::Entity entity, std::tuple<Ts...>)
