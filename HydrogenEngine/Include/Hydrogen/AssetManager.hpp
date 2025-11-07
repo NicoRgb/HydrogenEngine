@@ -169,6 +169,35 @@ namespace Hydrogen
 		std::shared_ptr<IndexBuffer> m_IndexBuffer;
 	};
 
+	class ScriptAsset : public Asset
+	{
+	public:
+		ScriptAsset(std::string path, json config)
+			: Asset(path, config)
+		{
+			std::ifstream fin(path);
+			std::stringstream buffer;
+			buffer << fin.rdbuf();
+			m_Content = std::move(buffer.str());
+			fin.close();
+		}
+
+		~ScriptAsset() = default;
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		const std::string& GetContent() const { return m_Content; }
+
+	private:
+		std::string m_Content;
+	};
+
 	class AssetManager
 	{
 	public:

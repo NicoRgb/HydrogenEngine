@@ -1,4 +1,5 @@
 #include "Hydrogen/AssetManager.hpp"
+#include "Hydrogen/Scene.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -91,6 +92,10 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 			{
 				assetType = "Mesh";
 			}
+			else if (ext == ".lua")
+			{
+				assetType = "Script";
+			}
 			else
 			{
 				HY_ENGINE_WARN("Ignoring file '{}'", filePath);
@@ -130,6 +135,11 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 		{
 			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig, renderContext);
 			m_Assets[entry.path().filename().string()] = std::move(mesh);
+		}
+		else if (assetConfig["type"] == "Script")
+		{
+			auto script = std::make_shared<ScriptAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(script);
 		}
 		else
 		{

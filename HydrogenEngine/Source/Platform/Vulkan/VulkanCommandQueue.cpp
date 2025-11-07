@@ -140,21 +140,11 @@ void VulkanCommandQueue::SetScissor(const std::shared_ptr<Framebuffer>& framebuf
 	vkCmdSetScissor(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, &scissor);
 }
 
-void VulkanCommandQueue::UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, PushConstantsRange range, void* data)
+void VulkanCommandQueue::UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data)
 {
-	VkShaderStageFlags stageFlags = 0;
-
-	if ((range.stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
-	{
-		stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
-	}
-	if ((range.stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
-	{
-		stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-	}
-
 	const auto vulkanPipeline = Pipeline::Get<VulkanPipeline>(pipeline);
-	vkCmdPushConstants(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], vulkanPipeline->GetPipelineLayout(), stageFlags, 0, range.size, data);
+	const auto range = vulkanPipeline->GetPushConstantRanges()[index];
+	vkCmdPushConstants(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], vulkanPipeline->GetPipelineLayout(), range.stageFlags, range.offset, range.size, data);
 }
 
 void VulkanCommandQueue::Draw()

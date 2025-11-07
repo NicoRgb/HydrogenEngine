@@ -28,6 +28,7 @@ public:
 		auto fileTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("file_icon.png");
 
 		_BrowserPanel.LoadTextures(folderTextureAsset->GetTexture(), fileTextureAsset->GetTexture());
+		_SceneHierarchy.SetContext(CurrentScene);
 	}
 
 	virtual void OnShutdown() override

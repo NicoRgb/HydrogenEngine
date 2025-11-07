@@ -14,3 +14,5 @@ include "HydrogenEngine"
 include "HydrogenEditor"
 include "HydrogenRuntime"
 include "HydrogenTools"
+
+include "Extern/reactphysics3d"

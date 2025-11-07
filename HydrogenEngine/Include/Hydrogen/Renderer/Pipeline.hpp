@@ -31,7 +31,7 @@ namespace Hydrogen
 		DescriptorType type;
 		ShaderStage stageFlags;
 		size_t size;
-		std::shared_ptr<Texture> texture;
+		size_t num_elements;
 	};
 
 	struct PushConstantsRange
@@ -56,6 +56,7 @@ namespace Hydrogen
 		virtual ~Pipeline() = default;
 
 		virtual void UploadUniformBufferData(uint32_t binding, void* data, size_t size) = 0;
+		virtual void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture> &texture) = 0;
 
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<Pipeline>& pipeline)

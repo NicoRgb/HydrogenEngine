@@ -76,7 +76,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
 		}
-		layoutBindings[i].descriptorCount = 1;
+		layoutBindings[i].descriptorCount = descriptorBindings[i].num_elements;
 		layoutBindings[i].stageFlags = 0;
 
 		if ((descriptorBindings[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
@@ -229,13 +229,15 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	uint32_t uniformBufferCount = 0;
 	uint32_t combinedImageSamplerCount = 0;
-	for (const auto& binding : descriptorBindings) {
-		switch (binding.type) {
+	for (const auto& binding : descriptorBindings)
+	{
+		switch (binding.type)
+		{
 		case DescriptorType::UniformBuffer:
-			uniformBufferCount++;
+			uniformBufferCount += binding.num_elements;
 			break;
 		case DescriptorType::CombinedImageSampler:
-			combinedImageSamplerCount++;
+			combinedImageSamplerCount += binding.num_elements;
 			break;
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
@@ -304,44 +306,27 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 				break;
 			}
 
-			case DescriptorType::CombinedImageSampler:
-			{
-				VkDescriptorImageInfo imageInfo{};
-				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo.imageView = Texture::Get<VulkanTexture>(descriptorBindings[j].texture)->GetImageView();
-				imageInfo.sampler = Texture::Get<VulkanTexture>(descriptorBindings[j].texture)->GetSampler();
-
-				VkWriteDescriptorSet descriptorWrite{};
-				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrite.dstSet = m_DescriptorSets[i];
-				descriptorWrite.dstBinding = layoutBindings[j].binding;
-				descriptorWrite.dstArrayElement = 0;
-				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				descriptorWrite.descriptorCount = 1;
-				descriptorWrite.pImageInfo = &imageInfo;
-
-				vkUpdateDescriptorSets(m_RenderContext->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+			default:
 				break;
-			}
 			}
 		}
 	}
 
-	std::vector<VkPushConstantRange> vkPushConstantsRanges(pushConstantsRanges.size());
+	m_VkPushConstantsRanges.resize(pushConstantsRanges.size());
 	uint32_t pushConstantRangeOffset = 0;
 	for (size_t i = 0; i < pushConstantsRanges.size(); i++)
 	{
-		vkPushConstantsRanges[i].offset = pushConstantRangeOffset;
-		vkPushConstantsRanges[i].size = pushConstantsRanges[i].size;
-		vkPushConstantsRanges[i].stageFlags = 0;
+		m_VkPushConstantsRanges[i].offset = pushConstantRangeOffset;
+		m_VkPushConstantsRanges[i].size = pushConstantsRanges[i].size;
+		m_VkPushConstantsRanges[i].stageFlags = 0;
 
 		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
 		{
-			vkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
+			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
 		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
 		{
-			vkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
 		pushConstantRangeOffset += pushConstantsRanges[i].size;
@@ -352,7 +337,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	pipelineLayoutInfo.setLayoutCount = 1;
 	pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
 	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantsRanges.size());
-	pipelineLayoutInfo.pPushConstantRanges = vkPushConstantsRanges.data();
+	pipelineLayoutInfo.pPushConstantRanges = m_VkPushConstantsRanges.data();
 
 	HY_ASSERT(vkCreatePipelineLayout(m_RenderContext->GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS, "Failed to create vulkan pipeline layout");
 
@@ -392,6 +377,28 @@ VulkanPipeline::~VulkanPipeline()
 void VulkanPipeline::UploadUniformBufferData(uint32_t binding, void* data, size_t size)
 {
 	memcpy(m_UniformBuffersMapped[binding][m_RenderContext->GetCurrentFrame()], data, size);
+}
+
+void VulkanPipeline::UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture)
+{
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo.imageView = Texture::Get<VulkanTexture>(texture)->GetImageView();
+	imageInfo.sampler = Texture::Get<VulkanTexture>(texture)->GetSampler();
+
+	for (size_t i = 0; i < m_RenderContext->GetMaxFramesInFlight(); i++)
+	{
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = m_DescriptorSets[i];
+		descriptorWrite.dstBinding = binding;
+		descriptorWrite.dstArrayElement = index;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pImageInfo = &imageInfo;
+
+		vkUpdateDescriptorSets(m_RenderContext->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+	}
 }
 
 VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<uint32_t>& code) const

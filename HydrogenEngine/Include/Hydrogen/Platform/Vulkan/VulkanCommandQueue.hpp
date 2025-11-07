@@ -25,7 +25,7 @@ namespace Hydrogen
 		void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) override;
 		void SetScissor(const std::shared_ptr<Framebuffer>& framebuffer) override;
 
-		void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, PushConstantsRange range, void* data) override;
+		void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data) override;
 
 		void Draw() override;
 		void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) override;

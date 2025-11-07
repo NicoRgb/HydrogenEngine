@@ -39,6 +39,21 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			}
 			ImGui::EndDragDropTarget();
 		}
+
+		ImGui::Text(t.Texture->GetPath().c_str());
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.Texture = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
 		ImGui::TreePop();
 	}
 }
