@@ -13,13 +13,14 @@
 #include "Renderer/Texture.hpp"
 #include "Renderer/VertexBuffer.hpp"
 #include "Renderer/IndexBuffer.hpp"
+#include "Hydrogen/Physics.hpp"
 
 namespace Hydrogen
 {
 	class Scene : public std::enable_shared_from_this<Scene>
 	{
 	public:
-		Scene() = default;
+		Scene();
 		~Scene() = default;
 
 		template <typename... Ts>
@@ -36,11 +37,16 @@ namespace Hydrogen
 			}
 		}
 
+		void Update(float timestep);
+
 		json SerializeScene();
 		void DeserializeScene(const json& j, AssetManager* assetManager);
 
+		const PhysicsWorld& GetPhysicsWorld() { return m_PhysicsWorld; }
+
 	private:
 		entt::registry m_Registry;
+		PhysicsWorld m_PhysicsWorld;
 
 		friend class Entity;
 	};
@@ -72,13 +78,19 @@ namespace Hydrogen
 		template <typename T, typename... Args>
 		void AddComponent(Args&&... args)
 		{
-			m_Scene->m_Registry.emplace<T>(m_Entity, std::forward<Args>(args)...);
+			m_Scene->m_Registry.emplace<T>(m_Entity, *this, std::forward<Args>(args)...);
 		}
 
 		template <typename T>
 		T& GetComponent()
 		{
 			return m_Scene->m_Registry.get<T>(m_Entity);
+		}
+
+		template <typename T>
+		void RemoveComponent()
+		{
+			m_Scene->m_Registry.remove<T>(m_Entity);
 		}
 
 		template <typename T>
@@ -96,6 +108,17 @@ namespace Hydrogen
 
 	struct TagComponent
 	{
+		TagComponent(Entity entity)
+		{
+			(void)entity;
+		}
+
+		TagComponent(Entity entity, std::string name)
+		{
+			(void)entity;
+			Name = name;
+		}
+
 		std::string Name;
 
 		static void OnImGuiRender(TagComponent& t)
@@ -123,6 +146,18 @@ namespace Hydrogen
 
 	struct TransformComponent
 	{
+		TransformComponent(Entity entity)
+		{
+			(void)entity;
+			Transform = glm::mat4(1.0f);
+		}
+
+		TransformComponent(Entity entity, glm::mat4 transform)
+		{
+			(void)entity;
+			Transform = transform;
+		}
+
 		glm::mat4 Transform;
 
 		static void OnImGuiRender(TransformComponent& transform)
@@ -220,6 +255,11 @@ namespace Hydrogen
 
 	struct MeshRendererComponent
 	{
+		MeshRendererComponent(Entity entity)
+		{
+			(void)entity;
+		}
+
 		std::shared_ptr<TextureAsset> Texture;
 		std::shared_ptr<MeshAsset> Mesh;
 

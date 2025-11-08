@@ -6,6 +6,7 @@
 #include "CommandQueue.hpp"
 #include "DebugGUI.hpp"
 #include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Camera.hpp"
 
 namespace Hydrogen
 {
@@ -18,7 +19,8 @@ namespace Hydrogen
 
 		std::shared_ptr<Pipeline> CreatePipeline(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 
-		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, uint32_t width, uint32_t height);
+		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent);
+		void BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
 		void EndFrame();
 		void Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
 		void DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI);

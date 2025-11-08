@@ -1,6 +1,6 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
-#include "Hydrogen/Physics.hpp"
+#include "Hydrogen/Camera.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
 using namespace Hydrogen;
@@ -58,8 +58,6 @@ void Application::Run()
 
 	MainPipeline = MainRenderer.CreatePipeline(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 
-	PhysicsWorld physicsWorld(CurrentScene->GetScene(), glm::vec3(0.0f, 0.0f, -9.81f));
-
 	OnStartup();
 
 	const float fixedTimeStep = 1.0f / 60.0f;
@@ -78,7 +76,7 @@ void Application::Run()
 
 		while (accumulator >= fixedTimeStep)
 		{
-			physicsWorld.Update(fixedTimeStep);
+			CurrentScene->GetScene()->Update(fixedTimeStep);
 			accumulator -= fixedTimeStep;
 		}
 
@@ -144,21 +142,47 @@ void Application::Run()
 			debugGUI->EndFrame();
 		}
 
-		MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : _RenderPass,
-			debugGUI ? texture->GetWidth() : MainViewport->GetWidth(),
-			debugGUI ? texture->GetHeight() : MainViewport->GetHeight());
-
-		CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
+		Entity cameraEntity;
+		CurrentScene->GetScene()->IterateComponents<CameraComponent>([&](Entity entity, CameraComponent& camera)
 			{
-				(void)entity;
-				MainRenderer.Draw(mesh, MainPipeline, transform.Transform);
+				if (camera.Active)
+				{
+					cameraEntity = entity;
+				}
 			});
 
-		MainRenderer.EndFrame();
+		if (cameraEntity.IsValid())
+		{
+			CameraComponent& cameraComponent = cameraEntity.GetComponent<CameraComponent>();
+			cameraComponent.CalculateView(cameraEntity);
+
+			auto width = debugGUI ? texture->GetWidth() : MainViewport->GetWidth();
+			auto height = debugGUI ? texture->GetHeight() : MainViewport->GetHeight();
+
+			if (width != cameraComponent.ViewportWidth || height != cameraComponent.ViewportHeight)
+			{
+				cameraComponent.ViewportWidth = width;
+				cameraComponent.ViewportHeight = height;
+				cameraComponent.CalculateProj(cameraEntity);
+			}
+
+			MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : _RenderPass, cameraComponent);
+
+			CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
+				{
+					(void)entity;
+					if (mesh.Mesh)
+					{
+						MainRenderer.Draw(mesh, MainPipeline, transform.Transform);
+					}
+				});
+
+			MainRenderer.EndFrame();
+		}
 
 		if (debugGUI)
 		{
-			ImGuiRenderer.BeginFrame(framebuffer, _RenderPass, MainViewport->GetWidth(), MainViewport->GetHeight());
+			ImGuiRenderer.BeginDebugGuiFrame(framebuffer, _RenderPass);
 			ImGuiRenderer.DrawDebugGui(debugGUI);
 			ImGuiRenderer.EndFrame();
 

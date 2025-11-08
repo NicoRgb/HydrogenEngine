@@ -8,3 +8,4 @@
 #include <Hydrogen/Renderer/Renderer.hpp>
 #include <Hydrogen/Scene.hpp>
 #include <Hydrogen/Physics.hpp>
+#include <Hydrogen/Camera.hpp>

@@ -1,10 +1,13 @@
 #include "Hydrogen/Physics.hpp"
+#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Application.hpp"
+#include <glm/glm.hpp>
 
 using namespace Hydrogen;
 
 reactphysics3d::PhysicsCommon PhysicsWorld::s_PhysicsCommon;
 
-PhysicsWorld::PhysicsWorld(const std::shared_ptr<Scene>& scene, glm::vec3 gravity)
+PhysicsWorld::PhysicsWorld(Scene* scene, glm::vec3 gravity)
 	: m_Scene(scene), m_PhysicsWorld(s_PhysicsCommon.createPhysicsWorld())
 {
 	m_PhysicsWorld->setGravity({ gravity.x, gravity.y, gravity.z });
@@ -12,10 +15,9 @@ PhysicsWorld::PhysicsWorld(const std::shared_ptr<Scene>& scene, glm::vec3 gravit
 
 PhysicsWorld::~PhysicsWorld()
 {
-	s_PhysicsCommon.destroyPhysicsWorld(m_PhysicsWorld);
 }
 
-reactphysics3d::RigidBody* PhysicsWorld::CreateRigidbody(const TransformComponent& transform)
+reactphysics3d::RigidBody* PhysicsWorld::CreateRigidbody(const TransformComponent& transform) const
 {
 	glm::vec3 translation, scale;
 	glm::quat rotation;
@@ -43,4 +45,9 @@ void PhysicsWorld::Update(float timestep)
 																		 glm::quat(t.getOrientation().x, t.getOrientation().y, t.getOrientation().z, t.getOrientation().w),
 																		 scale);
 		});
+}
+
+RigidbodyComponent::RigidbodyComponent(Entity entity)
+{
+	Rigidbody = Application::Get()->CurrentScene->GetScene()->GetPhysicsWorld().CreateRigidbody(entity.GetComponent<TransformComponent>());
 }

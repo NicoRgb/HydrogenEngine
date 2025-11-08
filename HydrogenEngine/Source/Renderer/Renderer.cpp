@@ -37,15 +37,26 @@ std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderP
 		{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } });
 }
 
-void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, uint32_t width, uint32_t height)
+void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent)
 {
 	m_FrameInfo.Pipelines.clear();
 	m_FrameInfo.Textures.clear();
 
-	m_FrameInfo._UniformBuffer.View = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	m_FrameInfo._UniformBuffer.Proj = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 10.0f);
-	m_FrameInfo._UniformBuffer.Proj[1][1] *= -1;
+	m_FrameInfo._UniformBuffer.View = cameraComponent.View;
+	m_FrameInfo._UniformBuffer.Proj = cameraComponent.Proj;
 
+	m_CurrentFramebuffer = framebuffer;
+
+	m_RenderAPI->BeginFrame(framebuffer);
+	m_CommandQueue->StartRecording(m_RenderAPI);
+	m_CommandQueue->BeginRenderPass(renderPass, m_CurrentFramebuffer);
+
+	m_CommandQueue->SetViewport(m_CurrentFramebuffer);
+	m_CommandQueue->SetScissor(m_CurrentFramebuffer);
+}
+
+void Renderer::BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass)
+{
 	m_CurrentFramebuffer = framebuffer;
 
 	m_RenderAPI->BeginFrame(framebuffer);
@@ -76,7 +87,11 @@ void Renderer::Draw(const MeshRendererComponent& meshRenderer, const std::shared
 		}
 	}
 
-	const auto& texture = meshRenderer.Texture->GetTexture();
+	auto texture = meshRenderer.Texture->GetTexture();
+	if (!texture)
+	{
+		texture = m_DefaultTexture;
+	}
 
 	uint32_t index = 0;
 	auto it = std::find(m_FrameInfo.Textures.begin(), m_FrameInfo.Textures.end(), texture);

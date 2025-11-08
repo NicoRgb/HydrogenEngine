@@ -1,6 +1,6 @@
 #include "Hydrogen/Scene.hpp"
-#include "Hydrogen/Physics.hpp"
 #include "Hydrogen/Application.hpp"
+#include "Hydrogen/Camera.hpp"
 
 using namespace Hydrogen;
 
@@ -26,7 +26,14 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 {
 	if (ImGui::TreeNode("Mesh Renderer"))
 	{
-		ImGui::Text(t.Mesh->GetPath().c_str());
+		if (t.Mesh)
+		{
+			ImGui::Text(t.Mesh->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
 		if (ImGui::BeginDragDropTarget())
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
@@ -41,7 +48,14 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			ImGui::EndDragDropTarget();
 		}
 
-		ImGui::Text(t.Texture->GetPath().c_str());
+		if (t.Texture)
+		{
+			ImGui::Text(t.Texture->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
 		if (ImGui::BeginDragDropTarget())
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
@@ -57,6 +71,16 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 		}
 		ImGui::TreePop();
 	}
+}
+
+Scene::Scene()
+	: m_PhysicsWorld(PhysicsWorld(this, { 0.0f, 0.0f, -9.81f }))
+{
+}
+
+void Scene::Update(float timestep)
+{
+	m_PhysicsWorld.Update(timestep);
 }
 
 json Scene::SerializeScene()
@@ -84,6 +108,10 @@ json Scene::SerializeScene()
 		{
 			RigidbodyComponent::ToJson(entityJson["RigidbodyComponent"], m_Registry.get<RigidbodyComponent>(entity));
 		}
+		if (m_Registry.all_of<CameraComponent>(entity))
+		{
+			CameraComponent::ToJson(entityJson["CameraComponent"], m_Registry.get<CameraComponent>(entity));
+		}
 
 		j[std::to_string(i++)] = entityJson;
 	}
@@ -97,25 +125,34 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 	{
 		auto entity = m_Registry.create();
 
+		Entity e;
+		e.m_Entity = entity;
+		e.m_Scene = shared_from_this();
+
 		if (value.contains("TagComponent"))
 		{
-			TagComponent& component = m_Registry.emplace<TagComponent>(entity);
+			TagComponent& component = m_Registry.emplace<TagComponent>(entity, e);
 			TagComponent::FromJson(value["TagComponent"], component, assetManager);
 		}
 		if (value.contains("TransformComponent"))
 		{
-			TransformComponent& component = m_Registry.emplace<TransformComponent>(entity);
+			TransformComponent& component = m_Registry.emplace<TransformComponent>(entity, e);
 			TransformComponent::FromJson(value["TransformComponent"], component, assetManager);
 		}
 		if (value.contains("MeshRendererComponent"))
 		{
-			MeshRendererComponent& component = m_Registry.emplace<MeshRendererComponent>(entity);
+			MeshRendererComponent& component = m_Registry.emplace<MeshRendererComponent>(entity, e);
 			MeshRendererComponent::FromJson(value["MeshRendererComponent"], component, assetManager);
 		}
-		//if (value.contains("RigidbodyComponent"))
-		//{
-		//	RigidbodyComponent& component = m_Registry.emplace<RigidbodyComponent>(entity);
-		//	RigidbodyComponent::FromJson(value["RigidbodyComponent"], component, assetManager);
-		//}
+		if (value.contains("RigidbodyComponent"))
+		{
+			RigidbodyComponent& component = m_Registry.emplace<RigidbodyComponent>(entity, e);
+			RigidbodyComponent::FromJson(value["RigidbodyComponent"], component, assetManager);
+		}
+		if (value.contains("CameraComponent"))
+		{
+			CameraComponent& component = m_Registry.emplace<CameraComponent>(entity, e);
+			CameraComponent::FromJson(value["CameraComponent"], component, assetManager);
+		}
 	}
 }

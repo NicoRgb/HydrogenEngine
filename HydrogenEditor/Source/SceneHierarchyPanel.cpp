@@ -19,6 +19,13 @@ void SceneHierarchyPanel::OnImGuiRender()
 
     if (m_Scene)
     {
+        if (ImGui::Button("Add Entity"))
+        {
+            Hydrogen::Entity(m_Scene, "New Entity");
+        }
+
+        ImGui::Separator();
+
         m_Scene->IterateComponents<Hydrogen::TagComponent>([&](Hydrogen::Entity entity, const auto& tag)
             {
             bool selected = (m_SelectedEntity == entity);
