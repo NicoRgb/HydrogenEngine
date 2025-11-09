@@ -74,7 +74,7 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 }
 
 Scene::Scene()
-	: m_PhysicsWorld(PhysicsWorld(this, { 0.0f, 0.0f, -9.81f }))
+	: m_PhysicsWorld(PhysicsWorld(this, { 0.0f, -9.81f, 0.0f }))
 {
 }
 

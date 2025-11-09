@@ -44,6 +44,10 @@ namespace Hydrogen
 
 		const PhysicsWorld& GetPhysicsWorld() { return m_PhysicsWorld; }
 
+		void Clone(Scene& clone)
+		{
+		}
+
 	private:
 		entt::registry m_Registry;
 		PhysicsWorld m_PhysicsWorld;

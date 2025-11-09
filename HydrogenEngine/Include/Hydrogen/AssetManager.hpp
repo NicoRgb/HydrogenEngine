@@ -229,6 +229,8 @@ namespace Hydrogen
 		}
 
 		void Save() const;
+		void ClearScene();
+
 		const std::shared_ptr<class Scene>& GetScene() { return m_Scene; }
 
 	private:

@@ -224,3 +224,8 @@ void SceneAsset::Save() const
 	fout << content;
 	fout.close();
 }
+
+void SceneAsset::ClearScene()
+{
+	m_Scene = std::make_shared<Scene>();
+}

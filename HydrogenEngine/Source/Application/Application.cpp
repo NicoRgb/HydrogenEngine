@@ -75,6 +75,9 @@ void Application::Run()
 	using clock = std::chrono::high_resolution_clock;
 	auto lastTime = clock::now();
 
+	const float timeStep = 1.0f / 60.0f;
+	float accumulator = 0.0f;
+
 	while (MainViewport->IsOpen())
 	{
 		auto currentTime = clock::now();
@@ -87,7 +90,15 @@ void Application::Run()
 
 		if (!FreeCam.Active)
 		{
-			CurrentScene->GetScene()->Update(1.0f / 60.0f);
+			float frameTime = deltaTime;
+			if (frameTime > 0.25f) frameTime = 0.25f;
+			accumulator += frameTime;
+
+			while (accumulator >= timeStep)
+			{
+				CurrentScene->GetScene()->Update(timeStep);
+				accumulator -= timeStep;
+			}
 		}
 
 		if (MainViewport->GetWidth() == 0 || MainViewport->GetHeight() == 0)

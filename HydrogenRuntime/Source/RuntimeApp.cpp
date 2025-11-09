@@ -1,4 +1,4 @@
-#include <Hydrogen/Hydrogen.hpp>
+#include <Hydrogen/HydrogenMain.hpp>
 
 class RuntimeApp : public Hydrogen::Application
 {
@@ -25,6 +25,10 @@ public:
 	}
 
 	virtual void OnImGuiRender() override
+	{
+	}
+
+	virtual void OnImGuiMenuBarRender() override
 	{
 	}
 };
