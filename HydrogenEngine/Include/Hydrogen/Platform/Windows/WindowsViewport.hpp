@@ -24,6 +24,9 @@ namespace Hydrogen
 		void ImGuiNewFrame() const override;
 		void InitImGui() const override;
 
+		void LockCursor() override;
+		void UnlockCursor() override;
+
 		static void PumpMessages();
 		LRESULT WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -32,5 +35,6 @@ namespace Hydrogen
 		bool m_IsOpen;
 
 		HWND m_hWnd;
+		RECT m_Rect;
 	};
 }

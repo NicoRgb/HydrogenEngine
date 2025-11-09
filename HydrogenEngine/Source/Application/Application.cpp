@@ -1,7 +1,16 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Camera.hpp"
+#include "Hydrogen/Input.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
+
+#include <ImGuizmo.h>
+
+#ifdef HY_DEBUG
+//#define TRACY_ENABLE
+#endif
+
+#include "tracy/Tracy.hpp"
 
 using namespace Hydrogen;
 
@@ -24,17 +33,21 @@ void Application::Run()
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 	MainViewport->Open();
 
+	Input::Initialize();
+
+	FreeCam.ViewportWidth = MainViewport->GetWidth();
+	FreeCam.ViewportHeight = MainViewport->GetHeight();
+	FreeCam.CalculateProj();
+
 	_RenderContext = RenderContext::Create(ApplicationSpec.Name, ApplicationSpec.Version, MainViewport);
 	MainAssetManager.LoadAssets("Assets", _RenderContext);
 
 	CurrentScene = MainAssetManager.GetAsset<SceneAsset>("Scene.hyscene");
 	CurrentScene->Load(&MainAssetManager);
 
-	std::shared_ptr<Texture> texture = nullptr;
-
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		texture = Texture::Create(_RenderContext, TextureFormat::ViewportDefault, 1920, 1080);
+		ViewportTexture = Texture::Create(_RenderContext, TextureFormat::ViewportDefault, 1920, 1080);
 	}
 
 	_RenderPass = RenderPass::Create(_RenderContext);
@@ -44,40 +57,37 @@ void Application::Run()
 
 	std::shared_ptr<RenderPass> renderPassTexture = nullptr;
 	std::shared_ptr<DebugGUI> debugGUI = nullptr;
-	std::shared_ptr<Framebuffer> framebufferTexture = nullptr;
 
 	Renderer MainRenderer(_RenderContext);
 	Renderer ImGuiRenderer(_RenderContext);
 
 	if (ApplicationSpec.UseDebugGUI)
 	{
-		renderPassTexture = RenderPass::Create(_RenderContext, texture);
+		renderPassTexture = RenderPass::Create(_RenderContext, ViewportTexture);
 		debugGUI = DebugGUI::Create(_RenderContext, _RenderPass);
-		framebufferTexture = Framebuffer::Create(_RenderContext, renderPassTexture, texture);
+		ViewportFramebuffer = Framebuffer::Create(_RenderContext, renderPassTexture, ViewportTexture);
 	}
 
 	MainPipeline = MainRenderer.CreatePipeline(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 
 	OnStartup();
 
-	const float fixedTimeStep = 1.0f / 60.0f;
-	float accumulator = 0.0f;
-	auto previousTime = std::chrono::high_resolution_clock::now();
+	using clock = std::chrono::high_resolution_clock;
+	auto lastTime = clock::now();
 
 	while (MainViewport->IsOpen())
 	{
+		auto currentTime = clock::now();
+		std::chrono::duration<float> elapsed = currentTime - lastTime;
+		float deltaTime = elapsed.count();
+		lastTime = currentTime;
+
 		Viewport::PumpMessages();
 		OnUpdate();
 
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		float deltaTime = std::chrono::duration<float>(currentTime - previousTime).count();
-		previousTime = currentTime;
-		accumulator += deltaTime;
-
-		while (accumulator >= fixedTimeStep)
+		if (!FreeCam.Active)
 		{
-			CurrentScene->GetScene()->Update(fixedTimeStep);
-			accumulator -= fixedTimeStep;
+			CurrentScene->GetScene()->Update(1.0f / 60.0f);
 		}
 
 		if (MainViewport->GetWidth() == 0 || MainViewport->GetHeight() == 0)
@@ -88,6 +98,7 @@ void Application::Run()
 		if (debugGUI)
 		{
 			debugGUI->BeginFrame();
+			ImGuizmo::BeginFrame();
 
 			static bool dockingEnabled = true;
 			ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -110,32 +121,8 @@ void Application::Run()
 			ImGuiID dockspace_id = ImGui::GetID("DockSpace");
 			ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
 
-			if (ImGui::BeginMenuBar())
-			{
-				if (ImGui::BeginMenu("File"))
-				{
-					if (ImGui::MenuItem("Save Scene"))
-					{
-						CurrentScene->Save();
-					}
-					ImGui::EndMenu();
-				}
-				ImGui::EndMenuBar();
-			}
+			OnImGuiMenuBarRender();
 
-			ImGui::End();
-
-			ImGui::Begin("Viewport");
-			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
-			if (contentRegion.x != m_ViewportSize.x || contentRegion.y != m_ViewportSize.y)
-			{
-				m_ViewportSize = contentRegion;
-
-				texture->Resize((size_t)contentRegion.x, (size_t)contentRegion.y);
-				framebufferTexture->OnResize((int)contentRegion.x, (int)contentRegion.y);
-			}
-
-			ImGui::Image(texture->GetImGuiImage(), contentRegion);
 			ImGui::End();
 
 			OnImGuiRender();
@@ -151,22 +138,42 @@ void Application::Run()
 				}
 			});
 
-		if (cameraEntity.IsValid())
+		if (cameraEntity.IsValid() || FreeCam.Active)
 		{
-			CameraComponent& cameraComponent = cameraEntity.GetComponent<CameraComponent>();
-			cameraComponent.CalculateView(cameraEntity);
+			CameraComponent cameraComponent;
 
-			auto width = debugGUI ? texture->GetWidth() : MainViewport->GetWidth();
-			auto height = debugGUI ? texture->GetHeight() : MainViewport->GetHeight();
-
-			if (width != cameraComponent.ViewportWidth || height != cameraComponent.ViewportHeight)
+			if (FreeCam.Active)
 			{
-				cameraComponent.ViewportWidth = width;
-				cameraComponent.ViewportHeight = height;
-				cameraComponent.CalculateProj(cameraEntity);
+				FreeCam.Update(deltaTime);
+				FreeCam.CalculateView();
+
+				auto width = debugGUI ? ViewportTexture->GetWidth() : MainViewport->GetWidth();
+				auto height = debugGUI ? ViewportTexture->GetHeight() : MainViewport->GetHeight();
+
+				if (width != FreeCam.ViewportWidth || height != FreeCam.ViewportHeight)
+				{
+					FreeCam.ViewportWidth = width;
+					FreeCam.ViewportHeight = height;
+					FreeCam.CalculateProj();
+				}
+			}
+			else
+			{
+				cameraComponent = cameraEntity.GetComponent<CameraComponent>();
+				cameraComponent.CalculateView(cameraEntity);
+
+				auto width = debugGUI ? ViewportTexture->GetWidth() : MainViewport->GetWidth();
+				auto height = debugGUI ? ViewportTexture->GetHeight() : MainViewport->GetHeight();
+
+				if (width != cameraComponent.ViewportWidth || height != cameraComponent.ViewportHeight)
+				{
+					cameraComponent.ViewportWidth = width;
+					cameraComponent.ViewportHeight = height;
+					cameraComponent.CalculateProj();
+				}
 			}
 
-			MainRenderer.BeginFrame(debugGUI ? framebufferTexture : framebuffer, debugGUI ? renderPassTexture : _RenderPass, cameraComponent);
+			MainRenderer.BeginFrame(debugGUI ? ViewportFramebuffer : framebuffer, debugGUI ? renderPassTexture : _RenderPass, FreeCam.Active ? FreeCam : cameraComponent);
 
 			CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
 				{
@@ -193,6 +200,8 @@ void Application::Run()
 				ImGui::RenderPlatformWindowsDefault();
 			}
 		}
+
+		Input::EndFrame();
 	}
 
 	OnShutdown();

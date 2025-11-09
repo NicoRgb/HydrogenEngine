@@ -28,6 +28,12 @@ namespace Hydrogen
 		Event<int, int>& GetResizeEvent() { return m_ResizeEvent; }
 
 		static std::shared_ptr<Viewport> Create(std::string name, int width = 0, int height = 0, int x = 0, int y = 0);
+		
+		virtual void LockCursor() = 0;
+		virtual void UnlockCursor() = 0;
+
+		static void ViewportShowCursor();
+		static void ViewportHideCursor();
 
 	protected:
 		Event<int, int> m_ResizeEvent;

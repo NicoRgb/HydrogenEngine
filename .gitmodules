@@ -21,3 +21,6 @@
 	path = Extern/ImTextEdit
 	url = https://github.com/ChemistAion/ImTextEdit
 	branch = madX
+[submodule "Extern/ImGuizmo"]
+	path = Extern/ImGuizmo
+	url = https://github.com/CedricGuillemet/ImGuizmo

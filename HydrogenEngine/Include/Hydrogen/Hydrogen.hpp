@@ -9,3 +9,4 @@
 #include <Hydrogen/Scene.hpp>
 #include <Hydrogen/Physics.hpp>
 #include <Hydrogen/Camera.hpp>
+#include "Hydrogen/Input.hpp"

@@ -7,6 +7,9 @@
 #include <Hydrogen/AssetManager.hpp>
 #include <Hydrogen/Renderer/Renderer.hpp>
 #include <Hydrogen/Scene.hpp>
+#include <Hydrogen/Physics.hpp>
+#include <Hydrogen/Camera.hpp>
+#include "Hydrogen/Input.hpp"
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication();
 

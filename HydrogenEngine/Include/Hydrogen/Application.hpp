@@ -37,6 +37,7 @@ namespace Hydrogen
 		virtual void OnShutdown() = 0;
 		virtual void OnUpdate() = 0;
 		virtual void OnImGuiRender() = 0;
+		virtual void OnImGuiMenuBarRender() = 0;
 
 		struct ApplicationSpecification
 		{
@@ -58,9 +59,12 @@ namespace Hydrogen
 		std::shared_ptr<RenderContext> _RenderContext;
 		std::shared_ptr<RenderPass> _RenderPass;
 		std::shared_ptr<Pipeline> MainPipeline;
+		std::shared_ptr<Texture> ViewportTexture;
+		std::shared_ptr<Framebuffer> ViewportFramebuffer;
+
+		FreeCamera FreeCam;
 
 	private:
 		static Application* s_Instance;
-		ImVec2 m_ViewportSize;
 	};
 }

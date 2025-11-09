@@ -10,15 +10,19 @@ project "HydrogenEngine"
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
 	includedirs { "Include" }
-	externalincludedirs { "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann", "%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/ImTextEdit", "%{wks.location}/Extern/sol2/include", "%{wks.location}/Extern/bin/reactphysics3d/include", "$(VULKAN_SDK)/Include" }
+	externalincludedirs { "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann",
+	"%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/ImTextEdit", "%{wks.location}/Extern/ImGuizmo", "%{wks.location}/Extern/sol2/include",
+	"%{wks.location}/Extern/bin/reactphysics3d/include", "%{wks.location}/Extern/bin/tracy/include", "$(VULKAN_SDK)/Include" }
 	
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp",
 			"%{wks.location}/Extern/imgui-docking/imgui.cpp", "%{wks.location}/Extern/imgui-docking/imgui_draw.cpp", "%{wks.location}/Extern/imgui-docking/imgui_tables.cpp", "%{wks.location}/Extern/imgui-docking/imgui_widgets.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.h", "%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.h", "%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.cpp",
-			"%{wks.location}/Extern/ImTextEdit/ImTextEdit.h", "%{wks.location}/Extern/ImTextEdit/ImTextEdit.cpp" }
+			"%{wks.location}/Extern/ImTextEdit/ImTextEdit.h", "%{wks.location}/Extern/ImTextEdit/ImTextEdit.cpp",
+			"%{wks.location}/Extern/ImGuizmo/GraphEditor.cpp", "%{wks.location}/Extern/ImGuizmo/ImCurveEdit.cpp", "%{wks.location}/Extern/ImGuizmo/ImGradient.cpp",
+			"%{wks.location}/Extern/ImGuizmo/ImGuizmo.cpp", "%{wks.location}/Extern/ImGuizmo/ImSequencer.cpp"}
 
-	libdirs { "$(VULKAN_SDK)/Lib", "%{wks.location}/Extern/bin/reactphysics3d" }
+	libdirs { "$(VULKAN_SDK)/Lib", "%{wks.location}/Extern/bin/reactphysics3d", "%{wks.location}/Extern/bin/tracy" }
 	links { "vulkan-1" }
 
 	filter "%{wks.location}/Extern/**.h"
@@ -31,7 +35,7 @@ project "HydrogenEngine"
 		defines { "HY_DEBUG" }
 		optimize "Off"
 		symbols "On"
-		links { "shaderc_combinedd", "reactphysics3d-debug" }
+		links { "shaderc_combinedd", "reactphysics3d-debug", "TracyClient" }
 
 	filter "configurations:Release"
 		defines { "HY_NDEBUG", "NDEBUG" }
