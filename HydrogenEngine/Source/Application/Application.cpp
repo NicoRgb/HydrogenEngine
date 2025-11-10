@@ -202,7 +202,7 @@ void Application::Run()
 		{
 			ImGuiRenderer.BeginDebugGuiFrame(framebuffer, _RenderPass);
 			ImGuiRenderer.DrawDebugGui(debugGUI);
-			ImGuiRenderer.EndFrame();
+			ImGuiRenderer.EndDebugGuiFrame();
 
 			auto& io = ImGui::GetIO();
 			if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)

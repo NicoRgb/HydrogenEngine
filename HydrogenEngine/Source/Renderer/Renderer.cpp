@@ -41,6 +41,7 @@ void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const
 {
 	m_FrameInfo.Pipelines.clear();
 	m_FrameInfo.Textures.clear();
+	m_FrameInfo.Objects.clear();
 
 	m_FrameInfo._UniformBuffer.View = cameraComponent.View;
 	m_FrameInfo._UniformBuffer.Proj = cameraComponent.Proj;
@@ -67,8 +68,29 @@ void Renderer::BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffe
 	m_CommandQueue->SetScissor(m_CurrentFramebuffer);
 }
 
+void Renderer::EndDebugGuiFrame()
+{
+	m_CommandQueue->EndRenderPass();
+	m_CommandQueue->EndRecording();
+	m_RenderAPI->SubmitFrame(m_CommandQueue);
+}
+
 void Renderer::EndFrame()
 {
+	for (const auto& object : m_FrameInfo.Objects)
+	{
+		m_CommandQueue->BindPipeline(object.Shader);
+		m_CommandQueue->BindVertexBuffer(object.VertexBuf);
+		m_CommandQueue->BindIndexBuffer(object.IndexBuf);
+
+		PushConstants pc{};
+		pc.Model = object.Transform;
+		pc.TextureIndex = object.TextureIndex;
+
+		m_CommandQueue->UploadPushConstants(object.Shader, 0, (void*)&pc);
+		m_CommandQueue->DrawIndexed(object.IndexBuf);
+	}
+
 	m_CommandQueue->EndRenderPass();
 	m_CommandQueue->EndRecording();
 	m_RenderAPI->SubmitFrame(m_CommandQueue);
@@ -107,16 +129,7 @@ void Renderer::Draw(const MeshRendererComponent& meshRenderer, const std::shared
 		pipeline->UploadTextureSampler(1, index, texture);
 	}
 
-	m_CommandQueue->BindPipeline(pipeline);
-	m_CommandQueue->BindVertexBuffer(meshRenderer.Mesh->GetVertexBuffer());
-	m_CommandQueue->BindIndexBuffer(meshRenderer.Mesh->GetIndexBuffer());
-
-	PushConstants pc{};
-	pc.Model = transform;
-	pc.TextureIndex = index;
-
-	m_CommandQueue->UploadPushConstants(pipeline, 0, (void*)&pc);
-	m_CommandQueue->DrawIndexed(meshRenderer.Mesh->GetIndexBuffer());
+	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, index });
 }
 
 void Renderer::DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI)

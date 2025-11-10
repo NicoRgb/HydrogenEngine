@@ -20,9 +20,11 @@ namespace Hydrogen
 		std::shared_ptr<Pipeline> CreatePipeline(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 
 		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent);
-		void BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
 		void EndFrame();
 		void Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
+
+		void BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
+		void EndDebugGuiFrame();
 		void DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI);
 
 		const std::shared_ptr<RenderContext>& GetContext() { return m_RenderContext; }
@@ -50,12 +52,23 @@ namespace Hydrogen
 			alignas(16) uint32_t TextureIndex;
 		};
 
+		struct RenderObject
+		{
+			std::shared_ptr<VertexBuffer> VertexBuf;
+			std::shared_ptr<IndexBuffer> IndexBuf;
+			std::shared_ptr<Pipeline> Shader;
+			glm::mat4 Transform;
+			uint32_t TextureIndex;
+		};
+
 		struct
 		{
+			UniformBuffer _UniformBuffer;
+
 			std::vector<std::shared_ptr<Texture>> Textures;
 			std::vector<std::shared_ptr<Pipeline>> Pipelines;
 
-			UniformBuffer _UniformBuffer;
+			std::vector<RenderObject> Objects;
 		} m_FrameInfo;
 	};
 }
