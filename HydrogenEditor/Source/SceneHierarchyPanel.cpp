@@ -1,7 +1,7 @@
 #include "SceneHierarchyPanel.hpp"
 #include <imgui.h>
 
-SceneHierarchyPanel::SceneHierarchyPanel() : m_SelectedEntity() {}
+SceneHierarchyPanel::SceneHierarchyPanel() : m_SelectedEntityUUID(0) {}
 
 void SceneHierarchyPanel::SetContext(const std::shared_ptr<Hydrogen::Scene>& scene)
 {
@@ -10,7 +10,16 @@ void SceneHierarchyPanel::SetContext(const std::shared_ptr<Hydrogen::Scene>& sce
 
 Hydrogen::Entity SceneHierarchyPanel::GetSelectedEntity() const
 {
-    return m_SelectedEntity;
+    Hydrogen::Entity selectedEntity;
+    m_Scene->IterateComponents<Hydrogen::UUIDComponent>([&](Hydrogen::Entity entity, const Hydrogen::UUIDComponent& uuid)
+        {
+            if (uuid.UUID == m_SelectedEntityUUID)
+            {
+                selectedEntity = entity;
+            }
+        });
+
+    return selectedEntity;
 }
 
 void SceneHierarchyPanel::OnImGuiRender()
@@ -28,14 +37,14 @@ void SceneHierarchyPanel::OnImGuiRender()
 
         m_Scene->IterateComponents<Hydrogen::TagComponent>([&](Hydrogen::Entity entity, const auto& tag)
             {
-            bool selected = (m_SelectedEntity == entity);
-            if (ImGui::Selectable(tag.Name.c_str(), selected))
-                m_SelectedEntity = entity;
+                bool selected = (m_SelectedEntityUUID == entity.GetUUID());
+                if (ImGui::Selectable(tag.Name.c_str(), selected))
+                    m_SelectedEntityUUID = entity.GetUUID();
             });
     }
     else
     {
-        m_SelectedEntity = Hydrogen::Entity();
+        m_SelectedEntityUUID = Hydrogen::Entity().GetUUID();
     }
 
     ImGui::End();

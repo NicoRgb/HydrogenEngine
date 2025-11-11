@@ -2,12 +2,15 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Camera.hpp"
 
+#include <string>
+
 using namespace Hydrogen;
 
 Entity::Entity(const std::shared_ptr<Scene>& scene, std::string name)
 	: m_Scene(scene)
 {
 	m_Entity = m_Scene->m_Registry.create();
+	AddComponent<UUIDComponent>();
 	AddComponent<TagComponent>(name);
 	AddComponent<TransformComponent>(glm::mat4(1.0f));
 }
@@ -15,6 +18,17 @@ Entity::Entity(const std::shared_ptr<Scene>& scene, std::string name)
 Entity::Entity()
 	: m_Scene(nullptr), m_Entity(entt::null)
 {
+}
+
+uint64_t Entity::GetUUID()
+{
+	return GetComponent<UUIDComponent>().UUID;
+
+}
+
+void Entity::SetUUID(uint64_t uuid)
+{
+	GetComponent<UUIDComponent>().UUID = uuid;
 }
 
 void Entity::Delete()
@@ -113,7 +127,7 @@ json Scene::SerializeScene()
 			CameraComponent::ToJson(entityJson["CameraComponent"], m_Registry.get<CameraComponent>(entity));
 		}
 
-		j[std::to_string(i++)] = entityJson;
+		j[std::to_string(m_Registry.get<UUIDComponent>(entity).UUID)] = entityJson;
 	}
 
 	return j;
@@ -128,6 +142,8 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 		Entity e;
 		e.m_Entity = entity;
 		e.m_Scene = shared_from_this();
+
+		e.AddComponent<UUIDComponent>(std::stoull(key));
 
 		if (value.contains("TagComponent"))
 		{
@@ -155,4 +171,14 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 			CameraComponent::FromJson(value["CameraComponent"], component, assetManager);
 		}
 	}
+}
+
+UUIDComponent::UUIDComponent(Entity)
+{
+	UUID = GenerateUUID();
+}
+
+UUIDComponent::UUIDComponent(Entity, uint64_t uuid)
+{
+	UUID = uuid;
 }

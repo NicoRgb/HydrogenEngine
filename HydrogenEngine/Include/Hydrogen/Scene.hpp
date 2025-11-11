@@ -15,8 +15,28 @@
 #include "Renderer/IndexBuffer.hpp"
 #include "Hydrogen/Physics.hpp"
 
+#include <random>
+
 namespace Hydrogen
 {
+	struct UUIDComponent
+	{
+		UUIDComponent(class Entity);
+		UUIDComponent(class Entity, uint64_t uuid);
+
+		uint64_t UUID;
+
+		uint64_t GenerateUUID()
+		{
+			static std::random_device rd;
+			static std::mt19937_64 gen(rd());
+			static std::uniform_int_distribution<uint64_t> dis;
+			return dis(gen);
+		}
+	};
+
+	class Entity;
+
 	class Scene : public std::enable_shared_from_this<Scene>
 	{
 	public:
@@ -27,6 +47,7 @@ namespace Hydrogen
 		void IterateComponents(auto func)
 		{
 			auto view = m_Registry.view<Ts...>();
+
 			for (auto entityHandle : view)
 			{
 				Entity entity;
@@ -76,6 +97,9 @@ namespace Hydrogen
 		{
 			return m_Entity != entt::null && m_Scene->m_Registry.valid(m_Entity);
 		}
+
+		uint64_t GetUUID();
+		void SetUUID(uint64_t uuid);
 
 		void Delete();
 

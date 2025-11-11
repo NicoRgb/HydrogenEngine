@@ -129,6 +129,7 @@ public:
 						CurrentScene->ClearScene();
 						CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene(), &MainAssetManager);
 					}
+					_SceneHierarchy.SetContext(CurrentScene->GetScene());
 				}
 				ImGui::EndMenu();
 			}
@@ -169,6 +170,7 @@ public:
 			}
 
 			FreeCam.Active = !FreeCam.Active;
+			_SceneHierarchy.SetContext(CurrentScene->GetScene());
 		}
 
 		ImGui::SameLine();
