@@ -12,6 +12,9 @@ Logger::Logger(std::string name, LogLevel logLevel, std::string format, bool out
 	if (!filename.empty()) logSinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(filename, true));
 	if (out) logSinks.emplace_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 
+	m_LogSink = std::make_shared<LogSink>();
+	logSinks.emplace_back(m_LogSink);
+
 	for (auto& logSink : logSinks) logSink->set_pattern(format);
 
 	m_Logger = std::make_shared<spdlog::logger>(name, begin(logSinks), end(logSinks));

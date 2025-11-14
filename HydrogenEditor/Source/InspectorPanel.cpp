@@ -13,8 +13,8 @@ static void DrawComponent(Hydrogen::Entity entity)
     T::OnImGuiRender(component);
 }
 
-using ComponentTypes = std::tuple<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::CameraComponent>;
-using AddComponentTypes = std::tuple<Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::CameraComponent>;
+using ComponentTypes = std::tuple<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>;
+using AddComponentTypes = std::tuple<Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>;
 
 template<typename T>
 const char* GetComponentName()
@@ -22,6 +22,7 @@ const char* GetComponentName()
     if constexpr (std::is_same_v<T, Hydrogen::MeshRendererComponent>) return "Mesh Renderer";
     else if constexpr (std::is_same_v<T, Hydrogen::RigidbodyComponent>) return "Rigidbody";
     else if constexpr (std::is_same_v<T, Hydrogen::CameraComponent>) return "Camera";
+    else if constexpr (std::is_same_v<T, Hydrogen::ScriptComponent>) return "Script";
     else return "Unknown Component";
 }
 
@@ -77,9 +78,9 @@ void InspectorPanel::OnImGuiRender()
         }
 
         ImGui::Separator();
-        DrawAllComponents(m_SelectedEntity, ComponentTypes{ m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity });
+        DrawAllComponents(m_SelectedEntity, ComponentTypes{ m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity });
         ImGui::Separator();
-        DrawAddComponentMenu(m_Scene, m_SelectedEntity, AddComponentTypes{ m_SelectedEntity, m_SelectedEntity, m_SelectedEntity });
+        DrawAddComponentMenu(m_Scene, m_SelectedEntity, AddComponentTypes{ m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity });
     }
     else
     {

@@ -2,6 +2,7 @@
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Camera.hpp"
 #include "Hydrogen/Input.hpp"
+#include "Hydrogen/ScriptEngine.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
 #include <ImGuizmo.h>
@@ -26,6 +27,7 @@ void Application::Run()
 
 	EngineLogger::Init();
 	AppLogger::Init();
+	ScriptEngine::Init();
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
 
@@ -96,9 +98,11 @@ void Application::Run()
 
 			while (accumulator >= timeStep)
 			{
-				CurrentScene->GetScene()->Update(timeStep);
+				CurrentScene->GetScene()->UpdatePhysics(timeStep);
 				accumulator -= timeStep;
 			}
+
+			CurrentScene->GetScene()->UpdateScripts(deltaTime);
 		}
 
 		if (MainViewport->GetWidth() == 0 || MainViewport->GetHeight() == 0)

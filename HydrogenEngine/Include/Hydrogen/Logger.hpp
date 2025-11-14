@@ -2,9 +2,40 @@
 
 #include <string>
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/base_sink.h>
 
 namespace Hydrogen
 {
+	class LogSink : public spdlog::sinks::base_sink<std::mutex>
+	{
+	public:
+		struct LogMsg
+		{
+			spdlog::level::level_enum level;
+			std::string message;
+		};
+
+		const std::vector<LogMsg>& GetMessages() const { return m_Messages; }
+
+	protected:
+		void sink_it_(const spdlog::details::log_msg& msg) override
+		{
+			spdlog::memory_buf_t formatted;
+			formatter_->format(msg, formatted);
+
+			m_Messages.push_back(
+				{
+					msg.level,
+					fmt::to_string(formatted)
+				});
+		}
+
+		void flush_() override {}
+
+	private:
+		std::vector<LogMsg> m_Messages;
+	};
+
 	class Logger
 	{
 	public:
@@ -29,7 +60,10 @@ namespace Hydrogen
 		template <typename... Args>
 		inline void Fatal(spdlog::format_string_t<Args...> fmt, Args &&...args) { m_Logger->critical(fmt, std::forward<Args>(args)...); }
 
+		const std::shared_ptr<LogSink>& GetLogSink() { return m_LogSink; }
+
 	private:
+		std::shared_ptr<LogSink> m_LogSink;
 		std::shared_ptr<spdlog::logger> m_Logger;
 	};
 

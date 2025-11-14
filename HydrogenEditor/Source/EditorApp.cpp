@@ -92,6 +92,50 @@ public:
 		}
 		ImGui::End();
 
+		ImGui::Begin("Log");
+
+		ImGui::BeginChild("LogScrollRegion");
+
+		for (auto& m : Hydrogen::EngineLogger::GetLogger()->GetLogSink()->GetMessages())
+		{
+			ImVec4 color;
+			switch (m.level)
+			{
+			case spdlog::level::trace: color = ImVec4(1, 1, 1, 1); break;
+			case spdlog::level::debug: color = ImVec4(0.6f, 0.6f, 1, 1); break;
+			case spdlog::level::info:  color = ImVec4(1, 1, 1, 1); break;
+			case spdlog::level::warn:  color = ImVec4(1, 1, 0.1f, 1); break;
+			case spdlog::level::err:   color = ImVec4(1, 0.3f, 0.3f, 1); break;
+			case spdlog::level::critical: color = ImVec4(1, 0, 0, 1); break;
+			}
+
+			ImGui::PushStyleColor(ImGuiCol_Text, color);
+			ImGui::TextUnformatted(m.message.c_str());
+			ImGui::PopStyleColor();
+		}
+
+		for (auto& m : Hydrogen::AppLogger::GetLogger()->GetLogSink()->GetMessages())
+		{
+			ImVec4 color;
+			switch (m.level)
+			{
+			case spdlog::level::trace: color = ImVec4(1, 1, 1, 1); break;
+			case spdlog::level::debug: color = ImVec4(0.6f, 0.6f, 1, 1); break;
+			case spdlog::level::info:  color = ImVec4(1, 1, 1, 1); break;
+			case spdlog::level::warn:  color = ImVec4(1, 1, 0.1f, 1); break;
+			case spdlog::level::err:   color = ImVec4(1, 0.3f, 0.3f, 1); break;
+			case spdlog::level::critical: color = ImVec4(1, 0, 0, 1); break;
+			}
+
+			ImGui::PushStyleColor(ImGuiCol_Text, color);
+			ImGui::TextUnformatted(m.message.c_str());
+			ImGui::PopStyleColor();
+		}
+
+		ImGui::EndChild();
+
+		ImGui::End();
+
 		_BrowserPanel.OnImGuiRender();
 		_EditorPanel.OnImGuiRender();
 		_SceneHierarchy.OnImGuiRender();
@@ -123,6 +167,7 @@ public:
 					{
 						SavedScene = std::make_shared<Hydrogen::Scene>();
 						SavedScene->DeserializeScene(CurrentScene->GetScene()->SerializeScene(), &MainAssetManager);
+						CurrentScene->GetScene()->CreateScripts();
 					}
 					else
 					{
@@ -162,6 +207,7 @@ public:
 			{
 				SavedScene = std::make_shared<Hydrogen::Scene>();
 				SavedScene->DeserializeScene(CurrentScene->GetScene()->SerializeScene(), &MainAssetManager);
+				CurrentScene->GetScene()->CreateScripts();
 			}
 			else
 			{

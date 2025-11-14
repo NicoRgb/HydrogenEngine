@@ -14,6 +14,7 @@ public:
 
 	virtual void OnStartup() override
 	{
+		CurrentScene->GetScene()->CreateScripts();
 	}
 
 	virtual void OnShutdown() override

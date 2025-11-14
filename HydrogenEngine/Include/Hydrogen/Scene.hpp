@@ -8,6 +8,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <sol/sol.hpp>
 
 #include "AssetManager.hpp"
 #include "Renderer/Texture.hpp"
@@ -35,6 +36,22 @@ namespace Hydrogen
 		}
 	};
 
+	class ScriptSystem
+	{
+	public:
+		ScriptSystem() = default;
+		ScriptSystem(class Scene* scene)
+			: m_Scene(scene)
+		{
+		}
+
+		void OnCreate();
+		void OnUpdate(float dt);
+
+	private:
+		class Scene* m_Scene;
+	};
+
 	class Entity;
 
 	class Scene : public std::enable_shared_from_this<Scene>
@@ -58,7 +75,10 @@ namespace Hydrogen
 			}
 		}
 
-		void Update(float timestep);
+		void CreateScripts();
+
+		void UpdatePhysics(float timestep);
+		void UpdateScripts(float dt);
 
 		json SerializeScene();
 		void DeserializeScene(const json& j, AssetManager* assetManager);
@@ -72,6 +92,7 @@ namespace Hydrogen
 	private:
 		entt::registry m_Registry;
 		PhysicsWorld m_PhysicsWorld;
+		ScriptSystem m_ScriptSystem;
 
 		friend class Entity;
 	};
@@ -188,6 +209,48 @@ namespace Hydrogen
 
 		glm::mat4 Transform;
 
+		glm::vec3 GetPosition() const
+		{
+			glm::vec3 p, r, s;
+			TransformComponent::DecomposeTransform(Transform, p, r, s);
+			return p;
+		}
+
+		void SetPosition(const glm::vec3& newPos)
+		{
+			glm::vec3 p, r, s;
+			TransformComponent::DecomposeTransform(Transform, p, r, s);
+			Transform = TransformComponent::RecomposeTransform(newPos, r, s);
+		}
+
+		glm::vec3 GetRotation() const
+		{
+			glm::vec3 p, r, s;
+			TransformComponent::DecomposeTransform(Transform, p, r, s);
+			return r;
+		}
+
+		void SetRotation(const glm::vec3& newRot)
+		{
+			glm::vec3 p, r, s;
+			TransformComponent::DecomposeTransform(Transform, p, r, s);
+			Transform = TransformComponent::RecomposeTransform(p, newRot, s);
+		}
+
+		glm::vec3 GetScale() const
+		{
+			glm::vec3 p, r, s;
+			TransformComponent::DecomposeTransform(Transform, p, r, s);
+			return s;
+		}
+
+		void SetScale(const glm::vec3& newScale)
+		{
+			glm::vec3 p, r, s;
+			TransformComponent::DecomposeTransform(Transform, p, r, s);
+			Transform = TransformComponent::RecomposeTransform(p, r, newScale);
+		}
+
 		static void OnImGuiRender(TransformComponent& transform)
 		{
 			if (ImGui::TreeNode("Transform"))
@@ -303,6 +366,31 @@ namespace Hydrogen
 		{
 			t.Texture = assetManager->GetAsset<TextureAsset>(j.at("Texture"));
 			t.Mesh = assetManager->GetAsset<MeshAsset>(j.at("Mesh"));
+		}
+	};
+
+	struct ScriptComponent
+	{
+		ScriptComponent(Entity entity) { (void)entity; }
+		ScriptComponent(Entity entity, std::shared_ptr<ScriptAsset> script)
+			: Script(script)
+		{
+		}
+
+		std::shared_ptr<ScriptAsset> Script;
+		sol::environment Environment;
+		sol::load_result Chunk;
+
+		static void OnImGuiRender(ScriptComponent& s);
+
+		static void ToJson(json& j, const ScriptComponent& s)
+		{
+			j["Script"] = std::filesystem::path(s.Script->GetPath()).filename().string();
+		}
+
+		static void FromJson(const json& j, ScriptComponent& s, AssetManager* assetManager)
+		{
+			s.Script = assetManager->GetAsset<ScriptAsset>(j.at("Script"));
 		}
 	};
 }

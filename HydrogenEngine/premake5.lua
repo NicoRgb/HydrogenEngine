@@ -11,7 +11,8 @@ project "HydrogenEngine"
 
 	includedirs { "Include" }
 	externalincludedirs { "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann",
-	"%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/ImTextEdit", "%{wks.location}/Extern/ImGuizmo", "%{wks.location}/Extern/sol2/include",
+	"%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/ImTextEdit", "%{wks.location}/Extern/ImGuizmo",
+	"%{wks.location}/Extern/sol2/include", "%{wks.location}/Extern/bin/lua",
 	"%{wks.location}/Extern/bin/reactphysics3d/include", "%{wks.location}/Extern/bin/tracy/include", "$(VULKAN_SDK)/Include" }
 	
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp",
@@ -22,8 +23,8 @@ project "HydrogenEngine"
 			"%{wks.location}/Extern/ImGuizmo/GraphEditor.cpp", "%{wks.location}/Extern/ImGuizmo/ImCurveEdit.cpp", "%{wks.location}/Extern/ImGuizmo/ImGradient.cpp",
 			"%{wks.location}/Extern/ImGuizmo/ImGuizmo.cpp", "%{wks.location}/Extern/ImGuizmo/ImSequencer.cpp"}
 
-	libdirs { "$(VULKAN_SDK)/Lib", "%{wks.location}/Extern/bin/reactphysics3d", "%{wks.location}/Extern/bin/tracy" }
-	links { "vulkan-1" }
+	libdirs { "$(VULKAN_SDK)/Lib", "%{wks.location}/Extern/bin/reactphysics3d", "%{wks.location}/Extern/bin/tracy", "%{wks.location}/Extern/bin/lua" }
+	links { "vulkan-1", "lua54" }
 
 	filter "%{wks.location}/Extern/**.h"
 		warnings "Off"
