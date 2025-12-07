@@ -78,7 +78,7 @@ namespace Hydrogen
 		void CreateScripts();
 
 		void UpdatePhysics(float timestep);
-		void UpdateScripts(float dt);
+		void Update(float dt);
 
 		json SerializeScene();
 		void DeserializeScene(const json& j, AssetManager* assetManager);
@@ -134,6 +134,12 @@ namespace Hydrogen
 		T& GetComponent()
 		{
 			return m_Scene->m_Registry.get<T>(m_Entity);
+		}
+
+		template <typename T>
+		T* TryGetComponent()
+		{
+			return m_Scene->m_Registry.try_get<T>(m_Entity);
 		}
 
 		template <typename T>

@@ -6,6 +6,7 @@
 #include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
 #include <ImGuizmo.h>
+#include <reactphysics3d/reactphysics3d.h>
 
 #ifdef HY_DEBUG
 //#define TRACY_ENABLE
@@ -63,14 +64,15 @@ void Application::Run()
 	Renderer MainRenderer(_RenderContext);
 	Renderer ImGuiRenderer(_RenderContext);
 
+	MainRenderer.CreateDebugPipelines(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("DebugLineVertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("DebugLineFragmentShader.glsl"));
+	MainPipeline = MainRenderer.CreatePipeline(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
+
 	if (ApplicationSpec.UseDebugGUI)
 	{
 		renderPassTexture = RenderPass::Create(_RenderContext, ViewportTexture);
 		debugGUI = DebugGUI::Create(_RenderContext, _RenderPass);
 		ViewportFramebuffer = Framebuffer::Create(_RenderContext, renderPassTexture, ViewportTexture);
 	}
-
-	MainPipeline = MainRenderer.CreatePipeline(_RenderPass, MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"), MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 
 	OnStartup();
 
@@ -93,7 +95,8 @@ void Application::Run()
 		if (!FreeCam.Active)
 		{
 			float frameTime = deltaTime;
-			if (frameTime > 0.25f) frameTime = 0.25f;
+
+			if (frameTime > 0.03f) frameTime = 0.03f;
 			accumulator += frameTime;
 
 			while (accumulator >= timeStep)
@@ -101,8 +104,7 @@ void Application::Run()
 				CurrentScene->GetScene()->UpdatePhysics(timeStep);
 				accumulator -= timeStep;
 			}
-
-			CurrentScene->GetScene()->UpdateScripts(deltaTime);
+			CurrentScene->GetScene()->Update(deltaTime);
 		}
 
 		if (MainViewport->GetWidth() == 0 || MainViewport->GetHeight() == 0)
@@ -142,6 +144,47 @@ void Application::Run()
 
 			OnImGuiRender();
 			debugGUI->EndFrame();
+		}
+
+		const auto& lines = CurrentScene->GetScene()->GetPhysicsWorld().GetDebugLines();
+
+		std::vector<Renderer::DebugVertex> debugLines;
+		debugLines.reserve(lines.size() * 2);
+
+		for (const auto& line : lines)
+		{
+			Renderer::DebugVertex v0, v1;
+
+			v0.position = { line.point1.x, line.point1.y, line.point1.z };
+			v1.position = { line.point2.x, line.point2.y, line.point2.z };
+
+			v0.color = UnpackRP3DColor(line.color1);
+			v1.color = UnpackRP3DColor(line.color2);
+
+			debugLines.push_back(v0);
+			debugLines.push_back(v1);
+		}
+
+		const auto& triangles = CurrentScene->GetScene()->GetPhysicsWorld().GetDebugTriangles();
+
+		std::vector<Renderer::DebugVertex> debugTriangles;
+		debugTriangles.reserve(triangles.size() * 3);
+
+		for (const auto& triangles : triangles)
+		{
+			Renderer::DebugVertex v0, v1, v2;
+
+			v0.position = { triangles.point1.x, triangles.point1.y, triangles.point1.z };
+			v1.position = { triangles.point2.x, triangles.point2.y, triangles.point2.z };
+			v2.position = { triangles.point3.x, triangles.point3.y, triangles.point3.z };
+
+			v0.color = UnpackRP3DColor(triangles.color1);
+			v1.color = UnpackRP3DColor(triangles.color2);
+			v2.color = UnpackRP3DColor(triangles.color3);
+
+			debugTriangles.push_back(v0);
+			debugTriangles.push_back(v1);
+			debugTriangles.push_back(v2);
 		}
 
 		Entity cameraEntity;
@@ -199,6 +242,8 @@ void Application::Run()
 					}
 				});
 
+			MainRenderer.DrawDebugLines(debugLines);
+			MainRenderer.DrawDebugTriangles(debugTriangles);
 			MainRenderer.EndFrame();
 		}
 

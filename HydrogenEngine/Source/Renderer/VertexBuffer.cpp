@@ -46,3 +46,8 @@ std::shared_ptr<VertexBuffer> VertexBuffer::Create(const std::shared_ptr<RenderC
 {
 	return std::make_shared<VulkanVertexBuffer>(renderContext, layout, vertexData, numVertices);
 }
+
+std::shared_ptr<DynamicVertexBuffer> DynamicVertexBuffer::Create(const std::shared_ptr<RenderContext>& renderContext, VertexLayout layout, size_t numVertices)
+{
+	return std::make_shared<VulkanDynamicVertexBuffer>(renderContext, layout, numVertices);
+}

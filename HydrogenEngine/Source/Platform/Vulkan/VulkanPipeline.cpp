@@ -5,7 +5,7 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
@@ -142,8 +142,20 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+	switch (primitive)
+	{
+	case Primitive::LINES:
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		break;
+	case Primitive::TRIANGLES:
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		break;
+	default:
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		break;
+	}
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;

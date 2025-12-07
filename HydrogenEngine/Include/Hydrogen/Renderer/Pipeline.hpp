@@ -18,6 +18,12 @@ namespace Hydrogen
 		//InputAttachment,
 	};
 
+	enum class Primitive
+	{
+		LINES,
+		TRIANGLES
+	};
+
 	enum class ShaderStage : uint32_t
 	{
 		Vertex = 0x1,
@@ -66,6 +72,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(pipeline);
 		}
 
-		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges);
+		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive);
 	};
 }

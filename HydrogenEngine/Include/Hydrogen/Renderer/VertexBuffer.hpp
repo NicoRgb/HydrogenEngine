@@ -42,4 +42,23 @@ namespace Hydrogen
 
 		static std::shared_ptr<VertexBuffer> Create(const std::shared_ptr<RenderContext>& renderContext, VertexLayout layout, void* vertexData, size_t numVertices);
 	};
+
+	class DynamicVertexBuffer
+	{
+	public:
+		virtual ~DynamicVertexBuffer() = default;
+
+		virtual void Resize(size_t numVertices) = 0;
+		virtual void Upload(void* data, size_t numVertices) = 0;
+
+		template<typename T>
+		static std::shared_ptr<T> Get(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer)
+		{
+			static_assert(std::is_base_of_v<DynamicVertexBuffer, T>);
+
+			return std::dynamic_pointer_cast<T>(vertexBuffer);
+		}
+
+		static std::shared_ptr<DynamicVertexBuffer> Create(const std::shared_ptr<RenderContext>& renderContext, VertexLayout layout, size_t numVertices);
+	};
 }

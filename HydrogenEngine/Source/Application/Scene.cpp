@@ -153,11 +153,12 @@ void Scene::CreateScripts()
 
 void Scene::UpdatePhysics(float timestep)
 {
-	m_PhysicsWorld.Update(timestep);
+	m_PhysicsWorld.UpdatePhysics(timestep);
 }
 
-void Scene::UpdateScripts(float dt)
+void Scene::Update(float dt)
 {
+	m_PhysicsWorld.Update();
 	m_ScriptSystem.OnUpdate(dt);
 }
 
@@ -193,6 +194,10 @@ json Scene::SerializeScene()
 		if (m_Registry.all_of<ScriptComponent>(entity))
 		{
 			ScriptComponent::ToJson(entityJson["ScriptComponent"], m_Registry.get<ScriptComponent>(entity));
+		}
+		if (m_Registry.all_of<ColliderComponent>(entity))
+		{
+			ColliderComponent::ToJson(entityJson["ColliderComponent"], m_Registry.get<ColliderComponent>(entity));
 		}
 
 		j[std::to_string(m_Registry.get<UUIDComponent>(entity).UUID)] = entityJson;
@@ -242,6 +247,11 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 		{
 			ScriptComponent& component = m_Registry.emplace<ScriptComponent>(entity, e);
 			ScriptComponent::FromJson(value["ScriptComponent"], component, assetManager);
+		}
+		if (value.contains("ColliderComponent"))
+		{
+			ColliderComponent& component = m_Registry.emplace<ColliderComponent>(entity, e);
+			ColliderComponent::FromJson(value["ColliderComponent"], component, assetManager);
 		}
 	}
 }

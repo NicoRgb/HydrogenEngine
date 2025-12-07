@@ -21,6 +21,7 @@ namespace Hydrogen
 
 		virtual void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) = 0;
 		virtual void BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer) = 0;
+		virtual void BindDynamicVertexBuffer(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer) = 0;
 		virtual void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
 		virtual void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
@@ -28,7 +29,7 @@ namespace Hydrogen
 
 		virtual void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data) = 0;
 
-		virtual void Draw() = 0;
+		virtual void Draw(size_t numVertices) = 0;
 		virtual void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
 		template<typename T>

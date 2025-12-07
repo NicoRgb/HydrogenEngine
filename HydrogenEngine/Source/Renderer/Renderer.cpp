@@ -15,6 +15,8 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext)
 	m_RenderContext = renderContext;
 	m_RenderAPI = RenderAPI::Create(m_RenderContext);
 	m_CommandQueue = CommandQueue::Create(renderContext);
+	m_DebugLinesVertexBuffer = DynamicVertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float4} }, 20);
+	m_DebugTrianglesVertexBuffer = DynamicVertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float4} }, 20);
 
 	m_DefaultTexture = Texture::Create(renderContext, TextureFormat::FormatR8G8B8A8, 1, 1);
 	uint32_t data = 0xFFFFFFFF;
@@ -34,7 +36,16 @@ std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderP
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
 		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1},
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
-		{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } });
+		{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES);
+}
+
+void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
+{
+	m_DebugLinesShader = Pipeline::Create(m_RenderContext, renderPass, vertexShader, fragmentShader,
+		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::LINES);
+
+	m_DebugTrianglesShader = Pipeline::Create(m_RenderContext, renderPass, vertexShader, fragmentShader,
+		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::TRIANGLES);
 }
 
 void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent)
@@ -45,6 +56,8 @@ void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const
 
 	m_FrameInfo._UniformBuffer.View = cameraComponent.View;
 	m_FrameInfo._UniformBuffer.Proj = cameraComponent.Proj;
+
+	m_FrameInfo.NumDebugLineVertices = 0;
 
 	m_CurrentFramebuffer = framebuffer;
 
@@ -91,6 +104,20 @@ void Renderer::EndFrame()
 		m_CommandQueue->DrawIndexed(object.IndexBuf);
 	}
 
+	if (m_FrameInfo.NumDebugLineVertices > 0)
+	{
+		m_CommandQueue->BindPipeline(m_DebugLinesShader);
+		m_CommandQueue->BindDynamicVertexBuffer(m_DebugLinesVertexBuffer);
+		m_CommandQueue->Draw(m_FrameInfo.NumDebugLineVertices);
+	}
+
+	if (m_FrameInfo.NumDebugTriangleVertices > 0)
+	{
+		m_CommandQueue->BindPipeline(m_DebugTrianglesShader);
+		m_CommandQueue->BindDynamicVertexBuffer(m_DebugTrianglesVertexBuffer);
+		m_CommandQueue->Draw(m_FrameInfo.NumDebugTriangleVertices);
+	}
+
 	m_CommandQueue->EndRenderPass();
 	m_CommandQueue->EndRecording();
 	m_RenderAPI->SubmitFrame(m_CommandQueue);
@@ -135,4 +162,20 @@ void Renderer::Draw(const MeshRendererComponent& meshRenderer, const std::shared
 void Renderer::DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI)
 {
 	debugGUI->Render(m_CommandQueue);
+}
+
+void Renderer::DrawDebugLines(const std::vector<DebugVertex>& vertices)
+{
+	m_FrameInfo.NumDebugLineVertices = vertices.size();
+	m_DebugLinesVertexBuffer->Upload((void*)vertices.data(), vertices.size());
+
+	m_DebugLinesShader->UploadUniformBufferData(0, &m_FrameInfo._UniformBuffer, sizeof(UniformBuffer));
+}
+
+void Renderer::DrawDebugTriangles(const std::vector<DebugVertex>& vertices)
+{
+	m_FrameInfo.NumDebugTriangleVertices = vertices.size();
+	m_DebugTrianglesVertexBuffer->Upload((void*)vertices.data(), vertices.size());
+
+	m_DebugTrianglesShader->UploadUniformBufferData(0, &m_FrameInfo._UniformBuffer, sizeof(UniformBuffer));
 }

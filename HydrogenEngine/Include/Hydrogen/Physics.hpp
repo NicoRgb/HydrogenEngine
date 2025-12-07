@@ -18,13 +18,17 @@ namespace Hydrogen
 
 		reactphysics3d::RigidBody* CreateRigidbody(const struct TransformComponent& transform) const;
 
-		void Update(float timestep);
+		void UpdatePhysics(float timestep);
+		void Update();
+
+		const reactphysics3d::Array<reactphysics3d::DebugRenderer::DebugLine>& GetDebugLines() const { return m_PhysicsWorld->getDebugRenderer().getLines(); }
+		const reactphysics3d::Array<reactphysics3d::DebugRenderer::DebugTriangle>& GetDebugTriangles() const { return m_PhysicsWorld->getDebugRenderer().getTriangles(); }
+
+		static reactphysics3d::PhysicsCommon PhysicsCommon;
 
 	private:
 		class Scene* m_Scene;
 		reactphysics3d::PhysicsWorld* m_PhysicsWorld;
-
-		static reactphysics3d::PhysicsCommon s_PhysicsCommon;
 	};
 
 	struct RigidbodyComponent
@@ -32,6 +36,16 @@ namespace Hydrogen
 		RigidbodyComponent(class Entity entity);
 
 		reactphysics3d::RigidBody* Rigidbody;
+
+		void ApplyForce(glm::vec3 force)
+		{
+			Rigidbody->applyLocalForceAtCenterOfMass({force.x, force.y, force.z});
+		}
+
+		void ApplyTorque(glm::vec3 torque)
+		{
+			Rigidbody->applyLocalTorque({ torque.x, torque.y, torque.z });
+		}
 
 		static void OnImGuiRender(RigidbodyComponent& r)
 		{
@@ -152,5 +166,29 @@ namespace Hydrogen
 			rb.Rigidbody->setAngularDamping(j.at("angularDampening"));
 			rb.Rigidbody->enableGravity(j.at("gravity"));
 		}
+	};
+
+	struct ColliderComponent
+	{
+		enum class Type
+		{
+			Box,
+			Sphere
+		};
+
+		void CreateCollider(ColliderComponent& col);
+
+		ColliderComponent(class Entity entity);
+
+		RigidbodyComponent* Rigidbody;
+		reactphysics3d::Collider* Collider = nullptr;
+		Type ColliderType = Type::Box;
+
+		glm::vec3 Size = glm::vec3(1.0f);
+		float Radius = 1.0f;
+
+		static void OnImGuiRender(ColliderComponent& col);
+		static void ToJson(json& j, const ColliderComponent& col);
+		static void FromJson(const json& j, ColliderComponent& col, AssetManager* assetManager);
 	};
 }

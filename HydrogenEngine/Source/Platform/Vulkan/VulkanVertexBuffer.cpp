@@ -4,7 +4,7 @@
 using namespace Hydrogen;
 
 VulkanBuffer::VulkanBuffer(const std::shared_ptr<VulkanRenderContext>& renderContext, VkDeviceSize size, VkBufferUsageFlags usageFlags, VkMemoryPropertyFlags propertyFlags)
-	: m_RenderContext(renderContext), m_PropertyFlags(propertyFlags), m_Size(size)
+	: m_RenderContext(renderContext), m_PropertyFlags(propertyFlags), m_UsageFlags(usageFlags), m_Size(size)
 {
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -45,6 +45,26 @@ void VulkanBuffer::UploadBufferData(void* data, size_t size)
 	HY_ASSERT(vkMapMemory(m_RenderContext->GetDevice(), m_BufferMemory, 0, (VkDeviceSize)size, 0, &mem) == VK_SUCCESS, "Failed to map memory");
 	memcpy(mem, data, size);
 	vkUnmapMemory(m_RenderContext->GetDevice(), m_BufferMemory);
+}
+
+void VulkanBuffer::CreateBuffer(VkDeviceSize size)
+{
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = size;
+	bufferInfo.usage = m_UsageFlags;
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	HY_ASSERT(vkCreateBuffer(m_RenderContext->GetDevice(), &bufferInfo, nullptr, &m_Buffer) == VK_SUCCESS, "Failed to create vulkan buffer");
+}
+
+void VulkanBuffer::DestroyBuffer()
+{
+	vkDestroyBuffer(m_RenderContext->GetDevice(), m_Buffer, nullptr);
+	if (m_BufferMemory != nullptr)
+	{
+		vkFreeMemory(m_RenderContext->GetDevice(), m_BufferMemory, nullptr);
+	}
 }
 
 uint32_t VulkanBuffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -112,4 +132,83 @@ VulkanVertexBuffer::VulkanVertexBuffer(const std::shared_ptr<RenderContext>& ren
 
 VulkanVertexBuffer::~VulkanVertexBuffer()
 {
+}
+
+VulkanDynamicVertexBuffer::VulkanDynamicVertexBuffer(
+	const std::shared_ptr<RenderContext>& renderContext,
+	VertexLayout layout,
+	size_t numVertices)
+	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext)),
+	VulkanBuffer(RenderContext::Get<VulkanRenderContext>(renderContext),
+		VertexBuffer::GetVertexSize(layout)* numVertices,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT),
+	m_Layout(layout)
+{
+	AllocateMemory();
+
+	vkMapMemory(
+		m_RenderContext->GetDevice(),
+		m_BufferMemory,
+		0,
+		m_Size,
+		0,
+		&m_MappedPtr
+	);
+}
+
+VulkanDynamicVertexBuffer::~VulkanDynamicVertexBuffer()
+{
+	if (m_MappedPtr)
+	{
+		vkUnmapMemory(m_RenderContext->GetDevice(), m_BufferMemory);
+		m_MappedPtr = nullptr;
+	}
+}
+
+void VulkanDynamicVertexBuffer::Upload(void* data, size_t numVertices)
+{
+	if (!data) return;
+
+	size_t size = numVertices * VertexBuffer::GetVertexSize(m_Layout);
+
+	if (size == 0)
+	{
+		size = m_Size;
+	}
+	else if (size > m_Size)
+	{
+		Resize(numVertices);
+	}
+
+	memcpy(m_MappedPtr, data, size);
+}
+
+void VulkanDynamicVertexBuffer::Resize(size_t newNumVertices)
+{
+	size_t newSize = VertexBuffer::GetVertexSize(m_Layout) * newNumVertices;
+
+	if (newSize == m_Size)
+	{
+		return;
+	}
+
+	vkUnmapMemory(m_RenderContext->GetDevice(), m_BufferMemory);
+
+	DestroyBuffer();
+	m_Size = newSize;
+	CreateBuffer(newSize);
+
+	AllocateMemory();
+
+	vkMapMemory(
+		m_RenderContext->GetDevice(),
+		m_BufferMemory,
+		0,
+		newSize,
+		0,
+		&m_MappedPtr
+	);
 }

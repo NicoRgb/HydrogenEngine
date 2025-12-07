@@ -20,6 +20,7 @@ namespace Hydrogen
 
 		void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) override;
 		void BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer) override;
+		void BindDynamicVertexBuffer(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer) override;
 		void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) override;
 
 		void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) override;
@@ -27,7 +28,7 @@ namespace Hydrogen
 
 		void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data) override;
 
-		void Draw() override;
+		void Draw(size_t numVertices) override;
 		void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) override;
 
 		const std::vector<VkCommandBuffer>& GetCommandBuffers() const { return m_CommandBuffers; }

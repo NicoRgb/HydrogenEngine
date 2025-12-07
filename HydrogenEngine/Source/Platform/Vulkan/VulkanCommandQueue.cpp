@@ -96,6 +96,13 @@ void VulkanCommandQueue::BindVertexBuffer(const std::shared_ptr<VertexBuffer>& v
 	vkCmdBindVertexBuffers(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, vertexBuffers, offsets);
 }
 
+void VulkanCommandQueue::BindDynamicVertexBuffer(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer)
+{
+	VkBuffer vertexBuffers[] = { DynamicVertexBuffer::Get<VulkanDynamicVertexBuffer>(vertexBuffer)->GetBuffer() };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 0, 1, vertexBuffers, offsets);
+}
+
 void VulkanCommandQueue::BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer)
 {
 	auto buffer = IndexBuffer::Get<VulkanIndexBuffer>(indexBuffer)->GetBuffer();
@@ -147,9 +154,9 @@ void VulkanCommandQueue::UploadPushConstants(const std::shared_ptr<Pipeline>& pi
 	vkCmdPushConstants(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], vulkanPipeline->GetPipelineLayout(), range.stageFlags, range.offset, range.size, data);
 }
 
-void VulkanCommandQueue::Draw()
+void VulkanCommandQueue::Draw(size_t numVertices)
 {
-	vkCmdDraw(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], 3, 1, 0, 0);
+	vkCmdDraw(m_CommandBuffers[m_RenderContext->GetCurrentFrame()], numVertices, 1, 0, 0);
 }
 
 void VulkanCommandQueue::DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer)

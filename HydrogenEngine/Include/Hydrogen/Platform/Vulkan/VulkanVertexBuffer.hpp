@@ -51,6 +51,9 @@ namespace Hydrogen
 		void AllocateMemory();
 		void UploadBufferData(void* data, size_t size);
 
+		void CreateBuffer(VkDeviceSize size);
+		void DestroyBuffer();
+
 	protected:
 
 		VkBuffer m_Buffer;
@@ -60,6 +63,7 @@ namespace Hydrogen
 	private:
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		VkMemoryPropertyFlags m_PropertyFlags;
+		VkBufferUsageFlags m_UsageFlags;
 
 		std::shared_ptr<VulkanRenderContext> m_RenderContext;
 
@@ -75,5 +79,20 @@ namespace Hydrogen
 
 	private:
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;
+	};
+
+	class VulkanDynamicVertexBuffer : public DynamicVertexBuffer, public VulkanBuffer
+	{
+	public:
+		VulkanDynamicVertexBuffer(const std::shared_ptr<RenderContext>& renderContext, VertexLayout layout, size_t numVertices);
+		~VulkanDynamicVertexBuffer();
+
+		void Resize(size_t numVertices) override;
+		void Upload(void* data, size_t numVertices) override;
+
+	private:
+		const std::shared_ptr<VulkanRenderContext> m_RenderContext;
+		VertexLayout m_Layout;
+		void* m_MappedPtr;
 	};
 }
