@@ -11,13 +11,16 @@ PhysicsWorld::PhysicsWorld(Scene* scene, glm::vec3 gravity)
 	: m_Scene(scene), m_PhysicsWorld(PhysicsCommon.createPhysicsWorld())
 {
 	m_PhysicsWorld->setGravity({ gravity.x, gravity.y, gravity.z });
-	m_PhysicsWorld->setIsDebugRenderingEnabled(true);
 
-	reactphysics3d::DebugRenderer& debug = m_PhysicsWorld->getDebugRenderer();
-	debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::COLLISION_SHAPE, true);
-	debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::COLLIDER_AABB, true);
-	debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::CONTACT_POINT, true);
-	debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::CONTACT_NORMAL, true);
+	if (Application::Get()->ApplicationSpec.UseDebugGUI)
+	{
+		m_PhysicsWorld->setIsDebugRenderingEnabled(true);
+		reactphysics3d::DebugRenderer& debug = m_PhysicsWorld->getDebugRenderer();
+		debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::COLLISION_SHAPE, true);
+		debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::COLLIDER_AABB, true);
+		debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::CONTACT_POINT, true);
+		debug.setIsDebugItemDisplayed(reactphysics3d::DebugRenderer::DebugItem::CONTACT_NORMAL, true);
+	}
 }
 
 PhysicsWorld::~PhysicsWorld()
