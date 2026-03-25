@@ -13,9 +13,6 @@ static void DrawComponent(Hydrogen::Entity entity)
     T::OnImGuiRender(component);
 }
 
-using ComponentTypes = std::tuple<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>;
-using AddComponentTypes = std::tuple<Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>;
-
 template<typename T>
 const char* GetComponentName()
 {
@@ -28,13 +25,13 @@ const char* GetComponentName()
 }
 
 template<typename... Ts>
-static void DrawAllComponents(Hydrogen::Entity entity, std::tuple<Ts...>)
+static void DrawAllComponents(Hydrogen::Entity entity)
 {
     (DrawComponent<Ts>(entity), ...);
 }
 
 template<typename... Ts>
-void DrawAddComponentMenu(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity entity, std::tuple<Ts...>)
+void DrawAddComponentMenu(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity entity)
 {
     if (ImGui::Button("Add Component"))
     {
@@ -79,9 +76,11 @@ void InspectorPanel::OnImGuiRender()
         }
 
         ImGui::Separator();
-        DrawAllComponents(m_SelectedEntity, ComponentTypes{ m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity });
+        DrawAllComponents<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
+            (m_SelectedEntity);
         ImGui::Separator();
-        DrawAddComponentMenu(m_Scene, m_SelectedEntity, AddComponentTypes{ m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity, m_SelectedEntity });
+        DrawAddComponentMenu<Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
+            (m_Scene, m_SelectedEntity);
     }
     else
     {

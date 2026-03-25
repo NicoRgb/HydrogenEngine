@@ -253,7 +253,7 @@ namespace Hydrogen
 			{
 				LoadAssets(m_Directory, m_RenderContext);
 				res = std::dynamic_pointer_cast<T>(m_Assets[name]);
-				HY_ASSERT(res, "Failed to load asset");
+				HY_ASSERT(res, "Failed to load asset '{}'", name);
 			}
 
 			return res;

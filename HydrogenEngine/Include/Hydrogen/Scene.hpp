@@ -355,6 +355,7 @@ namespace Hydrogen
 		MeshRendererComponent(Entity entity)
 		{
 			(void)entity;
+			HY_ENGINE_WARN("constructor");
 		}
 
 		std::shared_ptr<TextureAsset> Texture;
