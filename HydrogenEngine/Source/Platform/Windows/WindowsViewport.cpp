@@ -8,6 +8,7 @@
 #include "backends/imgui_impl_win32.h"
 
 #include "windowsx.h"
+#include <shobjidl.h>
 
 using namespace Hydrogen;
 
@@ -179,6 +180,38 @@ void Viewport::ViewportShowCursor()
 void Viewport::ViewportHideCursor()
 {
 	ShowCursor(FALSE);
+}
+
+std::string Hydrogen::Viewport::OpenFolderDialog()
+{
+	IFileDialog* pfd = nullptr;
+	std::string result;
+
+	if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pfd))))
+	{
+		DWORD options;
+		pfd->GetOptions(&options);
+		pfd->SetOptions(options | FOS_PICKFOLDERS);
+
+		if (SUCCEEDED(pfd->Show(nullptr)))
+		{
+			IShellItem* psi;
+			if (SUCCEEDED(pfd->GetResult(&psi)))
+			{
+				PWSTR path = nullptr;
+				if (SUCCEEDED(psi->GetDisplayName(SIGDN_FILESYSPATH, &path)))
+				{
+					std::wstring ws(path);
+					result = std::string(ws.begin(), ws.end());
+					CoTaskMemFree(path);
+				}
+				psi->Release();
+			}
+		}
+		pfd->Release();
+	}
+
+	return result;
 }
 
 inline KeyCode WinKeyToKeyCode(WPARAM vk)

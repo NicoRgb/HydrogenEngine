@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenEditor", "HydrogenE
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenEngine", "HydrogenEngine\HydrogenEngine.vcxproj", "{5B1DD54D-47EB-C853-307F-397A1CECA4B8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenLauncher", "HydrogenLauncher\HydrogenLauncher.vcxproj", "{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HydrogenTools", "HydrogenTools\HydrogenTools.vcxproj", "{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}"
 EndProject
 Global
@@ -34,6 +36,12 @@ Global
 		{5B1DD54D-47EB-C853-307F-397A1CECA4B8}.Dist|Win64.Build.0 = Dist Win64|x64
 		{5B1DD54D-47EB-C853-307F-397A1CECA4B8}.Release|Win64.ActiveCfg = Release Win64|x64
 		{5B1DD54D-47EB-C853-307F-397A1CECA4B8}.Release|Win64.Build.0 = Release Win64|x64
+		{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}.Debug|Win64.ActiveCfg = Debug Win64|x64
+		{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}.Debug|Win64.Build.0 = Debug Win64|x64
+		{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}.Dist|Win64.ActiveCfg = Dist Win64|x64
+		{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}.Dist|Win64.Build.0 = Dist Win64|x64
+		{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}.Release|Win64.ActiveCfg = Release Win64|x64
+		{D761A6C5-C35A-C517-EC8C-AA9CD8E4A423}.Release|Win64.Build.0 = Release Win64|x64
 		{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}.Debug|Win64.ActiveCfg = Debug Win64|x64
 		{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}.Debug|Win64.Build.0 = Debug Win64|x64
 		{96749ABD-0235-16F4-CB6F-5F7137EF5AD0}.Dist|Win64.ActiveCfg = Dist Win64|x64

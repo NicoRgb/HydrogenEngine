@@ -35,6 +35,8 @@ namespace Hydrogen
 		static void ViewportShowCursor();
 		static void ViewportHideCursor();
 
+		static std::string OpenFolderDialog();
+
 	protected:
 		Event<int, int> m_ResizeEvent;
 	};

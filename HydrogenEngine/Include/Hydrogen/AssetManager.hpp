@@ -243,6 +243,8 @@ namespace Hydrogen
 	public:
 		void LoadAssets(const std::string& directory, const std::shared_ptr<RenderContext>& renderContext);
 
+		std::string& GetAssetDirectory() { return m_Directory; }
+
 		template<typename T>
 		std::shared_ptr<T> GetAsset(std::string name)
 		{
