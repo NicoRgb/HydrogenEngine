@@ -398,6 +398,8 @@ void VulkanPipeline::UploadTextureSampler(uint32_t binding, uint32_t index, cons
 	imageInfo.imageView = Texture::Get<VulkanTexture>(texture)->GetImageView();
 	imageInfo.sampler = Texture::Get<VulkanTexture>(texture)->GetSampler();
 
+	vkDeviceWaitIdle(m_RenderContext->GetDevice()); // TODO: Remove this and properly synchronize texture uploads with rendering
+
 	for (size_t i = 0; i < m_RenderContext->GetMaxFramesInFlight(); i++)
 	{
 		VkWriteDescriptorSet descriptorWrite{};

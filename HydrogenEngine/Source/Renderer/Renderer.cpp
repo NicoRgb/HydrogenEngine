@@ -1,5 +1,7 @@
 #include "Hydrogen/Renderer/Renderer.hpp"
 
+#include <tracy/Tracy.hpp>
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
@@ -50,6 +52,8 @@ void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderPass>& renderPas
 
 void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent)
 {
+	ZoneScopedN("Renderer::BeginFrame");
+
 	m_FrameInfo.Pipelines.clear();
 	m_FrameInfo.Textures.clear();
 	m_FrameInfo.Objects.clear();
@@ -58,12 +62,19 @@ void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const
 	m_FrameInfo._UniformBuffer.Proj = cameraComponent.Proj;
 
 	m_FrameInfo.NumDebugLineVertices = 0;
+	m_FrameInfo.NumDebugTriangleVertices = 0;
 
 	m_CurrentFramebuffer = framebuffer;
 
-	m_RenderAPI->BeginFrame(framebuffer);
-	m_CommandQueue->StartRecording(m_RenderAPI);
-	m_CommandQueue->BeginRenderPass(renderPass, m_CurrentFramebuffer);
+	{
+		ZoneScopedN("RenderAPI::BeginFrame");
+		m_RenderAPI->BeginFrame(framebuffer);
+	}
+	{
+		ZoneScopedN("Prepare Command Queue And Render Pass");
+		m_CommandQueue->StartRecording(m_RenderAPI);
+		m_CommandQueue->BeginRenderPass(renderPass, m_CurrentFramebuffer);
+	}
 
 	m_CommandQueue->SetViewport(m_CurrentFramebuffer);
 	m_CommandQueue->SetScissor(m_CurrentFramebuffer);

@@ -27,15 +27,20 @@ namespace Hydrogen
 			return s_Instance;
 		}
 
+		void Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera);
+
 		void OnResize(int width, int height);
 		void Run();
+		void PhysicsUpdate(float deltaTime);
+		void RenderImGui(std::shared_ptr<Hydrogen::DebugGUI>& debugGUI);
+		void SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
 		void ReloadShader();
 
 		virtual void OnSetup() = 0;
 
 		virtual void OnStartup() = 0;
 		virtual void OnShutdown() = 0;
-		virtual void OnUpdate() = 0;
+		virtual void OnUpdate(float deltaTime) = 0;
 		virtual void OnImGuiRender() = 0;
 		virtual void OnImGuiMenuBarRender() = 0;
 
@@ -55,16 +60,12 @@ namespace Hydrogen
 		AssetManager MainAssetManager;
 		std::shared_ptr<Viewport> MainViewport;
 		std::shared_ptr<SceneAsset> CurrentScene;
-
 		std::shared_ptr<RenderContext> _RenderContext;
-		std::shared_ptr<RenderPass> _RenderPass;
-		std::shared_ptr<Pipeline> MainPipeline;
-		std::shared_ptr<Texture> ViewportTexture;
-		std::shared_ptr<Framebuffer> ViewportFramebuffer;
-
-		FreeCamera FreeCam;
 
 	private:
+		const float timeStep = 1.0f / 60.0f;
+		float accumulator = 0.0f;
+
 		static Application* s_Instance;
 	};
 }

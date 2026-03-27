@@ -80,6 +80,8 @@ namespace Hydrogen
 		void UpdatePhysics(float timestep);
 		void Update(float dt);
 
+		void RenderPhysicsDebug() { m_PhysicsWorld.RenderDebugPrimitives(); }
+
 		json SerializeScene();
 		void DeserializeScene(const json& j, AssetManager* assetManager);
 
@@ -355,7 +357,6 @@ namespace Hydrogen
 		MeshRendererComponent(Entity entity)
 		{
 			(void)entity;
-			HY_ENGINE_WARN("constructor");
 		}
 
 		std::shared_ptr<TextureAsset> Texture;

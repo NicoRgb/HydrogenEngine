@@ -6,18 +6,264 @@
 #include "SceneHierarchyPanel.hpp"
 #include "ImGuizmo.h"
 
-static AssetEditorPanel _EditorPanel;
-static AssetBrowserPanel _BrowserPanel("assets", _EditorPanel);
-static SceneHierarchyPanel _SceneHierarchy;
-static InspectorPanel _Inspector;
+using namespace Hydrogen;
+
+static AssetEditorPanel      _EditorPanel;
+static AssetBrowserPanel     _BrowserPanel("assets", _EditorPanel);
+static SceneHierarchyPanel   _SceneHierarchy;
+static InspectorPanel        _Inspector;
+
+static ImVec2 SceneViewportSize, SceneViewportPos;
 static ImVec2 ViewportSize, ViewportPos;
-ImGuizmo::OPERATION GuizmoTool = ImGuizmo::TRANSLATE;
+static ImGuizmo::OPERATION GuizmoTool = ImGuizmo::TRANSLATE;
 
-std::shared_ptr<Hydrogen::Scene> SavedScene;
+std::shared_ptr<Scene> SavedScene;
 
-class EditorApp : public Hydrogen::Application
+class EditorApp : public Application
 {
+private:
+
+	float m_FPS = 0.0f;
+	bool  m_IsSimulating = false;
+
+	std::shared_ptr<Texture>     SceneViewportTexture;
+	std::shared_ptr<Framebuffer> SceneViewportFramebuffer;
+	std::shared_ptr<RenderPass>  SceneViewportRenderPass;
+
+	std::shared_ptr<Texture>     ViewportTexture;
+	std::shared_ptr<Framebuffer> ViewportFramebuffer;
+	std::shared_ptr<RenderPass>  ViewportRenderPass;
+
+	std::shared_ptr<RenderPass>  ImGuiRenderPass;
+	std::shared_ptr<Framebuffer> ImGuiFramebuffer;
+	std::shared_ptr<DebugGUI>    DebugGUI;
+
+	std::shared_ptr<Pipeline> DefaultPipeline;
+
+	std::shared_ptr<Renderer> MainRenderer;
+	std::shared_ptr<Renderer> ImGuiRenderer;
+
+	FreeCamera FreeCam;
+
+private:
+
+	// ============================================================
+	// Simulation Control
+	// ============================================================
+
+	void StartSimulation()
+	{
+		SavedScene = std::make_shared<Scene>();
+		SavedScene->DeserializeScene(
+			CurrentScene->GetScene()->SerializeScene(),
+			&MainAssetManager
+		);
+
+		CurrentScene->GetScene()->CreateScripts();
+
+		m_IsSimulating = true;
+	}
+
+	void StopSimulation()
+	{
+		CurrentScene->ClearScene();
+		CurrentScene->GetScene()->DeserializeScene(
+			SavedScene->SerializeScene(),
+			&MainAssetManager
+		);
+
+		m_IsSimulating = false;
+	}
+
+	void ToggleSimulation()
+	{
+		if (m_IsSimulating)
+			StopSimulation();
+		else
+			StartSimulation();
+
+		_SceneHierarchy.SetContext(CurrentScene->GetScene());
+	}
+
+	template<typename TCamera>
+	void UpdateCameraViewportSize(TCamera& camera, const glm::ivec2& size)
+	{
+		if (camera.ViewportWidth != size.x ||
+			camera.ViewportHeight != size.y)
+		{
+			camera.ViewportWidth = size.x;
+			camera.ViewportHeight = size.y;
+			camera.CalculateProj();
+		}
+	}
+
+	bool UpdateCamera(float deltaTime, CameraComponent& outCamera)
+	{
+		auto scene = CurrentScene->GetScene();
+		Entity activeCameraEntity;
+
+		scene->IterateComponents<CameraComponent>(
+			[&](Entity entity, CameraComponent& camera)
+			{
+				if (camera.Active)
+					activeCameraEntity = entity;
+			});
+
+		glm::ivec2 size = {
+				(int)ViewportTexture->GetWidth(),
+				(int)ViewportTexture->GetHeight()
+		};
+
+		if (activeCameraEntity.IsValid())
+		{
+			auto& camera = activeCameraEntity.GetComponent<CameraComponent>();
+			camera.CalculateView(activeCameraEntity);
+			UpdateCameraViewportSize(camera, size);
+			outCamera = camera;
+			return true;
+		}
+
+		return false;
+	}
+
+	// ============================================================
+	// Log Rendering
+	// ============================================================
+
+	ImVec4 GetLogColor(spdlog::level::level_enum level)
+	{
+		switch (level)
+		{
+		case spdlog::level::debug:    return { 0.6f, 0.6f, 1, 1 };
+		case spdlog::level::warn:     return { 1, 1, 0.1f, 1 };
+		case spdlog::level::err:      return { 1, 0.3f, 0.3f, 1 };
+		case spdlog::level::critical: return { 1, 0, 0, 1 };
+		default:                     return { 1, 1, 1, 1 };
+		}
+	}
+
+	void DrawLogMessages()
+	{
+		ImGui::Begin("Log");
+		ImGui::BeginChild("LogScrollRegion");
+
+		auto drawSink = [&](auto logger)
+			{
+				for (auto& m : logger->GetLogSink()->GetMessages())
+				{
+					ImVec4 color = GetLogColor(m.level);
+					ImGui::PushStyleColor(ImGuiCol_Text, color);
+					ImGui::TextUnformatted(m.message.c_str());
+					ImGui::PopStyleColor();
+				}
+			};
+
+		drawSink(EngineLogger::GetLogger());
+		drawSink(AppLogger::GetLogger());
+
+		ImGui::EndChild();
+		ImGui::End();
+	}
+
+	// ============================================================
+	// Viewport + Gizmo
+	// ============================================================
+
+	void DrawGizmo()
+	{
+		auto selectedEntity = _SceneHierarchy.GetSelectedEntity();
+		if (!selectedEntity.IsValid())
+			return;
+
+		ImGuizmo::SetDrawlist();
+
+		auto& tc = selectedEntity.GetComponent<TransformComponent>();
+		glm::mat4 transform = tc.Transform;
+
+		glm::mat4 view = FreeCam.View;
+		glm::mat4 proj = FreeCam.Proj;
+		proj[1][1] *= -1;
+
+		ImGuizmo::Manipulate(
+			glm::value_ptr(view),
+			glm::value_ptr(proj),
+			GuizmoTool,
+			ImGuizmo::WORLD,
+			glm::value_ptr(transform)
+		);
+
+		if (ImGuizmo::IsUsing())
+			tc.Transform = transform;
+	}
+
+	void DrawViewports()
+	{
+		ImGui::Begin("Scene Viewport");
+
+		ImVec2 contentRegion = ImGui::GetContentRegionAvail();
+		SceneViewportPos = ImGui::GetWindowPos();
+
+		if (contentRegion.x != SceneViewportSize.x ||
+			contentRegion.y != SceneViewportSize.y)
+		{
+			SceneViewportSize = contentRegion;
+
+			ViewportTexture->Resize(
+				(size_t)contentRegion.x,
+				(size_t)contentRegion.y);
+
+			ViewportFramebuffer->OnResize(
+				(int)contentRegion.x,
+				(int)contentRegion.y);
+
+			ImGuizmo::SetRect(
+				SceneViewportPos.x,
+				SceneViewportPos.y,
+				contentRegion.x,
+				contentRegion.y);
+		}
+
+		ImGui::Image(SceneViewportTexture->GetImGuiImage(), contentRegion);
+
+		DrawGizmo();
+
+		ImGui::End();
+
+		ImGui::Begin("Game Viewport");
+
+		ViewportPos = ImGui::GetWindowPos();
+
+		if (contentRegion.x != ViewportSize.x ||
+			contentRegion.y != ViewportSize.y)
+		{
+			ViewportSize = contentRegion;
+
+			ViewportTexture->Resize(
+				(size_t)contentRegion.x,
+				(size_t)contentRegion.y);
+
+			ViewportFramebuffer->OnResize(
+				(int)contentRegion.x,
+				(int)contentRegion.y);
+
+			ImGuizmo::SetRect(
+				ViewportPos.x,
+				ViewportPos.y,
+				contentRegion.x,
+				contentRegion.y);
+		}
+
+		ImGui::Image(ViewportTexture->GetImGuiImage(), contentRegion);
+
+		ImGui::End();
+	}
+
 public:
+
+	// ============================================================
+	// Application Lifecycle
+	// ============================================================
+
 	virtual void OnSetup() override
 	{
 		ApplicationSpec.Name = "Hydrogen Editor";
@@ -29,118 +275,140 @@ public:
 
 	virtual void OnStartup() override
 	{
-		auto folderTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("folder_icon.png");
-		auto fileTextureAsset = MainAssetManager.GetAsset<Hydrogen::TextureAsset>("file_icon.png");
+		auto folderTextureAsset =
+			MainAssetManager.GetAsset<TextureAsset>("folder_icon.png");
 
-		_BrowserPanel.LoadTextures(folderTextureAsset->GetTexture(), fileTextureAsset->GetTexture());
+		auto fileTextureAsset =
+			MainAssetManager.GetAsset<TextureAsset>("file_icon.png");
+
+		_BrowserPanel.LoadTextures(
+			folderTextureAsset->GetTexture(),
+			fileTextureAsset->GetTexture());
+
 		_SceneHierarchy.SetContext(CurrentScene->GetScene());
 
-		SavedScene = std::make_shared<Hydrogen::Scene>();
+		SavedScene = std::make_shared<Scene>();
 
+		FreeCam.ViewportWidth = MainViewport->GetWidth();
+		FreeCam.ViewportHeight = MainViewport->GetHeight();
+		FreeCam.CalculateProj();
 		FreeCam.Active = true;
+
+		SceneViewportTexture =
+			Texture::Create(_RenderContext,
+				TextureFormat::ViewportDefault,
+				1920, 1080);
+
+		SceneViewportRenderPass =
+			RenderPass::Create(_RenderContext, SceneViewportTexture);
+
+		SceneViewportFramebuffer =
+			Framebuffer::Create(_RenderContext,
+				SceneViewportRenderPass,
+				SceneViewportTexture);
+
+		ViewportTexture =
+			Texture::Create(_RenderContext,
+				TextureFormat::ViewportDefault,
+				1920, 1080);
+
+		ViewportRenderPass =
+			RenderPass::Create(_RenderContext, ViewportTexture);
+
+		ViewportFramebuffer =
+			Framebuffer::Create(_RenderContext,
+				ViewportRenderPass,
+				ViewportTexture);
+
+		ImGuiRenderPass = RenderPass::Create(_RenderContext);
+		DebugGUI = DebugGUI::Create(_RenderContext, ImGuiRenderPass);
+		ImGuiFramebuffer =
+			Framebuffer::Create(_RenderContext, ImGuiRenderPass);
+
+		MainViewport->GetResizeEvent().AddListener(
+			[this](int width, int height)
+			{
+				_RenderContext->OnResize(width, height);
+				ImGuiFramebuffer->OnResize(width, height);
+			});
+
+		MainRenderer = std::make_shared<Renderer>(_RenderContext);
+		ImGuiRenderer = std::make_shared<Renderer>(_RenderContext);
+
+		MainRenderer->CreateDebugPipelines(
+			ImGuiRenderPass,
+			MainAssetManager.GetAsset<ShaderAsset>("DebugLineVertexShader.glsl"),
+			MainAssetManager.GetAsset<ShaderAsset>("DebugLineFragmentShader.glsl"));
+
+		DefaultPipeline =
+			MainRenderer->CreatePipeline(
+				ViewportRenderPass,
+				MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"),
+				MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
 	}
 
-	virtual void OnShutdown() override
-	{
-	}
+	virtual void OnShutdown() override {}
 
-	virtual void OnUpdate() override
+	virtual void OnUpdate(float deltaTime) override
 	{
+		m_FPS = 1.0f / deltaTime;
+
+		CurrentScene->GetScene()->RenderPhysicsDebug();
+
+		if (m_IsSimulating)
+			PhysicsUpdate(deltaTime);
+
+		RenderImGui(DebugGUI);
+		SubmitImGui(DebugGUI,
+			ImGuiRenderer,
+			ImGuiFramebuffer,
+			ImGuiRenderPass);
+
+		CameraComponent cameraComponent;
+		if (UpdateCamera(deltaTime, cameraComponent))
+		{
+			Render(deltaTime,
+				MainRenderer,
+				DefaultPipeline,
+				ViewportFramebuffer,
+				ViewportRenderPass,
+				cameraComponent);
+		}
+
+		FreeCam.Update(deltaTime);
+		FreeCam.CalculateView();
+		UpdateCameraViewportSize(FreeCam, {
+				(int)SceneViewportTexture->GetWidth(),
+				(int)SceneViewportTexture->GetHeight()
+			});
+
+		Render(
+			deltaTime,
+			MainRenderer,
+			DefaultPipeline,
+			SceneViewportFramebuffer,
+			SceneViewportRenderPass,
+			FreeCam
+		);
 	}
 
 	virtual void OnImGuiRender() override
 	{
-		ImGui::Begin("Viewport");
-		ImVec2 contentRegion = ImGui::GetContentRegionAvail();
-		ViewportPos = ImGui::GetWindowPos();
-		if (contentRegion.x != ViewportSize.x || contentRegion.y != ViewportSize.y)
-		{
-			ViewportSize = contentRegion;
-
-			ViewportTexture->Resize((size_t)contentRegion.x, (size_t)contentRegion.y);
-			ViewportFramebuffer->OnResize((int)contentRegion.x, (int)contentRegion.y);
-
-			ImGuizmo::SetRect(ViewportPos.x, ViewportPos.y, contentRegion.x, contentRegion.y);
-		}
-
-		ImGui::Image(ViewportTexture->GetImGuiImage(), contentRegion);
-
-		auto selectedEntity = _SceneHierarchy.GetSelectedEntity();
-		if (selectedEntity.IsValid() && FreeCam.Active)
-		{
-			ImGuizmo::SetDrawlist();
-
-			auto& tc = selectedEntity.GetComponent<Hydrogen::TransformComponent>();
-			glm::mat4 transform = tc.Transform;
-
-			glm::mat4 view = FreeCam.View;
-			glm::mat4 proj = FreeCam.Proj;
-			proj[1][1] *= -1;
-
-			ImGuizmo::Manipulate(
-				glm::value_ptr(view),
-				glm::value_ptr(proj),
-				GuizmoTool,
-				ImGuizmo::WORLD,
-				glm::value_ptr(transform)
-			);
-
-			if (ImGuizmo::IsUsing())
-			{
-				tc.Transform = transform;
-			}
-		}
+		ImGui::Begin("Stats");
+		ImGui::Text("FPS: %.1f", m_FPS);
 		ImGui::End();
 
-		ImGui::Begin("Log");
-
-		ImGui::BeginChild("LogScrollRegion");
-
-		for (auto& m : Hydrogen::EngineLogger::GetLogger()->GetLogSink()->GetMessages())
-		{
-			ImVec4 color;
-			switch (m.level)
-			{
-			case spdlog::level::trace: color = ImVec4(1, 1, 1, 1); break;
-			case spdlog::level::debug: color = ImVec4(0.6f, 0.6f, 1, 1); break;
-			case spdlog::level::info:  color = ImVec4(1, 1, 1, 1); break;
-			case spdlog::level::warn:  color = ImVec4(1, 1, 0.1f, 1); break;
-			case spdlog::level::err:   color = ImVec4(1, 0.3f, 0.3f, 1); break;
-			case spdlog::level::critical: color = ImVec4(1, 0, 0, 1); break;
-			}
-
-			ImGui::PushStyleColor(ImGuiCol_Text, color);
-			ImGui::TextUnformatted(m.message.c_str());
-			ImGui::PopStyleColor();
-		}
-
-		for (auto& m : Hydrogen::AppLogger::GetLogger()->GetLogSink()->GetMessages())
-		{
-			ImVec4 color;
-			switch (m.level)
-			{
-			case spdlog::level::trace: color = ImVec4(1, 1, 1, 1); break;
-			case spdlog::level::debug: color = ImVec4(0.6f, 0.6f, 1, 1); break;
-			case spdlog::level::info:  color = ImVec4(1, 1, 1, 1); break;
-			case spdlog::level::warn:  color = ImVec4(1, 1, 0.1f, 1); break;
-			case spdlog::level::err:   color = ImVec4(1, 0.3f, 0.3f, 1); break;
-			case spdlog::level::critical: color = ImVec4(1, 0, 0, 1); break;
-			}
-
-			ImGui::PushStyleColor(ImGuiCol_Text, color);
-			ImGui::TextUnformatted(m.message.c_str());
-			ImGui::PopStyleColor();
-		}
-
-		ImGui::EndChild();
-
-		ImGui::End();
+		DrawViewports();
+		DrawLogMessages();
 
 		_BrowserPanel.OnImGuiRender();
 		_EditorPanel.OnImGuiRender();
 		_SceneHierarchy.OnImGuiRender();
 
-		_Inspector.SetContext(CurrentScene->GetScene(), _SceneHierarchy.GetSelectedEntity());
+		_Inspector.SetContext(
+			CurrentScene->GetScene(),
+			_SceneHierarchy.GetSelectedEntity());
+
 		_Inspector.OnImGuiRender();
 
 		RenderToolbar();
@@ -148,49 +416,39 @@ public:
 
 	virtual void OnImGuiMenuBarRender() override
 	{
-		if (ImGui::BeginMenuBar())
+		if (!ImGui::BeginMenuBar())
+			return;
+
+		if (ImGui::BeginMenu("File"))
 		{
-			if (ImGui::BeginMenu("File"))
-			{
-				if (ImGui::MenuItem("Save Scene"))
-				{
-					CurrentScene->Save();
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Game"))
-			{
-				if (ImGui::MenuItem(FreeCam.Active ? "Play" : "Stop"))
-				{
-					FreeCam.Active = !FreeCam.Active;
-					if (FreeCam.Active)
-					{
-						SavedScene = std::make_shared<Hydrogen::Scene>();
-						SavedScene->DeserializeScene(CurrentScene->GetScene()->SerializeScene(), &MainAssetManager);
-						CurrentScene->GetScene()->CreateScripts();
-					}
-					else
-					{
-						CurrentScene->ClearScene();
-						CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene(), &MainAssetManager);
-					}
-					_SceneHierarchy.SetContext(CurrentScene->GetScene());
-				}
-				ImGui::EndMenu();
-			}
-			ImGui::EndMenuBar();
+			if (ImGui::MenuItem("Save Scene"))
+				CurrentScene->Save();
+
+			ImGui::EndMenu();
 		}
+
+		if (ImGui::BeginMenu("Game"))
+		{
+			if (ImGui::MenuItem(m_IsSimulating ? "Stop" : "Play"))
+				ToggleSimulation();
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMenuBar();
 	}
 
 	void RenderToolbar()
 	{
 		ImGuiViewport* viewport = ImGui::GetMainViewport();
-		ImGui::SetNextWindowPos(ImVec2(ViewportPos.x, ViewportPos.y+20));
-		//ImGui::SetNextWindowSize(ImVec2(ViewportSize.x / 2, 50));
+
+		ImGui::SetNextWindowPos(
+			ImVec2(ViewportPos.x, ViewportPos.y + 20));
+
 		ImGui::SetNextWindowViewport(viewport->ID);
 
-		ImGuiWindowFlags window_flags = 0
-			| ImGuiWindowFlags_NoDocking
+		ImGuiWindowFlags window_flags =
+			ImGuiWindowFlags_NoDocking
 			| ImGuiWindowFlags_NoTitleBar
 			| ImGuiWindowFlags_NoResize
 			| ImGuiWindowFlags_NoMove
@@ -198,47 +456,35 @@ public:
 			| ImGuiWindowFlags_NoSavedSettings;
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
-		ImGui::Begin("TOOLBAR", NULL, window_flags);
+		ImGui::Begin("TOOLBAR", nullptr, window_flags);
 		ImGui::PopStyleVar();
 
-		if (ImGui::Button(FreeCam.Active ? "Play" : "Stop"))
-		{
-			if (FreeCam.Active)
-			{
-				SavedScene = std::make_shared<Hydrogen::Scene>();
-				SavedScene->DeserializeScene(CurrentScene->GetScene()->SerializeScene(), &MainAssetManager);
-				CurrentScene->GetScene()->CreateScripts();
-			}
-			else
-			{
-				CurrentScene->ClearScene();
-				CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene(), &MainAssetManager);
-			}
-
-			FreeCam.Active = !FreeCam.Active;
-			_SceneHierarchy.SetContext(CurrentScene->GetScene());
-		}
+		if (ImGui::Button(m_IsSimulating ? "Stop" : "Play"))
+			ToggleSimulation();
 
 		ImGui::SameLine();
 
-		if (ImGui::RadioButton("Translate", GuizmoTool == ImGuizmo::TRANSLATE))
+		if (ImGui::RadioButton("Translate",
+			GuizmoTool == ImGuizmo::TRANSLATE))
 			GuizmoTool = ImGuizmo::TRANSLATE;
 
 		ImGui::SameLine();
 
-		if (ImGui::RadioButton("Rotate", GuizmoTool == ImGuizmo::ROTATE))
+		if (ImGui::RadioButton("Rotate",
+			GuizmoTool == ImGuizmo::ROTATE))
 			GuizmoTool = ImGuizmo::ROTATE;
 
 		ImGui::SameLine();
 
-		if (ImGui::RadioButton("Scale", GuizmoTool == ImGuizmo::SCALE))
+		if (ImGui::RadioButton("Scale",
+			GuizmoTool == ImGuizmo::SCALE))
 			GuizmoTool = ImGuizmo::SCALE;
 
 		ImGui::End();
 	}
 };
 
-extern std::shared_ptr<Hydrogen::Application> GetApplication()
+extern std::shared_ptr<Application> GetApplication()
 {
 	return std::make_shared<EditorApp>();
 }

@@ -56,7 +56,7 @@ void PhysicsWorld::Update()
 			TransformComponent::DecomposeTransform(transform.Transform, translation, rotation, scale);
 
 			transform.Transform = TransformComponent::RecomposeTransform({ t.getPosition().x, t.getPosition().y, t.getPosition().z },
-				glm::quat(t.getOrientation().x, t.getOrientation().y, t.getOrientation().z, t.getOrientation().w),
+				glm::quat(t.getOrientation().w, t.getOrientation().x, t.getOrientation().y, t.getOrientation().z),
 				scale);
 		});
 }

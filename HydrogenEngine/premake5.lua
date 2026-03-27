@@ -33,7 +33,7 @@ project "HydrogenEngine"
 		defines { "HY_SYSTEM_WINDOWS", "_CRT_SECURE_NO_WARNINGS" }
 
 	filter "configurations:Debug"
-		defines { "HY_DEBUG" }
+		defines { "HY_DEBUG", "TRACY_ENABLE" }
 		optimize "Off"
 		symbols "On"
 		links { "shaderc_combinedd", "reactphysics3d-debug", "TracyClient" }

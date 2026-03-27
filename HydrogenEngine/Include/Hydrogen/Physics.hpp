@@ -21,6 +21,8 @@ namespace Hydrogen
 		void UpdatePhysics(float timestep);
 		void Update();
 
+		void RenderDebugPrimitives() { m_PhysicsWorld->getDebugRenderer().computeDebugRenderingPrimitives(*m_PhysicsWorld); }
+
 		const reactphysics3d::Array<reactphysics3d::DebugRenderer::DebugLine>& GetDebugLines() const { return m_PhysicsWorld->getDebugRenderer().getLines(); }
 		const reactphysics3d::Array<reactphysics3d::DebugRenderer::DebugTriangle>& GetDebugTriangles() const { return m_PhysicsWorld->getDebugRenderer().getTriangles(); }
 
