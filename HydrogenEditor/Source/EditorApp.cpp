@@ -208,11 +208,11 @@ private:
 		{
 			SceneViewportSize = contentRegion;
 
-			ViewportTexture->Resize(
+			SceneViewportTexture->Resize(
 				(size_t)contentRegion.x,
 				(size_t)contentRegion.y);
 
-			ViewportFramebuffer->OnResize(
+			SceneViewportFramebuffer->OnResize(
 				(int)contentRegion.x,
 				(int)contentRegion.y);
 
@@ -358,12 +358,6 @@ public:
 		if (m_IsSimulating)
 			PhysicsUpdate(deltaTime);
 
-		RenderImGui(DebugGUI);
-		SubmitImGui(DebugGUI,
-			ImGuiRenderer,
-			ImGuiFramebuffer,
-			ImGuiRenderPass);
-
 		CameraComponent cameraComponent;
 		if (UpdateCamera(deltaTime, cameraComponent))
 		{
@@ -390,6 +384,12 @@ public:
 			SceneViewportRenderPass,
 			FreeCam
 		);
+
+		RenderImGui(DebugGUI);
+		SubmitImGui(DebugGUI,
+			ImGuiRenderer,
+			ImGuiFramebuffer,
+			ImGuiRenderPass);
 	}
 
 	virtual void OnImGuiRender() override

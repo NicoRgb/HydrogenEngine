@@ -193,7 +193,7 @@ void VulkanTexture::TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
 	else {
-		throw std::invalid_argument("unsupported layout transition!");
+		HY_ASSERT(false, "Unsupported layout transition");
 	}
 
 	vkCmdPipelineBarrier(

@@ -130,18 +130,15 @@ void Application::RenderImGui(std::shared_ptr<DebugGUI>& debugGUI)
 
 void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass)
 {
-	if (debugGUI)
-	{
-		ImGuiRenderer->BeginDebugGuiFrame(framebuffer, renderPass);
-		ImGuiRenderer->DrawDebugGui(debugGUI);
-		ImGuiRenderer->EndDebugGuiFrame();
+	ImGuiRenderer->BeginDebugGuiFrame(framebuffer, renderPass);
+	ImGuiRenderer->DrawDebugGui(debugGUI);
+	ImGuiRenderer->EndDebugGuiFrame();
 
-		auto& io = ImGui::GetIO();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-		}
+	auto& io = ImGui::GetIO();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
 	}
 }
 
