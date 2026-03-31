@@ -10,7 +10,7 @@ namespace Hydrogen
 	enum class DescriptorType
 	{
 		UniformBuffer,
-		//StorageBuffer,
+		StorageBuffer,
 		CombinedImageSampler,
 		//StorageImage,
 		//Sampler,
@@ -37,7 +37,7 @@ namespace Hydrogen
 		DescriptorType type;
 		ShaderStage stageFlags;
 		size_t size;
-		size_t num_elements;
+		size_t numElements;
 	};
 
 	struct PushConstantsRange
@@ -62,6 +62,7 @@ namespace Hydrogen
 		virtual ~Pipeline() = default;
 
 		virtual void UploadUniformBufferData(uint32_t binding, void* data, size_t size) = 0;
+		virtual void UploadStorageBufferData(uint32_t binding, void* data, size_t size) = 0;
 		virtual void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture> &texture) = 0;
 
 		template<typename T>

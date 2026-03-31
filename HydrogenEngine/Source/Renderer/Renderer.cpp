@@ -11,6 +11,7 @@
 using namespace Hydrogen;
 
 #define MAX_TEXTURES 128
+#define MAX_LIGHTS 16
 
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext)
 {
@@ -35,9 +36,10 @@ Renderer::~Renderer()
 std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
 {
 	return Pipeline::Create(m_RenderContext, renderPass, vertexShader, fragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2} },
-		{ {0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1},
-		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
+		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(UniformBuffer), 1 },
+		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+		  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 }, },
 		{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES);
 }
 
@@ -50,7 +52,7 @@ void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderPass>& renderPas
 		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::TRIANGLES);
 }
 
-void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent)
+void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
 	ZoneScopedN("Renderer::BeginFrame");
 
@@ -60,6 +62,7 @@ void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const
 
 	m_FrameInfo._UniformBuffer.View = cameraComponent.View;
 	m_FrameInfo._UniformBuffer.Proj = cameraComponent.Proj;
+	m_FrameInfo._UniformBuffer.ViewPos = cameraPos;
 
 	m_FrameInfo.NumDebugLineVertices = 0;
 	m_FrameInfo.NumDebugTriangleVertices = 0;
@@ -134,12 +137,43 @@ void Renderer::EndFrame()
 	m_RenderAPI->SubmitFrame(m_CommandQueue);
 }
 
+#include "Hydrogen/Application.hpp"
+
 void Renderer::Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform)
 {
 	if (std::find(m_FrameInfo.Pipelines.begin(), m_FrameInfo.Pipelines.end(), pipeline) == m_FrameInfo.Pipelines.end())
 	{
 		m_FrameInfo.Pipelines.push_back(pipeline);
 		pipeline->UploadUniformBufferData(0, &m_FrameInfo._UniformBuffer, sizeof(UniformBuffer));
+
+		uint32_t numLights = 0;
+		Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
+			[&](Entity, const LightComponent&) { numLights++; });
+
+		size_t bufferSize = sizeof(SceneLightsBuffer) + numLights * sizeof(GPULight);
+		uint32_t* data = new uint32_t[bufferSize / sizeof(uint32_t)]();
+
+		SceneLightsBuffer* header = reinterpret_cast<SceneLightsBuffer*>(data);
+		header->lightCount = numLights;
+
+		GPULight* gpuLights = reinterpret_cast<GPULight*>(data + sizeof(SceneLightsBuffer) / sizeof(uint32_t));
+
+		uint32_t idx = 0;
+		Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
+			[&](Entity e, const LightComponent& light)
+			{
+				if (idx >= numLights) return;
+
+				const auto& transform = e.GetComponent<TransformComponent>();
+
+				gpuLights[idx].position = glm::vec4(e.GetComponent<TransformComponent>().GetPosition(), 512.0f);
+				gpuLights[idx].color = light.color;
+
+				idx++;
+			});
+
+		pipeline->UploadStorageBufferData(2, data, bufferSize);
+		delete[] data;
 
 		for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 		{

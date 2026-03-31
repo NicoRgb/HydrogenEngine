@@ -36,7 +36,7 @@ namespace Hydrogen
 		std::shared_ptr<Pipeline> CreatePipeline(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 		void CreateDebugPipelines(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 
-		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent);
+		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 		void EndFrame();
 		void Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
 
@@ -67,6 +67,20 @@ namespace Hydrogen
 		{
 			alignas(16) glm::mat4 View;
 			alignas(16) glm::mat4 Proj;
+			alignas(16) glm::vec3 ViewPos;
+			float padding;
+		};
+
+		struct SceneLightsBuffer
+		{
+			alignas(16) uint32_t lightCount;
+			uint32_t padding[3];
+		};
+
+		struct GPULight
+		{
+			alignas(16) glm::vec4 position;
+			alignas(16) glm::vec4 color;
 		};
 
 		struct PushConstants

@@ -162,6 +162,8 @@ namespace Hydrogen
 			View = glm::lookAt(m_CameraPos, m_CameraPos + m_CameraFront, m_CameraUp);
 		}
 
+		glm::vec3 GetPosition() const { return m_CameraPos; }
+
 	private:
 		glm::vec3 m_CameraPos;
 		glm::vec3 m_CameraFront;

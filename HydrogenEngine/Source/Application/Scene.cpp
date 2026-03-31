@@ -199,6 +199,10 @@ json Scene::SerializeScene()
 		{
 			ColliderComponent::ToJson(entityJson["ColliderComponent"], m_Registry.get<ColliderComponent>(entity));
 		}
+		if (m_Registry.all_of<LightComponent>(entity))
+		{
+			LightComponent::ToJson(entityJson["LightComponent"], m_Registry.get<LightComponent>(entity));
+		}
 
 		j[std::to_string(m_Registry.get<UUIDComponent>(entity).UUID)] = entityJson;
 	}
@@ -252,6 +256,11 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 		{
 			ColliderComponent& component = m_Registry.emplace<ColliderComponent>(entity, e);
 			ColliderComponent::FromJson(value["ColliderComponent"], component, assetManager);
+		}
+		if (value.contains("LightComponent"))
+		{
+			LightComponent& component = m_Registry.emplace<LightComponent>(entity, e);
+			LightComponent::FromJson(value["LightComponent"], component, assetManager);
 		}
 	}
 }

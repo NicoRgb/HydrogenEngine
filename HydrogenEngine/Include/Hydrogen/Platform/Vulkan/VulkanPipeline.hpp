@@ -13,6 +13,7 @@ namespace Hydrogen
 		~VulkanPipeline();
 
 		void UploadUniformBufferData(uint32_t binding, void* data, size_t size) override;
+		void UploadStorageBufferData(uint32_t binding, void* data, size_t size) override;
 		void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture) override;
 
 		const VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
@@ -32,6 +33,9 @@ namespace Hydrogen
 
 		std::map<uint32_t, std::vector<VulkanBuffer>> m_UniformBuffers;
 		std::map<uint32_t, std::vector<void*>> m_UniformBuffersMapped;
+
+		std::unordered_map<uint32_t, std::vector<VulkanBuffer>> m_StorageBuffers;
+		std::unordered_map<uint32_t, std::vector<void*>> m_StorageBuffersMapped;
 
 		std::vector<VkPushConstantRange> m_VkPushConstantsRanges;
 	};

@@ -97,7 +97,7 @@ private:
 		}
 	}
 
-	bool UpdateCamera(float deltaTime, CameraComponent& outCamera)
+	bool UpdateCamera(float deltaTime, Entity& outEntity)
 	{
 		auto scene = CurrentScene->GetScene();
 		Entity activeCameraEntity;
@@ -119,7 +119,7 @@ private:
 			auto& camera = activeCameraEntity.GetComponent<CameraComponent>();
 			camera.CalculateView(activeCameraEntity);
 			UpdateCameraViewportSize(camera, size);
-			outCamera = camera;
+			outEntity = activeCameraEntity;
 			return true;
 		}
 
@@ -358,15 +358,16 @@ public:
 		if (m_IsSimulating)
 			PhysicsUpdate(deltaTime);
 
-		CameraComponent cameraComponent;
-		if (UpdateCamera(deltaTime, cameraComponent))
+		Entity cameraEntity;
+		if (UpdateCamera(deltaTime, cameraEntity))
 		{
 			Render(deltaTime,
 				MainRenderer,
 				DefaultPipeline,
 				ViewportFramebuffer,
 				ViewportRenderPass,
-				cameraComponent);
+				cameraEntity.GetComponent<CameraComponent>(),
+				cameraEntity.GetComponent<TransformComponent>().GetPosition());
 		}
 
 		FreeCam.Update(deltaTime);
@@ -382,7 +383,8 @@ public:
 			DefaultPipeline,
 			SceneViewportFramebuffer,
 			SceneViewportRenderPass,
-			FreeCam
+			FreeCam,
+			FreeCam.GetPosition()
 		);
 
 		RenderImGui(DebugGUI);

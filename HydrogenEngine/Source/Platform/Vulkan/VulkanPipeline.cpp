@@ -73,10 +73,13 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		case DescriptorType::CombinedImageSampler:
 			layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			break;
+		case DescriptorType::StorageBuffer:
+			layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			break;
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
 		}
-		layoutBindings[i].descriptorCount = (uint32_t)descriptorBindings[i].num_elements;
+		layoutBindings[i].descriptorCount = (uint32_t)descriptorBindings[i].numElements;
 		layoutBindings[i].stageFlags = 0;
 
 		if ((descriptorBindings[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
@@ -102,6 +105,23 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 				m_UniformBuffers[descriptorBindings[i].binding][j].AllocateMemory();
 
 				vkMapMemory(m_RenderContext->GetDevice(), m_UniformBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_UniformBuffersMapped[descriptorBindings[i].binding][j]);
+			}
+		}
+
+		if (descriptorBindings[i].type == DescriptorType::StorageBuffer)
+		{
+			VkDeviceSize bufferSize = (VkDeviceSize)descriptorBindings[i].size;
+
+			m_StorageBuffersMapped[descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
+
+			for (size_t j = 0; j < m_RenderContext->GetMaxFramesInFlight(); j++)
+			{
+				m_StorageBuffers[descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
+					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+				m_StorageBuffers[descriptorBindings[i].binding][j].AllocateMemory();
+
+				vkMapMemory(m_RenderContext->GetDevice(), m_StorageBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_StorageBuffersMapped[descriptorBindings[i].binding][j]);
 			}
 		}
 	}
@@ -240,16 +260,20 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	}
 
 	uint32_t uniformBufferCount = 0;
+	uint32_t storageBufferCount = 0;
 	uint32_t combinedImageSamplerCount = 0;
 	for (const auto& binding : descriptorBindings)
 	{
 		switch (binding.type)
 		{
 		case DescriptorType::UniformBuffer:
-			uniformBufferCount += (uint32_t)binding.num_elements;
+			uniformBufferCount += (uint32_t)binding.numElements;
+			break;
+		case DescriptorType::StorageBuffer:
+			storageBufferCount += (uint32_t)binding.numElements;
 			break;
 		case DescriptorType::CombinedImageSampler:
-			combinedImageSamplerCount += (uint32_t)binding.num_elements;
+			combinedImageSamplerCount += (uint32_t)binding.numElements;
 			break;
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
@@ -263,6 +287,13 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		uboPool.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboPool.descriptorCount = uniformBufferCount * m_RenderContext->GetMaxFramesInFlight();
 		poolSizes.push_back(uboPool);
+	}
+	if (storageBufferCount > 0)
+	{
+		VkDescriptorPoolSize ssboPool{};
+		ssboPool.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		ssboPool.descriptorCount = storageBufferCount * m_RenderContext->GetMaxFramesInFlight();
+		poolSizes.push_back(ssboPool);
 	}
 	if (combinedImageSamplerCount > 0)
 	{
@@ -292,7 +323,8 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	for (size_t i = 0; i < m_RenderContext->GetMaxFramesInFlight(); i++)
 	{
-		size_t offset = 0;
+		size_t uboOffset = 0;
+		size_t ssboOffset = 0;
 		for (size_t j = 0; j < layoutBindings.size(); j++)
 		{
 			switch (descriptorBindings[j].type)
@@ -301,9 +333,9 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 			{
 				VkDescriptorBufferInfo bufferInfo{};
 				bufferInfo.buffer = m_UniformBuffers[layoutBindings[j].binding][i].GetBuffer();
-				bufferInfo.offset = offset;
+				bufferInfo.offset = uboOffset;
 				bufferInfo.range = m_UniformBuffers[layoutBindings[j].binding][i].GetSize();
-				offset += m_UniformBuffers[layoutBindings[j].binding][i].GetSize();
+				uboOffset += m_UniformBuffers[layoutBindings[j].binding][i].GetSize();
 
 				VkWriteDescriptorSet descriptorWrite{};
 				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -311,6 +343,26 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 				descriptorWrite.dstBinding = layoutBindings[j].binding;
 				descriptorWrite.dstArrayElement = 0;
 				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				descriptorWrite.descriptorCount = 1;
+				descriptorWrite.pBufferInfo = &bufferInfo;
+
+				vkUpdateDescriptorSets(m_RenderContext->GetDevice(), 1, &descriptorWrite, 0, nullptr);
+				break;
+			}
+			case DescriptorType::StorageBuffer:
+			{
+				VkDescriptorBufferInfo bufferInfo{};
+				bufferInfo.buffer = m_StorageBuffers[layoutBindings[j].binding][i].GetBuffer();
+				bufferInfo.offset = ssboOffset;
+				bufferInfo.range = m_StorageBuffers[layoutBindings[j].binding][i].GetSize();
+				ssboOffset += m_StorageBuffers[layoutBindings[j].binding][i].GetSize();
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = m_DescriptorSets[i];
+				descriptorWrite.dstBinding = layoutBindings[j].binding;
+				descriptorWrite.dstArrayElement = 0;
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 				descriptorWrite.descriptorCount = 1;
 				descriptorWrite.pBufferInfo = &bufferInfo;
 
@@ -389,6 +441,11 @@ VulkanPipeline::~VulkanPipeline()
 void VulkanPipeline::UploadUniformBufferData(uint32_t binding, void* data, size_t size)
 {
 	memcpy(m_UniformBuffersMapped[binding][m_RenderContext->GetCurrentFrame()], data, size);
+}
+
+void VulkanPipeline::UploadStorageBufferData(uint32_t binding, void* data, size_t size)
+{
+	memcpy(m_StorageBuffersMapped[binding][m_RenderContext->GetCurrentFrame()], data, size);
 }
 
 void VulkanPipeline::UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture)

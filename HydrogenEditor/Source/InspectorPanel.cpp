@@ -17,6 +17,7 @@ template<typename T>
 const char* GetComponentName()
 {
     if constexpr (std::is_same_v<T, Hydrogen::MeshRendererComponent>) return "Mesh Renderer";
+    else if constexpr (std::is_same_v<T, Hydrogen::LightComponent>) return "Light";
     else if constexpr (std::is_same_v<T, Hydrogen::RigidbodyComponent>) return "Rigidbody";
     else if constexpr (std::is_same_v<T, Hydrogen::ColliderComponent>) return "Collider";
     else if constexpr (std::is_same_v<T, Hydrogen::CameraComponent>) return "Camera";
@@ -76,10 +77,10 @@ void InspectorPanel::OnImGuiRender()
         }
 
         ImGui::Separator();
-        DrawAllComponents<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
+        DrawAllComponents<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::LightComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
             (m_SelectedEntity);
         ImGui::Separator();
-        DrawAddComponentMenu<Hydrogen::MeshRendererComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
+        DrawAddComponentMenu<Hydrogen::MeshRendererComponent, Hydrogen::LightComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
             (m_Scene, m_SelectedEntity);
     }
     else

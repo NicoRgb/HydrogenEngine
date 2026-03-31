@@ -142,7 +142,7 @@ void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_p
 	}
 }
 
-void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera)
+void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera, glm::vec3 cameraPos)
 {
 	/*const auto& lines = CurrentScene->GetScene()->GetPhysicsWorld().GetDebugLines();
 
@@ -185,7 +185,7 @@ void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, c
 		debugTriangles.push_back(v2);
 	}*/
 
-	renderer->BeginFrame(framebuffer, renderPass, camera);
+	renderer->BeginFrame(framebuffer, renderPass, camera, cameraPos);
 
 	CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
 		{

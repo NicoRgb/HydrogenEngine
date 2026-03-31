@@ -17,6 +17,7 @@
 #include "Hydrogen/Physics.hpp"
 
 #include <random>
+#include <memory>
 
 namespace Hydrogen
 {
@@ -312,9 +313,8 @@ namespace Hydrogen
 
 		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::quat& rotation, glm::vec3& scale)
 		{
-			using namespace glm;
-			vec3 skew;
-			vec4 perspective;
+			glm::vec3 skew;
+			glm::vec4 perspective;
 
 			decompose(matrix, scale, rotation, translation, skew, perspective);
 		}
@@ -322,9 +322,9 @@ namespace Hydrogen
 		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale)
 		{
 			using namespace glm;
-			vec3 skew;
-			vec4 perspective;
-			quat orientation;
+			glm::vec3 skew;
+			glm::vec4 perspective;
+			glm::quat orientation;
 
 			decompose(matrix, scale, orientation, translation, skew, perspective);
 
@@ -374,6 +374,40 @@ namespace Hydrogen
 		{
 			t.Texture = assetManager->GetAsset<TextureAsset>(j.at("Texture"));
 			t.Mesh = assetManager->GetAsset<MeshAsset>(j.at("Mesh"));
+		}
+	};
+
+	struct LightComponent
+	{
+		LightComponent(Entity entity)
+		{
+			(void)entity;
+		}
+
+		glm::vec4 color;
+
+		static void OnImGuiRender(LightComponent& t)
+		{
+			if (ImGui::TreeNode("Light"))
+			{
+				ImGui::ColorPicker4("Color", glm::value_ptr(t.color));
+				ImGui::TreePop();
+			}
+		}
+
+		static void ToJson(json& j, const LightComponent& t)
+		{
+			j = json{ { "color", { { "r", t.color.r }, { "g", t.color.g }, { "b", t.color.b }, { "a", t.color.a } } } };
+		}
+
+		static void FromJson(const json& j, LightComponent& t, AssetManager* assetManager)
+		{
+			float r = j.at("color").at("r").get<float>();
+			float g = j.at("color").at("g").get<float>();
+			float b = j.at("color").at("b").get<float>();
+			float a = j.at("color").at("a").get<float>();
+
+			t.color = glm::vec4(r, g, b, a);
 		}
 	};
 

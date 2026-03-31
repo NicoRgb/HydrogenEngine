@@ -27,7 +27,7 @@ namespace Hydrogen
 			return s_Instance;
 		}
 
-		void Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera);
+		void Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera, glm::vec3 cameraPos);
 
 		void OnResize(int width, int height);
 		void Run();

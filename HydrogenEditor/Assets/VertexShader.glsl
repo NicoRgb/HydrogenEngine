@@ -2,26 +2,40 @@
 
 layout(binding = 0) uniform UniformBufferObject
 {
-	mat4 view;
-	mat4 proj;
+    mat4 view;
+    mat4 proj;
+    vec3 viewPos;   // NEW: camera world position
 } ubo;
 
 layout(push_constant) uniform constants
 {
-	mat4 model;
-	int texIndex;
+    mat4 model;
+    int texIndex;
 } PushConstants;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inColor;
+layout(location = 1) in vec3 inColor;      // still usable as albedo multiplier
 layout(location = 2) in vec2 inTexCoord;
+layout(location = 3) in vec3 inNormal;     // NEW
 
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
+layout(location = 0) out vec3 fragPos;     // NEW
+layout(location = 1) out vec3 fragNormal;  // NEW
+layout(location = 2) out vec2 fragTexCoord;
+layout(location = 3) out vec3 fragColor;
 
 void main()
 {
-	gl_Position = ubo.proj * ubo.view * PushConstants.model * vec4(inPosition, 1.0);
-	fragColor = inColor;
-	fragTexCoord = inTexCoord;
+    mat4 model = PushConstants.model;
+
+    vec4 worldPos = model * vec4(inPosition, 1.0);
+
+    fragPos = worldPos.xyz;
+
+    // Correct normal transform
+    fragNormal = mat3(transpose(inverse(model))) * inNormal;
+
+    fragTexCoord = inTexCoord;
+    fragColor = inColor;
+
+    gl_Position = ubo.proj * ubo.view * worldPos;
 }
