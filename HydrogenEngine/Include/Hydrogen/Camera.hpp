@@ -113,13 +113,8 @@ namespace Hydrogen
 
 		void Update(float dt)
 		{
-			if (!Input::IsMouseButtonDown(KeyCode::MouseRight))
-			{
-				return;
-			}
-
 			float cameraSpeed = 2.5f * dt;
-			const float sensitivity = 0.1f;
+			const float sensitivity = 0.5f;
 
 			if (Input::IsKeyDown(KeyCode::W))
 			{

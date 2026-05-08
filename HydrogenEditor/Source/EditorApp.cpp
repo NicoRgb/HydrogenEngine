@@ -258,6 +258,15 @@ private:
 		ImGui::End();
 	}
 
+	bool IsHoveringSceneViewport()
+	{
+		ImVec2 mousePos = ImGui::GetMousePos();
+		return mousePos.x >= SceneViewportPos.x &&
+			mousePos.x <= SceneViewportPos.x + SceneViewportSize.x &&
+			mousePos.y >= SceneViewportPos.y &&
+			mousePos.y <= SceneViewportPos.y + SceneViewportSize.y;
+	}
+
 public:
 
 	// ============================================================
@@ -370,7 +379,20 @@ public:
 				cameraEntity.GetComponent<TransformComponent>().GetPosition());
 		}
 
-		FreeCam.Update(deltaTime);
+		if (Input::IsMouseButtonDown(KeyCode::MouseRight) && IsHoveringSceneViewport())
+		{
+			Viewport::ConfineCursor(
+				SceneViewportPos.x,
+				SceneViewportPos.x + SceneViewportSize.x,
+				SceneViewportPos.y,
+				SceneViewportPos.y + SceneViewportSize.y);
+			FreeCam.Update(deltaTime);
+		}
+		else
+		{
+			Viewport::ReleaseCursor();
+		}
+
 		FreeCam.CalculateView();
 		UpdateCameraViewportSize(FreeCam, {
 				(int)SceneViewportTexture->GetWidth(),

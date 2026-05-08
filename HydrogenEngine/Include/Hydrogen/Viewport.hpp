@@ -32,6 +32,8 @@ namespace Hydrogen
 		virtual void LockCursor() = 0;
 		virtual void UnlockCursor() = 0;
 
+		static void ConfineCursor(float left, float right, float top, float bottom);
+		static void ReleaseCursor();
 		static void ViewportShowCursor();
 		static void ViewportHideCursor();
 

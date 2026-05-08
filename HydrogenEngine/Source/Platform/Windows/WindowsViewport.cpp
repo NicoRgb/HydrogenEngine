@@ -172,6 +172,22 @@ void WindowsViewport::PumpMessages()
 	}
 }
 
+void Viewport::ConfineCursor(float left, float right, float top, float bottom)
+{
+	RECT rect = {};
+	rect.left = (LONG)left;
+	rect.right = (LONG)right;
+	rect.top = (LONG)top;
+	rect.bottom = (LONG)bottom;
+
+	ClipCursor(&rect);
+}
+
+void Viewport::ReleaseCursor()
+{
+	ClipCursor(nullptr);
+}
+
 void Viewport::ViewportShowCursor()
 {
 	ShowCursor(TRUE);
