@@ -7,6 +7,36 @@
 
 namespace Hydrogen
 {
+	class VulkanImage
+	{
+	public:
+		VulkanImage(const VulkanRenderContext* renderContext, VkFormat swapChainFormat); // hack for swapchain images
+		VulkanImage(const std::shared_ptr<VulkanRenderContext>& renderContext, VkFormat format, VkExtent2D extent, VkImageUsageFlags usage, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT); // use shared pointer for convention
+		~VulkanImage();
+
+		const VkImage& GetImage() const { return m_Image; }
+		const VkImageView& GetImageView() const { HY_ASSERT(m_ImageView != VK_NULL_HANDLE, "Image view is not created"); return m_ImageView; }
+		const VkDeviceMemory& GetImageMemory() const { return m_ImageMemory; }
+		const VkFormat& GetFormat() const { return m_Format; }
+
+		void SetImage(const VkImage& image) { m_Image = image; } // unsafe but needed for swapchain images
+
+		void RecreateImageView() { CreateImageView(); }
+
+	private:
+		void CreateImage();
+		void CreateImageView();
+		const VulkanRenderContext* m_RenderContext; // raw pointer is ok here because it should be there the entire lifetime. its needed because the rendercontexts contructors create images
+
+		VkFormat m_Format;
+		VkExtent2D m_Extent;
+		VkImageUsageFlags m_Usage;
+		VkSampleCountFlagBits m_Samples;
+		VkImage m_Image;
+		VkDeviceMemory m_ImageMemory = VK_NULL_HANDLE;
+		VkImageView m_ImageView = VK_NULL_HANDLE;
+	};
+
 	class VulkanFramebuffer : public Framebuffer
 	{
 	public:
@@ -29,8 +59,6 @@ namespace Hydrogen
 
 		std::vector<VkFramebuffer> m_Framebuffers;
 
-		VkImage m_DepthImage;
-		VkDeviceMemory m_DepthImageMemory;
-		VkImageView m_DepthImageView;
+		std::shared_ptr<VulkanImage> m_DepthImage;
 	};
 }

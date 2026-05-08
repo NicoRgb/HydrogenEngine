@@ -70,12 +70,9 @@ namespace Hydrogen
 	class EngineLogger
 	{
 	public:
-		static void Init()
-		{
-			s_Logger = std::make_shared<Logger>("Engine", Logger::LogLevel::Debug);
-		}
-
+		static void Init() { s_Logger = std::make_shared<Logger>("Engine", Logger::LogLevel::Debug); }
 		static std::shared_ptr<Logger> GetLogger() { return s_Logger; }
+		static void Shutdown() { s_Logger.reset(); }
 
 	private:
 		static std::shared_ptr<Logger> s_Logger;
@@ -84,12 +81,9 @@ namespace Hydrogen
 	class AppLogger
 	{
 	public:
-		static void Init()
-		{
-			s_Logger = std::make_shared<Logger>("App", Logger::LogLevel::Debug);
-		}
-
+		static void Init() { s_Logger = std::make_shared<Logger>("App", Logger::LogLevel::Debug); }
 		static std::shared_ptr<Logger> GetLogger() { return s_Logger; }
+		static void Shutdown() { s_Logger.reset(); }
 
 	private:
 		static std::shared_ptr<Logger> s_Logger;

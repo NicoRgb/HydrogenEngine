@@ -25,9 +25,6 @@ void Application::OnResize(int width, int height)
 void Application::Run()
 {
 	OnSetup();
-
-	EngineLogger::Init();
-	AppLogger::Init();
 	ScriptEngine::Init();
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);

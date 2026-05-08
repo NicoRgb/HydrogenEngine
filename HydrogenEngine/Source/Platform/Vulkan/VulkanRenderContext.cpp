@@ -1,4 +1,5 @@
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 #include "Hydrogen/Core.hpp"
 
 #include <set>
@@ -186,6 +187,7 @@ VulkanRenderContext::VulkanRenderContext(std::string appName, glm::vec2 appVersi
 
 	HY_ASSERT(candidates.rbegin()->first, "No suitable GPU was found");
 	m_PhysicalDevice = candidates.rbegin()->second;
+	m_MaxMsaaSamples = GetMaxUsableSampleCount(m_PhysicalDevice);
 
 	{
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
@@ -237,12 +239,14 @@ VulkanRenderContext::~VulkanRenderContext()
 {
 	vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
 
-	for (auto imageView : m_SwapChainImageViews)
-	{
-		vkDestroyImageView(m_Device, imageView, nullptr);
-	}
-
 	vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
+
+	for (const auto& image : m_SwapChainImages)
+	{
+		image->SetImage(VK_NULL_HANDLE);
+	}
+	m_SwapChainImages.clear();
+
 	vkDestroyDevice(m_Device, nullptr);
 #ifdef HY_DEBUG
 	DestroyDebugUtilsMessengerEXT(m_Instance, m_DebugMessenger, nullptr);
@@ -303,38 +307,34 @@ void VulkanRenderContext::CreateSwapChain()
 
 	vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, nullptr);
 	m_SwapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, m_SwapChainImages.data());
-
-	m_SwapChainImageViews.resize(m_SwapChainImages.size());
-	for (size_t i = 0; i < m_SwapChainImages.size(); i++)
+	for (uint32_t i = 0; i < imageCount; i++)
 	{
-		VkImageViewCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		createInfo.image = m_SwapChainImages[i];
-		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		createInfo.format = m_SwapChainImageFormat;
-		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		createInfo.subresourceRange.baseMipLevel = 0;
-		createInfo.subresourceRange.levelCount = 1;
-		createInfo.subresourceRange.baseArrayLayer = 0;
-		createInfo.subresourceRange.layerCount = 1;
+		m_SwapChainImages[i] = std::make_shared<VulkanImage>(this, m_SwapChainImageFormat);
+	}
 
-		HY_ASSERT(vkCreateImageView(m_Device, &createInfo, nullptr, &m_SwapChainImageViews[i]) == VK_SUCCESS, "Failed to create vulkan image view");
+	std::vector<VkImage> vkSwapChainImages(m_SwapChainImages.size());
+
+	std::transform(
+		m_SwapChainImages.begin(),
+		m_SwapChainImages.end(),
+		std::back_inserter(vkSwapChainImages),
+		[](const std::shared_ptr<VulkanImage>& f) {
+			return f->GetImage();
+		}
+	);
+
+	vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, vkSwapChainImages.data());
+
+	for (uint32_t i = 0; i < imageCount; i++)
+	{
+		m_SwapChainImages[i]->SetImage(vkSwapChainImages[i]);
+		m_SwapChainImages[i]->RecreateImageView();
 	}
 }
 
 void VulkanRenderContext::OnResize(int width, int height)
 {
 	vkDeviceWaitIdle(m_Device);
-
-	for (auto imageView : m_SwapChainImageViews)
-	{
-		vkDestroyImageView(m_Device, imageView, nullptr);
-	}
 
 	vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
 
@@ -481,4 +481,20 @@ VkExtent2D VulkanRenderContext::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR&
 	actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
 
 	return actualExtent;
+}
+
+VkSampleCountFlagBits VulkanRenderContext::GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice) const
+{
+	VkPhysicalDeviceProperties physicalDeviceProperties;
+	vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+
+	VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+	if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+	if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+	if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+	if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+	if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+	if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+	return VK_SAMPLE_COUNT_1_BIT;
 }

@@ -28,7 +28,7 @@ namespace Hydrogen
 		const VkSwapchainKHR& GetSwapChain() const { return m_SwapChain; }
 		const VkFormat& GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 		const VkExtent2D& GetSwapChainExtent() const { return m_SwapChainExtent; }
-		const std::vector<VkImageView>& GetSwapChainImageViews() const { return m_SwapChainImageViews; }
+		const std::vector<std::shared_ptr<class VulkanImage>>& GetSwapChainImages() const { return m_SwapChainImages; }
 		const uint32_t GetGraphicsQueueFamily() const { return m_GraphicsQueueFamily; }
 		const VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
 		const VkQueue GetPresentQueue() const { return m_PresentQueue; }
@@ -47,6 +47,8 @@ namespace Hydrogen
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) const;
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const;
 
+		VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice) const;
+
 		std::shared_ptr<Viewport> m_Viewport;
 
 		VkInstance m_Instance;
@@ -61,8 +63,7 @@ namespace Hydrogen
 		VkQueue m_GraphicsQueue;
 		VkQueue m_PresentQueue;
 
-		std::vector<VkImageView> m_SwapChainImageViews;
-		std::vector<VkImage> m_SwapChainImages;
+		std::vector<std::shared_ptr<class VulkanImage>> m_SwapChainImages;
 		VkFormat m_SwapChainImageFormat;
 		VkExtent2D m_SwapChainExtent;
 
@@ -70,5 +71,7 @@ namespace Hydrogen
 
 		const uint8_t m_MaxFramesInFlight;
 		uint8_t m_CurrentFrame;
+
+		VkSampleCountFlagBits m_MaxMsaaSamples = VK_SAMPLE_COUNT_1_BIT;
 	};
 }
