@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Hydrogen/Renderer/DebugGUI.hpp"
-#include "Hydrogen/Renderer/CommandQueue.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 
 #include "imgui.h"
@@ -16,7 +15,7 @@ namespace Hydrogen
 
 		void BeginFrame() override;
 		void EndFrame() override;
-		void Render(const std::shared_ptr<CommandQueue>& commandQueue) override;
+		void Render(const std::shared_ptr<CommandBuffer>& commandBuffer) override;
 
 	private:
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;

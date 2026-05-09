@@ -16,8 +16,7 @@ using namespace Hydrogen;
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext)
 {
 	m_RenderContext = renderContext;
-	m_RenderAPI = RenderAPI::Create(m_RenderContext);
-	m_CommandQueue = CommandQueue::Create(renderContext);
+	m_CommandBuffer = CommandBuffer::Create(m_RenderContext);
 	m_DebugLinesVertexBuffer = DynamicVertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float4} }, 20);
 	m_DebugTrianglesVertexBuffer = DynamicVertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float4} }, 20);
 
@@ -29,8 +28,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext)
 Renderer::~Renderer()
 {
 	m_RenderContext = nullptr;
-	m_RenderAPI = nullptr;
-	m_CommandQueue = nullptr;
+	m_CommandBuffer = nullptr;
 }
 
 std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderTarget>& renderTarget, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
@@ -71,66 +69,62 @@ void Renderer::BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget, Cam
 
 	{
 		ZoneScopedN("RenderAPI::BeginFrame");
-		m_RenderAPI->BeginFrame(renderTarget);
+		m_CommandBuffer->BeginFrame(renderTarget);
 	}
 	{
 		ZoneScopedN("Prepare Command Queue And Render Pass");
-		m_CommandQueue->StartRecording(m_RenderAPI);
-		m_CommandQueue->BeginRenderPass(m_CurrentRenderTarget);
+		m_CommandBuffer->StartRecording(renderTarget);
 	}
 
-	m_CommandQueue->SetViewport(m_CurrentRenderTarget);
-	m_CommandQueue->SetScissor(m_CurrentRenderTarget);
+	m_CommandBuffer->SetViewport(m_CurrentRenderTarget);
+	m_CommandBuffer->SetScissor(m_CurrentRenderTarget);
 }
 
 void Renderer::BeginDebugGuiFrame(const std::shared_ptr<RenderTarget>& renderTarget)
 {
 	m_CurrentRenderTarget = renderTarget;
-	m_RenderAPI->BeginFrame(renderTarget);
-	m_CommandQueue->StartRecording(m_RenderAPI);
-	m_CommandQueue->BeginRenderPass(m_CurrentRenderTarget);
+	m_CommandBuffer->BeginFrame(renderTarget);
+	m_CommandBuffer->StartRecording(renderTarget);
 }
 
 void Renderer::EndDebugGuiFrame()
 {
-	m_CommandQueue->EndRenderPass();
-	m_CommandQueue->EndRecording();
-	m_RenderAPI->SubmitFrame(m_CommandQueue);
+	m_CommandBuffer->EndRecording();
+	m_CommandBuffer->EndFrame();
 }
 
 void Renderer::EndFrame()
 {
 	for (const auto& object : m_FrameInfo.Objects)
 	{
-		m_CommandQueue->BindPipeline(object.Shader);
-		m_CommandQueue->BindVertexBuffer(object.VertexBuf);
-		m_CommandQueue->BindIndexBuffer(object.IndexBuf);
+		m_CommandBuffer->BindPipeline(object.Shader);
+		m_CommandBuffer->BindVertexBuffer(object.VertexBuf);
+		m_CommandBuffer->BindIndexBuffer(object.IndexBuf);
 
 		PushConstants pc{};
 		pc.Model = object.Transform;
 		pc.TextureIndex = object.TextureIndex;
 
-		m_CommandQueue->UploadPushConstants(object.Shader, 0, (void*)&pc);
-		m_CommandQueue->DrawIndexed(object.IndexBuf);
+		m_CommandBuffer->UploadPushConstants(object.Shader, 0, (void*)&pc);
+		m_CommandBuffer->DrawIndexed(object.IndexBuf);
 	}
 
 	if (m_FrameInfo.NumDebugLineVertices > 0)
 	{
-		m_CommandQueue->BindPipeline(m_DebugLinesShader);
-		m_CommandQueue->BindDynamicVertexBuffer(m_DebugLinesVertexBuffer);
-		m_CommandQueue->Draw(m_FrameInfo.NumDebugLineVertices);
+		m_CommandBuffer->BindPipeline(m_DebugLinesShader);
+		m_CommandBuffer->BindDynamicVertexBuffer(m_DebugLinesVertexBuffer);
+		m_CommandBuffer->Draw(m_FrameInfo.NumDebugLineVertices);
 	}
 
 	if (m_FrameInfo.NumDebugTriangleVertices > 0)
 	{
-		m_CommandQueue->BindPipeline(m_DebugTrianglesShader);
-		m_CommandQueue->BindDynamicVertexBuffer(m_DebugTrianglesVertexBuffer);
-		m_CommandQueue->Draw(m_FrameInfo.NumDebugTriangleVertices);
+		m_CommandBuffer->BindPipeline(m_DebugTrianglesShader);
+		m_CommandBuffer->BindDynamicVertexBuffer(m_DebugTrianglesVertexBuffer);
+		m_CommandBuffer->Draw(m_FrameInfo.NumDebugTriangleVertices);
 	}
 
-	m_CommandQueue->EndRenderPass();
-	m_CommandQueue->EndRecording();
-	m_RenderAPI->SubmitFrame(m_CommandQueue);
+	m_CommandBuffer->EndRecording();
+	m_CommandBuffer->EndFrame();
 }
 
 #include "Hydrogen/Application.hpp"
@@ -202,7 +196,7 @@ void Renderer::Draw(const MeshRendererComponent& meshRenderer, const std::shared
 
 void Renderer::DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI)
 {
-	debugGUI->Render(m_CommandQueue);
+	debugGUI->Render(m_CommandBuffer);
 }
 
 void Renderer::DrawDebugLines(const std::vector<DebugVertex>& vertices)

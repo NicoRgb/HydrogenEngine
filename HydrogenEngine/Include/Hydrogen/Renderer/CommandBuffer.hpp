@@ -1,26 +1,28 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include "Hydrogen/Renderer/RenderContext.hpp"
+#include "Hydrogen/Renderer/RenderTarget.hpp"
+#include "Hydrogen/Event.hpp"
 
 namespace Hydrogen
 {
-	class RenderTarget;
 	class Pipeline;
 	class VertexBuffer;
 	class DynamicVertexBuffer;
 	class IndexBuffer;
 
-	class CommandQueue
+	class CommandBuffer
 	{
 	public:
-		virtual ~CommandQueue() = default;
-		
-		virtual void StartRecording(const std::shared_ptr<class RenderAPI>& renderAPI) = 0;
-		virtual void EndRecording() = 0;
+		virtual ~CommandBuffer() = default;
 
-		virtual void BeginRenderPass(const std::shared_ptr<RenderTarget>& renderTarget) = 0;
-		virtual void EndRenderPass() = 0;
+		virtual void BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget) = 0;
+		virtual void EndFrame() = 0;
+
+		virtual void StartRecording(const std::shared_ptr<RenderTarget>& renderTarget) = 0;
+		virtual void EndRecording() = 0;
 
 		virtual void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) = 0;
 		virtual void BindVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer) = 0;
@@ -35,13 +37,16 @@ namespace Hydrogen
 		virtual void Draw(size_t numVertices) = 0;
 		virtual void DrawIndexed(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
+		virtual bool IsFrameFinished() const = 0;
+		virtual Event<>& GetFrameFinishedEvent() = 0;
+
 		template<typename T>
-		static std::shared_ptr<T> Get(const std::shared_ptr<CommandQueue>& commandQueue)
+		static std::shared_ptr<T> Get(const std::shared_ptr<CommandBuffer>& commandBuffer)
 		{
-			static_assert(std::is_base_of_v<CommandQueue, T>);
-			return std::dynamic_pointer_cast<T>(commandQueue);
+			static_assert(std::is_base_of_v<CommandBuffer, T>);
+			return std::dynamic_pointer_cast<T>(commandBuffer);
 		}
 
-		static std::shared_ptr<CommandQueue> Create(const std::shared_ptr<RenderContext>& renderContext);
+		static std::shared_ptr<CommandBuffer> Create(const std::shared_ptr<RenderContext>& renderContext);
 	};
 }

@@ -2,8 +2,7 @@
 
 #include "RenderContext.hpp"
 #include "RenderTarget.hpp"
-#include "RenderAPI.hpp"
-#include "CommandQueue.hpp"
+#include "CommandBuffer.hpp"
 #include "DebugGUI.hpp"
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Camera.hpp"
@@ -30,7 +29,6 @@ namespace Hydrogen
 		                          const std::shared_ptr<ShaderAsset>& vertexShader, 
 		                          const std::shared_ptr<ShaderAsset>& fragmentShader);
 
-		// Updated to use RenderTarget
 		void BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 		void EndFrame();
 		void Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
@@ -43,13 +41,11 @@ namespace Hydrogen
 		void DrawDebugTriangles(const std::vector<DebugVertex>& vertices);
 
 		const std::shared_ptr<RenderContext>& GetContext() { return m_RenderContext; }
-		const std::shared_ptr<RenderAPI>& GetAPI() { return m_RenderAPI; }
-		const std::shared_ptr<CommandQueue>& GetCommandQueue() { return m_CommandQueue; }
+		const std::shared_ptr<CommandBuffer>& GetCommandBuffer() { return m_CommandBuffer; }
 
 	private:
 		std::shared_ptr<RenderContext> m_RenderContext;
-		std::shared_ptr<RenderAPI> m_RenderAPI;
-		std::shared_ptr<CommandQueue> m_CommandQueue;
+		std::shared_ptr<CommandBuffer> m_CommandBuffer;
 		std::shared_ptr<RenderTarget> m_CurrentRenderTarget;
 		std::shared_ptr<Texture> m_DefaultTexture;
 

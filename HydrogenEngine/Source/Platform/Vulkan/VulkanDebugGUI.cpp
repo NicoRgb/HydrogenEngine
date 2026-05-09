@@ -1,6 +1,6 @@
 #include "Hydrogen/Platform/Vulkan/VulkanDebugGUI.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderTarget.hpp"
-#include "Hydrogen/Platform/Vulkan/VulkanCommandQueue.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanCommandBuffer.hpp"
 #include "Hydrogen/Core.hpp"
 
 // TODO: This could staticly change in the future -> use preprocessor
@@ -97,8 +97,8 @@ void VulkanDebugGUI::EndFrame()
 	main_draw_data = ImGui::GetDrawData();
 }
 
-void VulkanDebugGUI::Render(const std::shared_ptr<CommandQueue>& commandQueue)
+void VulkanDebugGUI::Render(const std::shared_ptr<CommandBuffer>& commandBuffer)
 {
-	auto c = CommandQueue::Get<VulkanCommandQueue>(commandQueue);
-	ImGui_ImplVulkan_RenderDrawData(main_draw_data, c->GetCommandBuffers()[m_RenderContext->GetCurrentFrame()]);
+	auto c = CommandBuffer::Get<VulkanCommandBuffer>(commandBuffer);
+	ImGui_ImplVulkan_RenderDrawData(main_draw_data, c->GetCurrentVkCommandBuffer());
 }
