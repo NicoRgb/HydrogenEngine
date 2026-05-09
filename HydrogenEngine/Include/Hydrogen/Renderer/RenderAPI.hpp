@@ -3,7 +3,7 @@
 #include <memory>
 
 #include "Hydrogen/Renderer/RenderContext.hpp"
-#include "Hydrogen/Renderer/Framebuffer.hpp"
+#include "Hydrogen/Renderer/RenderTarget.hpp"
 #include "Hydrogen/Event.hpp"
 
 namespace Hydrogen
@@ -13,7 +13,7 @@ namespace Hydrogen
 	public:
 		virtual ~RenderAPI() = default;
 		
-		virtual void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer) = 0;
+		virtual void BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget) = 0;
 		virtual void SubmitFrame(const std::shared_ptr<class CommandQueue>& commandQueue) = 0;
 
 		virtual bool FrameFinished() = 0;

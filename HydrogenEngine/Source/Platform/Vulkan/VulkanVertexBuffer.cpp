@@ -1,4 +1,5 @@
 #include "Hydrogen/Platform/Vulkan/VulkanVertexBuffer.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
 #include "Hydrogen/Core.hpp"
 
 using namespace Hydrogen;
@@ -32,7 +33,7 @@ void VulkanBuffer::AllocateMemory()
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, m_PropertyFlags);
+	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, m_PropertyFlags, m_RenderContext->GetPhysicalDevice());
 
 	HY_ASSERT(vkAllocateMemory(m_RenderContext->GetDevice(), &allocInfo, nullptr, &m_BufferMemory) == VK_SUCCESS, "Failed to allocate vulkan buffer memory");
 
@@ -65,23 +66,6 @@ void VulkanBuffer::DestroyBuffer()
 	{
 		vkFreeMemory(m_RenderContext->GetDevice(), m_BufferMemory, nullptr);
 	}
-}
-
-uint32_t VulkanBuffer::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(m_RenderContext->GetPhysicalDevice(), &memProperties);
-
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-	{
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-		{
-			return i;
-		}
-	}
-
-	HY_ASSERT(false, "Failed to find suitable buffer memory type");
-	return 0;
 }
 
 VulkanVertexBuffer::VulkanVertexBuffer(const std::shared_ptr<RenderContext>& renderContext, VertexLayout layout, void* vertexData, size_t numVertices)

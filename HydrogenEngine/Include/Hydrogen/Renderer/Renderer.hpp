@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RenderContext.hpp"
-#include "Framebuffer.hpp"
+#include "RenderTarget.hpp"
 #include "RenderAPI.hpp"
 #include "CommandQueue.hpp"
 #include "DebugGUI.hpp"
@@ -10,16 +10,6 @@
 
 namespace Hydrogen
 {
-	static glm::vec4 UnpackRP3DColor(uint32_t color)
-	{
-		float r = ((color >> 24) & 0xFF) / 255.0f;
-		float g = ((color >> 16) & 0xFF) / 255.0f;
-		float b = ((color >> 8) & 0xFF) / 255.0f;
-		float a = (color & 0xFF) / 255.0f;
-
-		return { r, g, b, a };
-	}
-
 	class Renderer
 	{
 	public:
@@ -33,14 +23,19 @@ namespace Hydrogen
 			glm::vec4 color;
 		};
 
-		std::shared_ptr<Pipeline> CreatePipeline(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
-		void CreateDebugPipelines(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
+		std::shared_ptr<Pipeline> CreatePipeline(const std::shared_ptr<RenderTarget>& renderTarget, 
+		                                          const std::shared_ptr<ShaderAsset>& vertexShader, 
+		                                          const std::shared_ptr<ShaderAsset>& fragmentShader);
+		void CreateDebugPipelines(const std::shared_ptr<RenderTarget>& renderTarget, 
+		                          const std::shared_ptr<ShaderAsset>& vertexShader, 
+		                          const std::shared_ptr<ShaderAsset>& fragmentShader);
 
-		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		// Updated to use RenderTarget
+		void BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 		void EndFrame();
 		void Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
 
-		void BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
+		void BeginDebugGuiFrame(const std::shared_ptr<RenderTarget>& renderTarget);
 		void EndDebugGuiFrame();
 		void DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI);
 
@@ -55,7 +50,7 @@ namespace Hydrogen
 		std::shared_ptr<RenderContext> m_RenderContext;
 		std::shared_ptr<RenderAPI> m_RenderAPI;
 		std::shared_ptr<CommandQueue> m_CommandQueue;
-		std::shared_ptr<Framebuffer> m_CurrentFramebuffer;
+		std::shared_ptr<RenderTarget> m_CurrentRenderTarget;
 		std::shared_ptr<Texture> m_DefaultTexture;
 
 		std::shared_ptr<DynamicVertexBuffer> m_DebugLinesVertexBuffer;

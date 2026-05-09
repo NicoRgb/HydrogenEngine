@@ -7,10 +7,12 @@
 
 namespace Hydrogen
 {
+	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
+
 	class VulkanTexture : public Texture
 	{
 	public:
-		VulkanTexture(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height);
+		VulkanTexture(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height, VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 		~VulkanTexture();
 
 		ImTextureID GetImGuiImage() override;
@@ -21,6 +23,7 @@ namespace Hydrogen
 		void Resize(size_t width, size_t height) override;
 		void UploadData(void* data) override;
 
+		VkImage GetImage() const { return m_Image; }
 		VkImageView GetImageView() const { return m_ImageView; }
 		VkSampler GetSampler() const { return m_Sampler; }
 		VkFormat GetFormat() const { return m_Format; }
@@ -33,6 +36,9 @@ namespace Hydrogen
 
 		size_t m_Width, m_Height;
 		VkFormat m_Format;
+		VkImageUsageFlags m_Usage;
+		VkSampleCountFlagBits m_Samples;
+		VkImageLayout m_FinalLayout;
 
 		VkDeviceMemory m_ImageMemory;
 

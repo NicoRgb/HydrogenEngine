@@ -1,5 +1,5 @@
 #include "Hydrogen/Platform/Vulkan/VulkanDebugGUI.hpp"
-#include "Hydrogen/Platform/Vulkan/VulkanRenderPass.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanRenderTarget.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanCommandQueue.hpp"
 #include "Hydrogen/Core.hpp"
 
@@ -14,7 +14,7 @@ static void CheckVulkanResult(VkResult res)
 	HY_ASSERT(res == VK_SUCCESS, "ImGui Vulkan command returend an error code {}", (uint64_t)res);
 }
 
-VulkanDebugGUI::VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderPass>& renderPass)
+VulkanDebugGUI::VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderTarget>& renderTarget)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	VkDescriptorPoolSize pool_sizes[] =
@@ -66,7 +66,7 @@ VulkanDebugGUI::VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderConte
 	init_info.Queue = m_RenderContext->GetGraphicsQueue();
 	//init_info.PipelineCache = g_PipelineCache;
 	init_info.DescriptorPool = m_ImguiPool;
-	init_info.RenderPass = RenderPass::Get<VulkanRenderPass>(renderPass)->GetRenderPass();
+	init_info.RenderPass = RenderTarget::Get<VulkanRenderTarget>(renderTarget)->GetRenderPass();
 	init_info.Subpass = 0;
 	init_info.MinImageCount = 3;
 	init_info.ImageCount = 3;

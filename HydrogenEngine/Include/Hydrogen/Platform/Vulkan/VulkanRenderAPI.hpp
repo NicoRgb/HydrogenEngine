@@ -13,7 +13,7 @@ namespace Hydrogen
 		VulkanRenderAPI(const std::shared_ptr<RenderContext>& renderContext);
 		~VulkanRenderAPI();
 
-		void BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer) override;
+		void BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget) override;
 		void SubmitFrame(const std::shared_ptr<CommandQueue>& commandQueue) override;
 
 		bool FrameFinished() override { return m_FrameFinished; }
@@ -21,7 +21,7 @@ namespace Hydrogen
 
 		struct FrameInfo
 		{
-			std::shared_ptr<Framebuffer> framebuffer;
+			std::shared_ptr<RenderTarget> renderTarget;
 			uint32_t swapChainImageIndex;
 		};
 
@@ -35,6 +35,7 @@ namespace Hydrogen
 		std::vector<VkSemaphore> m_ImageAvailableSemaphores;
 		std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 		std::vector<VkFence> m_InFlightFences;
+		std::vector<VkFence> m_InFlightImages;
 
 		bool m_FrameFinished;
 		Event<> m_FrameFinishedEvent;

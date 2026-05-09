@@ -27,13 +27,13 @@ namespace Hydrogen
 			return s_Instance;
 		}
 
-		void Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera, glm::vec3 cameraPos);
+		void Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<RenderTarget>& renderTarget, CameraComponent& camera, glm::vec3 cameraPos);
 
 		void OnResize(int width, int height);
 		void Run();
 		void PhysicsUpdate(float deltaTime);
 		void RenderImGui(std::shared_ptr<Hydrogen::DebugGUI>& debugGUI);
-		void SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass);
+		void SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, const std::shared_ptr<RenderTarget>& renderTarget);
 		void ReloadShader();
 
 		virtual void OnSetup() = 0;

@@ -15,7 +15,7 @@ namespace Hydrogen
 		void StartRecording(const std::shared_ptr<RenderAPI>& renderAPI) override;
 		void EndRecording() override;
 
-		void BeginRenderPass(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<Framebuffer>& framebuffer) override;
+		void BeginRenderPass(const std::shared_ptr<RenderTarget>& renderTarget) override;
 		void EndRenderPass() override;
 
 		void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) override;
@@ -23,8 +23,8 @@ namespace Hydrogen
 		void BindDynamicVertexBuffer(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer) override;
 		void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) override;
 
-		void SetViewport(const std::shared_ptr<Framebuffer>& framebuffer) override;
-		void SetScissor(const std::shared_ptr<Framebuffer>& framebuffer) override;
+		void SetViewport(const std::shared_ptr<RenderTarget>& renderTarget) override;
+		void SetScissor(const std::shared_ptr<RenderTarget>& renderTarget) override;
 
 		void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data) override;
 

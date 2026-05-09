@@ -61,7 +61,6 @@ namespace Hydrogen
 		size_t m_Size = 0;
 
 	private:
-		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 		VkMemoryPropertyFlags m_PropertyFlags;
 		VkBufferUsageFlags m_UsageFlags;
 

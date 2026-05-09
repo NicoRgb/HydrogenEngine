@@ -11,6 +11,7 @@ namespace Hydrogen
 	{
 		ViewportDefault,
 		FormatR8G8B8A8,
+		FormatD32Float,
 	};
 
 	class Texture

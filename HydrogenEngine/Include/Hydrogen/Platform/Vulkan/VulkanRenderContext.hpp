@@ -28,7 +28,8 @@ namespace Hydrogen
 		const VkSwapchainKHR& GetSwapChain() const { return m_SwapChain; }
 		const VkFormat& GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 		const VkExtent2D& GetSwapChainExtent() const { return m_SwapChainExtent; }
-		const std::vector<std::shared_ptr<class VulkanImage>>& GetSwapChainImages() const { return m_SwapChainImages; }
+		const std::vector<VkImage>& GetSwapChainImages() const { return m_SwapChainImages; }
+		const std::vector<VkImageView>& GetSwapChainImageViews() const { return m_SwapChainImageViews; }
 		const uint32_t GetGraphicsQueueFamily() const { return m_GraphicsQueueFamily; }
 		const VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
 		const VkQueue GetPresentQueue() const { return m_PresentQueue; }
@@ -38,6 +39,8 @@ namespace Hydrogen
 		const uint8_t GetMaxFramesInFlight() const { return m_MaxFramesInFlight; }
 		const uint8_t GetCurrentFrame() const { return m_CurrentFrame; }
 		const void SetCurrentFrame(const uint8_t newFrame) { m_CurrentFrame = newFrame; }
+		
+		const VkSampleCountFlagBits GetMaxMsaaSamples() const { return m_MaxMsaaSamples; }
 
 	private:
 		uint64_t ScorePhysicalDevice(VkPhysicalDevice physicalDevice, const std::vector<const char*>& deviceExtensions);
@@ -63,7 +66,9 @@ namespace Hydrogen
 		VkQueue m_GraphicsQueue;
 		VkQueue m_PresentQueue;
 
-		std::vector<std::shared_ptr<class VulkanImage>> m_SwapChainImages;
+		std::vector<VkImageView> m_SwapChainImageViews;
+		std::vector<VkImage> m_SwapChainImages;
+
 		VkFormat m_SwapChainImageFormat;
 		VkExtent2D m_SwapChainExtent;
 

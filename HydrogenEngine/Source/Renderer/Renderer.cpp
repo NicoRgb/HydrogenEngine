@@ -33,9 +33,9 @@ Renderer::~Renderer()
 	m_CommandQueue = nullptr;
 }
 
-std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
+std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderTarget>& renderTarget, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
 {
-	return Pipeline::Create(m_RenderContext, renderPass, vertexShader, fragmentShader,
+	return Pipeline::Create(m_RenderContext, renderTarget, vertexShader, fragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(UniformBuffer), 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
@@ -43,16 +43,16 @@ std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderP
 		{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES);
 }
 
-void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderPass>& renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
+void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderTarget>& renderTarget, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
 {
-	m_DebugLinesShader = Pipeline::Create(m_RenderContext, renderPass, vertexShader, fragmentShader,
+	m_DebugLinesShader = Pipeline::Create(m_RenderContext, renderTarget, vertexShader, fragmentShader,
 		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::LINES);
 
-	m_DebugTrianglesShader = Pipeline::Create(m_RenderContext, renderPass, vertexShader, fragmentShader,
+	m_DebugTrianglesShader = Pipeline::Create(m_RenderContext, renderTarget, vertexShader, fragmentShader,
 		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::TRIANGLES);
 }
 
-void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& cameraComponent, glm::vec3 cameraPos)
+void Renderer::BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget, CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
 	ZoneScopedN("Renderer::BeginFrame");
 
@@ -67,32 +67,28 @@ void Renderer::BeginFrame(const std::shared_ptr<Framebuffer>& framebuffer, const
 	m_FrameInfo.NumDebugLineVertices = 0;
 	m_FrameInfo.NumDebugTriangleVertices = 0;
 
-	m_CurrentFramebuffer = framebuffer;
+	m_CurrentRenderTarget = renderTarget;
 
 	{
 		ZoneScopedN("RenderAPI::BeginFrame");
-		m_RenderAPI->BeginFrame(framebuffer);
+		m_RenderAPI->BeginFrame(renderTarget);
 	}
 	{
 		ZoneScopedN("Prepare Command Queue And Render Pass");
 		m_CommandQueue->StartRecording(m_RenderAPI);
-		m_CommandQueue->BeginRenderPass(renderPass, m_CurrentFramebuffer);
+		m_CommandQueue->BeginRenderPass(m_CurrentRenderTarget);
 	}
 
-	m_CommandQueue->SetViewport(m_CurrentFramebuffer);
-	m_CommandQueue->SetScissor(m_CurrentFramebuffer);
+	m_CommandQueue->SetViewport(m_CurrentRenderTarget);
+	m_CommandQueue->SetScissor(m_CurrentRenderTarget);
 }
 
-void Renderer::BeginDebugGuiFrame(const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass)
+void Renderer::BeginDebugGuiFrame(const std::shared_ptr<RenderTarget>& renderTarget)
 {
-	m_CurrentFramebuffer = framebuffer;
-
-	m_RenderAPI->BeginFrame(framebuffer);
+	m_CurrentRenderTarget = renderTarget;
+	m_RenderAPI->BeginFrame(renderTarget);
 	m_CommandQueue->StartRecording(m_RenderAPI);
-	m_CommandQueue->BeginRenderPass(renderPass, m_CurrentFramebuffer);
-
-	m_CommandQueue->SetViewport(m_CurrentFramebuffer);
-	m_CommandQueue->SetScissor(m_CurrentFramebuffer);
+	m_CommandQueue->BeginRenderPass(m_CurrentRenderTarget);
 }
 
 void Renderer::EndDebugGuiFrame()

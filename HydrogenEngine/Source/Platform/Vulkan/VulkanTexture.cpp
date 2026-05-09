@@ -6,7 +6,12 @@
 
 using namespace Hydrogen;
 
-static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice)
+static bool IsDepthFormat(VkFormat format)
+{
+	return format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+uint32_t Hydrogen::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -24,8 +29,8 @@ static uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags proper
 	return 0;
 }
 
-VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height)
-	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
+VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height, VkImageLayout finalLayout, VkImageUsageFlags usage, VkSampleCountFlagBits samples)
+	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext)), m_Usage(usage), m_Samples(samples), m_FinalLayout(finalLayout)
 {
 	m_Width = width;
 	m_Height = height;
@@ -37,6 +42,9 @@ VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext
 		break;
 	case TextureFormat::FormatR8G8B8A8:
 		m_Format = VK_FORMAT_R8G8B8A8_SRGB;
+		break;
+	case TextureFormat::FormatD32Float:
+		m_Format = VK_FORMAT_D32_SFLOAT;
 		break;
 	default:
 		HY_ASSERT(false, "Invalid TextureFormat");
@@ -123,7 +131,7 @@ void VulkanTexture::UploadData(void* data)
 		region.bufferRowLength = 0;
 		region.bufferImageHeight = 0;
 
-		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.aspectMask = IsDepthFormat(m_Format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0;
 		region.imageSubresource.baseArrayLayer = 0;
 		region.imageSubresource.layerCount = 1;
@@ -144,7 +152,7 @@ void VulkanTexture::UploadData(void* data)
 			&region
 		);
 
-		TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, m_FinalLayout);
 	}
 
 	vkEndCommandBuffer(commandBuffer);
@@ -169,7 +177,7 @@ void VulkanTexture::TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = m_Image;
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.aspectMask = IsDepthFormat(m_Format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
@@ -199,11 +207,22 @@ void VulkanTexture::TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
-	else {
+	else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask =
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+			VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	}
+	else
+	{
 		HY_ASSERT(false, "Unsupported layout transition");
 	}
-
-	vkCmdPipelineBarrier(
+	vkCmdPipelineBarrier
+	(
 		commandBuffer,
 		sourceStage, destinationStage,
 		0,
@@ -226,8 +245,9 @@ void VulkanTexture::CreateTexture()
 	imageInfo.arrayLayers = 1;
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-	imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // TODO: seperate for different usages
+	imageInfo.usage = m_Usage;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageInfo.samples = m_Samples;
 	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	HY_ASSERT(vkCreateImage(m_RenderContext->GetDevice(), &imageInfo, nullptr, &m_Image) == VK_SUCCESS, "Failed to create vulkan view");
@@ -256,7 +276,7 @@ void VulkanTexture::CreateTexture()
 	createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 	createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
 	createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-	createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	createInfo.subresourceRange.aspectMask = IsDepthFormat(m_Format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	createInfo.subresourceRange.baseMipLevel = 0;
 	createInfo.subresourceRange.levelCount = 1;
 	createInfo.subresourceRange.baseArrayLayer = 0;
@@ -278,7 +298,7 @@ void VulkanTexture::CreateTexture()
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-	TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, m_FinalLayout);
 	vkEndCommandBuffer(commandBuffer);
 
 	VkSubmitInfo submitInfo{};

@@ -3,7 +3,6 @@
 #include "Hydrogen/Camera.hpp"
 #include "Hydrogen/Input.hpp"
 #include "Hydrogen/ScriptEngine.hpp"
-#include "Hydrogen/Platform/Vulkan/VulkanFramebuffer.hpp"
 
 #include <ImGuizmo.h>
 #include <reactphysics3d/reactphysics3d.h>
@@ -28,7 +27,6 @@ void Application::Run()
 	ScriptEngine::Init();
 
 	HY_APP_INFO("Initializing app '{}' - Version {}.{}", ApplicationSpec.Name, ApplicationSpec.Version.x, ApplicationSpec.Version.y);
-
 	MainViewport = Viewport::Create(ApplicationSpec.ViewportTitle, (int)ApplicationSpec.ViewportSize.x, (int)ApplicationSpec.ViewportSize.y, (int)ApplicationSpec.ViewportPos.x, (int)ApplicationSpec.ViewportPos.y);
 	MainViewport->GetResizeEvent().AddListener(std::bind(&Application::OnResize, this, std::placeholders::_1, std::placeholders::_2));
 	MainViewport->Open();
@@ -125,9 +123,9 @@ void Application::RenderImGui(std::shared_ptr<DebugGUI>& debugGUI)
 	}
 }
 
-void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass)
+void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, const std::shared_ptr<RenderTarget>& renderTarget)
 {
-	ImGuiRenderer->BeginDebugGuiFrame(framebuffer, renderPass);
+	ImGuiRenderer->BeginDebugGuiFrame(renderTarget);
 	ImGuiRenderer->DrawDebugGui(debugGUI);
 	ImGuiRenderer->EndDebugGuiFrame();
 
@@ -139,52 +137,15 @@ void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_p
 	}
 }
 
-void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, const std::shared_ptr<Pipeline>& pipeline, const std::shared_ptr<Framebuffer>& framebuffer, const std::shared_ptr<RenderPass>& renderPass, CameraComponent& camera, glm::vec3 cameraPos)
+void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, 
+                        const std::shared_ptr<Pipeline>& pipeline, 
+                        const std::shared_ptr<RenderTarget>& renderTarget,
+                        CameraComponent& camera, glm::vec3 cameraPos)
 {
-	/*const auto& lines = CurrentScene->GetScene()->GetPhysicsWorld().GetDebugLines();
+	renderer->BeginFrame(renderTarget, camera, cameraPos);
 
-	std::vector<Renderer::DebugVertex> debugLines;
-	debugLines.reserve(lines.size() * 2);
-
-	for (const auto& line : lines)
-	{
-		Renderer::DebugVertex v0, v1;
-
-		v0.position = { line.point1.x, line.point1.y, line.point1.z };
-		v1.position = { line.point2.x, line.point2.y, line.point2.z };
-
-		v0.color = UnpackRP3DColor(line.color1);
-		v1.color = UnpackRP3DColor(line.color2);
-
-		debugLines.push_back(v0);
-		debugLines.push_back(v1);
-	}
-
-	const auto& triangles = CurrentScene->GetScene()->GetPhysicsWorld().GetDebugTriangles();
-
-	std::vector<Renderer::DebugVertex> debugTriangles;
-	debugTriangles.reserve(triangles.size() * 3);
-
-	for (const auto& triangles : triangles)
-	{
-		Renderer::DebugVertex v0, v1, v2;
-
-		v0.position = { triangles.point1.x, triangles.point1.y, triangles.point1.z };
-		v1.position = { triangles.point2.x, triangles.point2.y, triangles.point2.z };
-		v2.position = { triangles.point3.x, triangles.point3.y, triangles.point3.z };
-
-		v0.color = UnpackRP3DColor(triangles.color1);
-		v1.color = UnpackRP3DColor(triangles.color2);
-		v2.color = UnpackRP3DColor(triangles.color3);
-
-		debugTriangles.push_back(v0);
-		debugTriangles.push_back(v1);
-		debugTriangles.push_back(v2);
-	}*/
-
-	renderer->BeginFrame(framebuffer, renderPass, camera, cameraPos);
-
-	CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>([&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
+	CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>(
+		[&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
 		{
 			(void)entity;
 			if (mesh.Mesh)
@@ -193,8 +154,6 @@ void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, c
 			}
 		});
 
-	//renderer.DrawDebugLines(debugLines);
-	//renderer.DrawDebugTriangles(debugTriangles);
 	renderer->EndFrame();
 }
 
