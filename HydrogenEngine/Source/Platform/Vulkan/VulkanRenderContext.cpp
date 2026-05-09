@@ -338,6 +338,24 @@ void VulkanRenderContext::OnResize(int width, int height)
 	CreateSwapChain();
 }
 
+RenderCapabilities Hydrogen::VulkanRenderContext::GetCapabilities() const
+{
+	RenderCapabilities caps;
+	switch (m_MaxMsaaSamples)
+	{
+	case VK_SAMPLE_COUNT_64_BIT: caps.MaxMSAASamples = 64; break;
+	case VK_SAMPLE_COUNT_32_BIT: caps.MaxMSAASamples = 32; break;
+	case VK_SAMPLE_COUNT_16_BIT: caps.MaxMSAASamples = 16; break;
+	case VK_SAMPLE_COUNT_8_BIT: caps.MaxMSAASamples = 8; break;
+	case VK_SAMPLE_COUNT_4_BIT: caps.MaxMSAASamples = 4; break;
+	case VK_SAMPLE_COUNT_2_BIT: caps.MaxMSAASamples = 2; break;
+	case VK_SAMPLE_COUNT_1_BIT:
+	default: caps.MaxMSAASamples = 1; break;
+	}
+
+	return caps;
+}
+
 uint64_t VulkanRenderContext::ScorePhysicalDevice(VkPhysicalDevice physicalDevice, const std::vector<const char*>& deviceExtensions)
 {
 	if (!FindQueueFamilies(physicalDevice) || !CheckDeviceExtensionsSupport(physicalDevice, deviceExtensions))

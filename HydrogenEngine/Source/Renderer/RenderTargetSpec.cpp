@@ -33,7 +33,7 @@ RenderTargetSpec RenderTargetSpec::TextureTarget(uint32_t width, uint32_t height
     };
     if (msaaSamples > 1)
     {
-        spec.Attachments.push_back({ AttachmentType::Resolve, 1, false });
+        spec.Attachments.push_back({ AttachmentType::Resolve , 1, false });
     }
 
     spec.Type = RenderTargetType::Texture;

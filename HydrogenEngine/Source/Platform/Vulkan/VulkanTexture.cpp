@@ -284,53 +284,60 @@ void VulkanTexture::CreateTexture()
 
 	HY_ASSERT(vkCreateImageView(m_RenderContext->GetDevice(), &createInfo, nullptr, &m_ImageView) == VK_SUCCESS, "Failed to create vulkan image view");
 
-	VkCommandBufferAllocateInfo cmdAllocInfo{};
-	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cmdAllocInfo.commandPool = m_RenderContext->GetCommandPool();
-	cmdAllocInfo.commandBufferCount = 1;
+	if (m_FinalLayout != VK_IMAGE_LAYOUT_UNDEFINED)
+	{
+		VkCommandBufferAllocateInfo cmdAllocInfo{};
+		cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		cmdAllocInfo.commandPool = m_RenderContext->GetCommandPool();
+		cmdAllocInfo.commandBufferCount = 1;
 
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(m_RenderContext->GetDevice(), &cmdAllocInfo, &commandBuffer);
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(m_RenderContext->GetDevice(), &cmdAllocInfo, &commandBuffer);
 
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-	TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, m_FinalLayout);
-	vkEndCommandBuffer(commandBuffer);
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+		TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, m_FinalLayout);
+		vkEndCommandBuffer(commandBuffer);
 
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
 
-	vkQueueSubmit(m_RenderContext->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(m_RenderContext->GetGraphicsQueue());
+		vkQueueSubmit(m_RenderContext->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(m_RenderContext->GetGraphicsQueue());
 
-	vkFreeCommandBuffers(m_RenderContext->GetDevice(), m_RenderContext->GetCommandPool(), 1, &commandBuffer);
+		vkFreeCommandBuffers(m_RenderContext->GetDevice(), m_RenderContext->GetCommandPool(), 1, &commandBuffer);
+	}
 
-	VkPhysicalDeviceProperties properties{};
-	vkGetPhysicalDeviceProperties(m_RenderContext->GetPhysicalDevice(), &properties);
+	m_Sampler = VK_NULL_HANDLE;
+	if (m_Usage & VK_IMAGE_USAGE_SAMPLED_BIT)
+	{
+		VkPhysicalDeviceProperties properties{};
+		vkGetPhysicalDeviceProperties(m_RenderContext->GetPhysicalDevice(), &properties);
 
-	VkSamplerCreateInfo samplerInfo{};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.anisotropyEnable = VK_TRUE;
-	samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerInfo.mipLodBias = 0.0f;
-	samplerInfo.minLod = 0.0f;
-	samplerInfo.maxLod = 0.0f;
+		VkSamplerCreateInfo samplerInfo{};
+		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		samplerInfo.magFilter = VK_FILTER_LINEAR;
+		samplerInfo.minFilter = VK_FILTER_LINEAR;
+		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.anisotropyEnable = VK_TRUE;
+		samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+		samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		samplerInfo.unnormalizedCoordinates = VK_FALSE;
+		samplerInfo.compareEnable = VK_FALSE;
+		samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		samplerInfo.mipLodBias = 0.0f;
+		samplerInfo.minLod = 0.0f;
+		samplerInfo.maxLod = 0.0f;
 
-	vkCreateSampler(m_RenderContext->GetDevice(), &samplerInfo, nullptr, &m_Sampler);
+		vkCreateSampler(m_RenderContext->GetDevice(), &samplerInfo, nullptr, &m_Sampler);
+	}
 }

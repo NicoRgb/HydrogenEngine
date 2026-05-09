@@ -289,8 +289,10 @@ public:
 		FreeCam.CalculateProj();
 		FreeCam.Active = true;
 
-		SceneViewportRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::TextureTarget(1920, 1080));
-		ViewportRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::TextureTarget(1920, 1080));
+		auto maxMsaaSamples = _RenderContext->GetCapabilities().MaxMSAASamples;
+
+		SceneViewportRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::TextureTarget(1920, 1080, maxMsaaSamples));
+		ViewportRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::TextureTarget(1920, 1080, maxMsaaSamples));
 		ImGuiRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::ViewportTarget(MainViewport));
 
 		DebugGUI = DebugGUI::Create(_RenderContext, ImGuiRenderTarget);

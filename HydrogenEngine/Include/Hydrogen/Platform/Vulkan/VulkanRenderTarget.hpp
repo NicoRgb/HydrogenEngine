@@ -37,7 +37,7 @@ namespace Hydrogen
 		VkFramebuffer GetFramebuffer(uint32_t index = 0) const { return m_Framebuffers[index]; }
 		const std::vector<VkFramebuffer>& GetFramebuffers() const { return m_Framebuffers; }
 
-		const std::shared_ptr<Texture> GetColorTexture() const override { return m_ColorImage; }
+		const std::shared_ptr<Texture> GetColorTexture() const override { return m_SampleCount == 1 ? m_ColorImage : m_ResolveImage; }
 
 	private:
 		void CreateAttachments();

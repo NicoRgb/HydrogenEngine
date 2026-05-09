@@ -22,6 +22,8 @@ namespace Hydrogen
 
 		void OnResize(int width, int height) override;
 
+		RenderCapabilities GetCapabilities() const override;
+
 		const VkInstance& GetInstance() const { return m_Instance; }
 		const VkDevice& GetDevice() const { return m_Device; }
 		const VkPhysicalDevice& GetPhysicalDevice() const { return m_PhysicalDevice; }

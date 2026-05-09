@@ -4,6 +4,23 @@
 
 using namespace Hydrogen;
 
+static VkSampleCountFlagBits GetVulkanSampleCount(uint32_t sampleCount)
+{
+	switch (sampleCount)
+	{
+	case 1: return VK_SAMPLE_COUNT_1_BIT;
+	case 2: return VK_SAMPLE_COUNT_2_BIT;
+	case 4: return VK_SAMPLE_COUNT_4_BIT;
+	case 8: return VK_SAMPLE_COUNT_8_BIT;
+	case 16: return VK_SAMPLE_COUNT_16_BIT;
+	case 32: return VK_SAMPLE_COUNT_32_BIT;
+	case 64: return VK_SAMPLE_COUNT_64_BIT;
+	default:
+		HY_ASSERT(false, "Unsupported sample count");
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+}
+
 VulkanRenderTarget::VulkanRenderTarget(const std::shared_ptr<RenderContext>& renderContext,
 									   const RenderTargetSpec& spec)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext)),
@@ -35,7 +52,7 @@ VulkanRenderTarget::~VulkanRenderTarget()
 
 void VulkanRenderTarget::CreateAttachments()
 {
-	VkSampleCountFlagBits vkSamples = static_cast<VkSampleCountFlagBits>(m_SampleCount);
+	VkSampleCountFlagBits vkSamples = GetVulkanSampleCount(m_SampleCount);
 
 	for (const auto& attachmentSpec : m_Spec.Attachments)
 	{
@@ -46,14 +63,20 @@ void VulkanRenderTarget::CreateAttachments()
 				continue;
 			}
 
+			VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			if (attachmentSpec.SampleCount == 1)
+			{
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}			
+
 			m_ColorImage = std::make_shared<VulkanTexture>(
 				m_RenderContext,
 				TextureFormat::FormatR8G8B8A8,
 				m_Spec.Width, m_Spec.Height,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-				VK_IMAGE_USAGE_SAMPLED_BIT |
-				VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				finalLayout,
+				usage,
 				vkSamples);
 		}
 		else if (attachmentSpec.Type == AttachmentType::Depth)
@@ -72,8 +95,8 @@ void VulkanRenderTarget::CreateAttachments()
 				m_RenderContext,
 				TextureFormat::FormatR8G8B8A8,
 				m_Spec.Width, m_Spec.Height,
-				VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				VK_IMAGE_LAYOUT_UNDEFINED,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
 				VK_SAMPLE_COUNT_1_BIT);
 		}
 	}
@@ -98,7 +121,12 @@ void VulkanRenderTarget::CreateRenderPass()
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		colorAttachment.storeOp = hasResolve ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
 		colorAttachment.finalLayout = m_Spec.Type == RenderTargetType::Texture ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		if (m_ResolveImage)
+		{
+			colorAttachment.finalLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		}
 
 		VkAttachmentReference ref{};
 		ref.attachment = attachmentIndex++;
@@ -132,7 +160,10 @@ void VulkanRenderTarget::CreateRenderPass()
 		resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		resolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		resolveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		resolveAttachment.finalLayout = resolveAttachment.finalLayout =
+			(m_Spec.Type == RenderTargetType::SwapChain)
+			? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+			: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		resolveRef.attachment = attachmentIndex++;
 		resolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;

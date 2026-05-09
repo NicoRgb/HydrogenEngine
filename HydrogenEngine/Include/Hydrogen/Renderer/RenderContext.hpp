@@ -8,6 +8,11 @@
 
 namespace Hydrogen
 {
+	struct RenderCapabilities
+	{
+		uint32_t MaxMSAASamples = 1;
+	};
+
 	class RenderContext
 	{
 	public:
@@ -15,6 +20,8 @@ namespace Hydrogen
 
 		virtual void OnResize(int width, int height) = 0;
 		
+		virtual RenderCapabilities GetCapabilities() const = 0;
+
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<RenderContext>& renderContext)
 		{
