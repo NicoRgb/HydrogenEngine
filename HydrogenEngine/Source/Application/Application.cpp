@@ -39,9 +39,6 @@ void Application::Run()
 	CurrentScene = MainAssetManager.GetAsset<SceneAsset>("Scene.hyscene");
 	CurrentScene->Load(&MainAssetManager);
 
-	Renderer MainRenderer(_RenderContext);
-	Renderer ImGuiRenderer(_RenderContext);
-
 	OnStartup();
 
 	using clock = std::chrono::high_resolution_clock;
@@ -86,48 +83,43 @@ void Application::PhysicsUpdate(float deltaTime)
 	CurrentScene->GetScene()->Update(deltaTime);
 }
 
-void Application::RenderImGui(std::shared_ptr<DebugGUI>& debugGUI)
+void Application::RenderImGui(std::shared_ptr<DebugGUIRenderer>& ImGuiRenderer)
 {
-	if (debugGUI)
-	{
-		debugGUI->BeginFrame();
-		ImGuizmo::BeginFrame();
+	ImGuiRenderer->GetDebugGUI()->BeginFrame();
+	ImGuizmo::BeginFrame();
 
-		static bool dockingEnabled = true;
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+	static bool dockingEnabled = true;
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
 
-		const ImGuiViewport* viewport = ImGui::GetMainViewport();
-		ImGui::SetNextWindowPos(viewport->WorkPos);
-		ImGui::SetNextWindowSize(viewport->WorkSize);
-		ImGui::SetNextWindowViewport(viewport->ID);
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->WorkPos);
+	ImGui::SetNextWindowSize(viewport->WorkSize);
+	ImGui::SetNextWindowViewport(viewport->ID);
 
-		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+	window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+	window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
 
-		ImGui::Begin("DockSpace Demo", &dockingEnabled, window_flags);
-		ImGui::PopStyleVar(2);
+	ImGui::Begin("DockSpace Demo", &dockingEnabled, window_flags);
+	ImGui::PopStyleVar(2);
 
-		ImGuiID dockspace_id = ImGui::GetID("DockSpace");
-		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+	ImGuiID dockspace_id = ImGui::GetID("DockSpace");
+	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
 
-		OnImGuiMenuBarRender();
+	OnImGuiMenuBarRender();
 
-		ImGui::End();
+	ImGui::End();
 
-		OnImGuiRender();
-		debugGUI->EndFrame();
-	}
+	OnImGuiRender();
+	ImGuiRenderer->GetDebugGUI()->EndFrame();
 }
 
-void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, const std::shared_ptr<RenderGraph>& renderGraph)
+void Application::SubmitImGui(std::shared_ptr<DebugGUIRenderer>& ImGuiRenderer)
 {
-	ImGuiRenderer->BeginDebugGuiFrame(renderGraph);
-	ImGuiRenderer->DrawDebugGui(debugGUI);
-	ImGuiRenderer->EndDebugGuiFrame();
+	ImGuiRenderer->Render();
 
 	auto& io = ImGui::GetIO();
 	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -135,26 +127,6 @@ void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_p
 		ImGui::UpdatePlatformWindows();
 		ImGui::RenderPlatformWindowsDefault();
 	}
-}
-
-void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, 
-                        const std::shared_ptr<Pipeline>& pipeline, 
-                        const std::shared_ptr<RenderGraph>& renderGraph,
-                        CameraComponent& camera, glm::vec3 cameraPos)
-{
-	renderer->BeginFrame(renderGraph, camera, cameraPos);
-
-	CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>(
-		[&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)
-		{
-			(void)entity;
-			if (mesh.Mesh)
-			{
-				renderer->Draw(mesh, pipeline, transform.Transform);
-			}
-		});
-
-	renderer->EndFrame();
 }
 
 void Application::ReloadShader()

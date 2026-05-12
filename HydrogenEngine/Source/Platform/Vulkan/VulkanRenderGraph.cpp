@@ -101,7 +101,7 @@ void VulkanRenderGraph::CreateAttachments()
 
 			m_DepthImage = std::make_shared<VulkanTexture>(
 				m_RenderContext,
-				TextureFormat::FormatD24UnormS8Uint,
+				TextureFormat::FormatD32Float,
 				m_Spec.Width, m_Spec.Height,
 				finalLayout,
 				usage,
@@ -195,7 +195,7 @@ void VulkanRenderGraph::CreateRenderPass()
 		}
 		else if (spec.Type == AttachmentType::DepthStencil)
 		{
-			desc.format = VK_FORMAT_D24_UNORM_S8_UINT;
+			desc.format = VK_FORMAT_D32_SFLOAT_S8_UINT;
 			desc.finalLayout = spec.Sampled
 				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -208,7 +208,7 @@ void VulkanRenderGraph::CreateRenderPass()
 		}
 		else if (spec.Type == AttachmentType::Resolve)
 		{
-			desc.format = VK_FORMAT_B8G8R8A8_UNORM;
+			desc.format = VK_FORMAT_B8G8R8A8_SRGB;
 			desc.samples = VK_SAMPLE_COUNT_1_BIT;
 			desc.finalLayout = spec.Sampled
 				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL

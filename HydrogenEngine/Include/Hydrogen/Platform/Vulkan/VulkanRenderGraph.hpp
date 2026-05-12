@@ -29,6 +29,10 @@ namespace Hydrogen
 		VkImage GetDepthImage() const { return m_DepthImage ? m_DepthImage->GetImage() : VK_NULL_HANDLE; }
 		VkImageView GetDepthImageView() const { return m_DepthImage ? m_DepthImage->GetImageView() : VK_NULL_HANDLE; }
 
+		std::shared_ptr<Texture> GetColorTexture() const override { return m_ColorImage; }
+		std::shared_ptr<Texture> GetDepthTexture() const override { return m_DepthImage; }
+		std::shared_ptr<Texture> GetResolveTexture() const override { return m_ResolveImage; }
+
 		void OnResize(uint32_t width, uint32_t height) override;
 		void Invalidate() override;
 

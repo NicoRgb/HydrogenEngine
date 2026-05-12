@@ -361,19 +361,25 @@ namespace Hydrogen
 
 		std::shared_ptr<TextureAsset> Texture;
 		std::shared_ptr<MeshAsset> Mesh;
+		std::shared_ptr<ShaderAsset> VertexShader;
+		std::shared_ptr<ShaderAsset> FragmentShader;
 
 		static void OnImGuiRender(MeshRendererComponent& t);
 
 		static void ToJson(json& j, const MeshRendererComponent& t)
 		{
 			j = json{ { "Texture", std::filesystem::path(t.Texture->GetPath()).filename().string() },
-					  { "Mesh", std::filesystem::path(t.Mesh->GetPath()).filename().string() } };
+					  { "Mesh", std::filesystem::path(t.Mesh->GetPath()).filename().string() },
+					  { "VertexShader", std::filesystem::path(t.VertexShader->GetPath()).filename().string() },
+					  { "FragmentShader", std::filesystem::path(t.FragmentShader->GetPath()).filename().string() } };
 		}
 
 		static void FromJson(const json& j, MeshRendererComponent& t, AssetManager* assetManager)
 		{
 			t.Texture = assetManager->GetAsset<TextureAsset>(j.at("Texture"));
 			t.Mesh = assetManager->GetAsset<MeshAsset>(j.at("Mesh"));
+			t.VertexShader = assetManager->GetAsset<ShaderAsset>(j.at("VertexShader"));
+			t.FragmentShader = assetManager->GetAsset<ShaderAsset>(j.at("FragmentShader"));
 		}
 	};
 

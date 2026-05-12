@@ -5,8 +5,6 @@ using namespace Hydrogen;
 class RuntimeApp : public Application
 {
 private:
-	std::shared_ptr<RenderGraph> SceneRenderGraph;
-	std::shared_ptr<Pipeline> DefaultPipeline;
 	std::shared_ptr<Renderer> MainRenderer;
 
 	template<typename TCamera>
@@ -63,36 +61,7 @@ public:
 	virtual void OnStartup() override
 	{
 		CurrentScene->GetScene()->CreateScripts();
-
-		uint32_t maxMsaaSamples = _RenderContext->GetCapabilities().MaxMSAASamples;
-
-		RenderGraphSpec spec;
-		spec.Width = (uint32_t)MainViewport->GetWidth();
-		spec.Height = (uint32_t)MainViewport->GetHeight();
-
-		if (maxMsaaSamples > 1)
-		{
-			spec.Attachments = {
-				{ AttachmentType::Color, maxMsaaSamples, false, true, false },
-				{ AttachmentType::Depth, maxMsaaSamples, false, true, false },
-				{ AttachmentType::Resolve, 1, false, true, true }
-			};
-		}
-		else
-		{
-			spec.Attachments = {
-				{ AttachmentType::Color, 1, false, true, true },
-				{ AttachmentType::Depth, 1, false, true, false }
-			};
-		}
-		
-		SceneRenderGraph = RenderGraph::Create(_RenderContext, spec);
-		MainRenderer = std::make_shared<Renderer>(_RenderContext);
-		DefaultPipeline =
-			MainRenderer->CreatePipeline(
-				SceneRenderGraph,
-				MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"),
-				MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
+		MainRenderer = std::make_shared<Renderer>(_RenderContext, MainViewport);
 	}
 
 	virtual void OnShutdown() override
@@ -106,12 +75,7 @@ public:
 		Entity cameraEntity;
 		if (UpdateCamera(dt, cameraEntity))
 		{
-			Render(dt,
-				MainRenderer,
-				DefaultPipeline,
-				SceneRenderGraph,
-				cameraEntity.GetComponent<CameraComponent>(),
-				cameraEntity.GetComponent<TransformComponent>().GetPosition());
+			MainRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
 		}
 	}
 

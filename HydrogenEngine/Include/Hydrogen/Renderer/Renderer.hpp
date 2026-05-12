@@ -7,13 +7,29 @@
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Camera.hpp"
 
+using PipelineKey = std::pair<std::string, std::string>;
+
+namespace std
+{
+	template<>
+	struct hash<PipelineKey>
+	{
+		size_t operator()(const PipelineKey& k) const noexcept
+		{
+			size_t h1 = hash<string>{}(k.first);
+			size_t h2 = hash<string>{}(k.second);
+			return h1 ^ (h2 << 1);
+		}
+	};
+}
+
 namespace Hydrogen
 {
 	class Renderer
 	{
 	public:
-		Renderer(const std::shared_ptr<RenderContext>& renderContext);
-		Renderer() = default;
+		Renderer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Viewport>& viewport);
+		Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height);
 		~Renderer();
 
 		struct DebugVertex
@@ -22,37 +38,30 @@ namespace Hydrogen
 			glm::vec4 color;
 		};
 
-		std::shared_ptr<Pipeline> CreatePipeline(const std::shared_ptr<RenderGraph>& renderGraph, 
-		                                          const std::shared_ptr<ShaderAsset>& vertexShader, 
-		                                          const std::shared_ptr<ShaderAsset>& fragmentShader);
-		void CreateDebugPipelines(const std::shared_ptr<RenderGraph>& renderGraph, 
-		                          const std::shared_ptr<ShaderAsset>& vertexShader, 
-		                          const std::shared_ptr<ShaderAsset>& fragmentShader);
+		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
-		void BeginFrame(const std::shared_ptr<RenderGraph>& renderGraph, CameraComponent& cameraComponent, glm::vec3 cameraPos);
-		void EndFrame();
-		void Draw(const MeshRendererComponent& meshRenderer, const std::shared_ptr<Pipeline>& pipeline, const glm::mat4& transform);
+		void Resize(uint32_t width, uint32_t height);
+		const std::shared_ptr<Texture>& GetSampledTexture() { return m_SampledTexture; }
 
-		void BeginDebugGuiFrame(const std::shared_ptr<RenderGraph>& renderGraph);
-		void EndDebugGuiFrame();
-		void DrawDebugGui(const std::shared_ptr<DebugGUI>& debugGUI);
-
-		void DrawDebugLines(const std::vector<DebugVertex>& vertices);
-		void DrawDebugTriangles(const std::vector<DebugVertex>& vertices);
-
-		const std::shared_ptr<RenderContext>& GetContext() { return m_RenderContext; }
-		const std::shared_ptr<CommandBuffer>& GetCommandBuffer() { return m_CommandBuffer; }
+		uint32_t GetWidth() const { return m_RenderGraph->GetWidth(); }
+		uint32_t GetHeight() const { return m_RenderGraph->GetHeight(); }
 
 	private:
+		void BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		void EndFrame();
+		void Draw(const MeshRendererComponent& meshRenderer, const glm::mat4& transform, uint32_t* lightData, size_t lightDataSize);
+
+		const std::shared_ptr<Pipeline>& GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
+
 		std::shared_ptr<RenderContext> m_RenderContext;
-		std::shared_ptr<CommandBuffer> m_CommandBuffer;
-		std::shared_ptr<RenderGraph> m_CurrentRenderGraph;
+
 		std::shared_ptr<Texture> m_DefaultTexture;
 
-		std::shared_ptr<DynamicVertexBuffer> m_DebugLinesVertexBuffer;
-		std::shared_ptr<Pipeline> m_DebugLinesShader;
-		std::shared_ptr<DynamicVertexBuffer> m_DebugTrianglesVertexBuffer;
-		std::shared_ptr<Pipeline> m_DebugTrianglesShader;
+		std::shared_ptr<CommandBuffer> m_CommandBuffer;
+		std::shared_ptr<RenderGraph> m_RenderGraph;
+		std::unordered_map<PipelineKey, std::shared_ptr<Pipeline>> m_Pipelines;
+
+		std::shared_ptr<Texture> m_SampledTexture;
 
 		struct UniformBuffer
 		{
@@ -95,10 +104,25 @@ namespace Hydrogen
 
 			std::vector<std::shared_ptr<Texture>> Textures;
 			std::vector<std::shared_ptr<Pipeline>> Pipelines;
-			size_t NumDebugLineVertices;
-			size_t NumDebugTriangleVertices;
-
 			std::vector<RenderObject> Objects;
 		} m_FrameInfo;
+	};
+
+	class DebugGUIRenderer
+	{
+	public:
+		DebugGUIRenderer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Viewport>& viewport);
+		~DebugGUIRenderer();
+
+		void Render();
+		void Resize(uint32_t width, uint32_t height);
+
+		const std::shared_ptr<DebugGUI>& GetDebugGUI() const { return m_DebugGUI; }
+
+	private:
+		std::shared_ptr<RenderContext> m_RenderContext;
+		std::shared_ptr<CommandBuffer> m_CommandBuffer;
+		std::shared_ptr<RenderGraph> m_RenderGraph;
+		std::shared_ptr<DebugGUI> m_DebugGUI;
 	};
 }

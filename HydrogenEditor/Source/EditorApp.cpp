@@ -13,8 +13,10 @@ static AssetBrowserPanel     _BrowserPanel("assets", _EditorPanel);
 static SceneHierarchyPanel   _SceneHierarchy;
 static InspectorPanel        _Inspector;
 
-static ImVec2 SceneViewportSize, SceneViewportPos;
-static ImVec2 ViewportSize, ViewportPos;
+static ImVec2 SceneViewportSize = { 500, 500 };
+static ImVec2 SceneViewportPos = { 0, 0 };
+static ImVec2 ViewportSize = { 500, 500 };
+static ImVec2 ViewportPos = { 0, 0 };
 static ImGuizmo::OPERATION GuizmoTool = ImGuizmo::TRANSLATE;
 
 std::shared_ptr<Scene> SavedScene;
@@ -26,17 +28,11 @@ private:
 	float m_FPS = 0.0f;
 	bool  m_IsSimulating = false;
 
-	std::shared_ptr<RenderTarget>     SceneViewportRenderTarget;
-	std::shared_ptr<RenderTarget>     ViewportRenderTarget;
+	std::shared_ptr<Renderer> SceneViewportRenderer;
+	std::shared_ptr<Renderer> ViewportRenderer;
+	std::shared_ptr<DebugGUIRenderer> ImGuiRenderer;
 
-	std::shared_ptr<RenderTarget>  ImGuiRenderTarget;
-	std::shared_ptr<DebugGUI>    DebugGUI;
-
-	std::shared_ptr<Pipeline> DefaultPipeline;
-
-	std::shared_ptr<Renderer> MainRenderer;
-	std::shared_ptr<Renderer> ImGuiRenderer;
-
+	std::shared_ptr<DebugGUI> DebugGUI;
 	FreeCamera FreeCam;
 
 private:
@@ -104,8 +100,8 @@ private:
 			});
 
 		glm::ivec2 size = {
-				(int)ViewportRenderTarget->GetWidth(),
-				(int)ViewportRenderTarget->GetHeight()
+				(int)ViewportRenderer->GetWidth(),
+				(int)ViewportRenderer->GetHeight()
 		};
 
 		if (activeCameraEntity.IsValid())
@@ -202,7 +198,7 @@ private:
 		{
 			SceneViewportSize = contentRegion;
 
-			SceneViewportRenderTarget->OnResize(
+			SceneViewportRenderer->Resize(
 				(size_t)contentRegion.x,
 				(size_t)contentRegion.y);
 
@@ -213,7 +209,7 @@ private:
 				contentRegion.y);
 		}
 
-		ImGui::Image(SceneViewportRenderTarget->GetColorTexture()->GetImGuiImage(), contentRegion);
+		ImGui::Image(SceneViewportRenderer->GetSampledTexture()->GetImGuiImage(), contentRegion);
 
 		DrawGizmo();
 
@@ -228,7 +224,7 @@ private:
 		{
 			ViewportSize = contentRegion;
 
-			ViewportRenderTarget->OnResize(
+			ViewportRenderer->Resize(
 				(size_t)contentRegion.x,
 				(size_t)contentRegion.y);
 
@@ -239,7 +235,7 @@ private:
 				contentRegion.y);
 		}
 
-		ImGui::Image(ViewportRenderTarget->GetColorTexture()->GetImGuiImage(), contentRegion);
+		ImGui::Image(ViewportRenderer->GetSampledTexture()->GetImGuiImage(), contentRegion);
 
 		ImGui::End();
 	}
@@ -289,34 +285,16 @@ public:
 		FreeCam.CalculateProj();
 		FreeCam.Active = true;
 
-		auto maxMsaaSamples = _RenderContext->GetCapabilities().MaxMSAASamples;
-
-		SceneViewportRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::TextureTarget(1920, 1080, maxMsaaSamples));
-		ViewportRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::TextureTarget(1920, 1080, maxMsaaSamples));
-		ImGuiRenderTarget = RenderTarget::Create(_RenderContext, RenderTargetSpec::ViewportTarget(MainViewport));
-
-		DebugGUI = DebugGUI::Create(_RenderContext, ImGuiRenderTarget);
-
 		MainViewport->GetResizeEvent().AddListener(
 			[this](int width, int height)
 			{
 				_RenderContext->OnResize(width, height);
-				ImGuiRenderTarget->OnResize(width, height);
+				ImGuiRenderer->Resize(width, height);
 			});
 
-		MainRenderer = std::make_shared<Renderer>(_RenderContext);
-		ImGuiRenderer = std::make_shared<Renderer>(_RenderContext);
-
-		MainRenderer->CreateDebugPipelines(
-			ImGuiRenderTarget,
-			MainAssetManager.GetAsset<ShaderAsset>("DebugLineVertexShader.glsl"),
-			MainAssetManager.GetAsset<ShaderAsset>("DebugLineFragmentShader.glsl"));
-
-		DefaultPipeline =
-			MainRenderer->CreatePipeline(
-				ViewportRenderTarget,
-				MainAssetManager.GetAsset<ShaderAsset>("VertexShader.glsl"),
-				MainAssetManager.GetAsset<ShaderAsset>("FragmentShader.glsl"));
+		SceneViewportRenderer = std::make_shared<Renderer>(_RenderContext, (uint32_t)SceneViewportSize.x, (uint32_t)SceneViewportSize.y);
+		ViewportRenderer = std::make_shared<Renderer>(_RenderContext, (uint32_t)ViewportSize.x, (uint32_t)ViewportSize.y);
+		ImGuiRenderer = std::make_shared<DebugGUIRenderer>(_RenderContext, MainViewport);
 	}
 
 	virtual void OnShutdown() override {}
@@ -333,12 +311,7 @@ public:
 		Entity cameraEntity;
 		if (UpdateCamera(deltaTime, cameraEntity))
 		{
-			Render(deltaTime,
-				MainRenderer,
-				DefaultPipeline,
-				ViewportRenderTarget,
-				cameraEntity.GetComponent<CameraComponent>(),
-				cameraEntity.GetComponent<TransformComponent>().GetPosition());
+			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
 		}
 
 		if (Input::IsMouseButtonDown(KeyCode::MouseRight) && IsHoveringSceneViewport())
@@ -357,23 +330,14 @@ public:
 
 		FreeCam.CalculateView();
 		UpdateCameraViewportSize(FreeCam, {
-				(int)SceneViewportRenderTarget->GetWidth(),
-				(int)SceneViewportRenderTarget->GetHeight()
+				(int)SceneViewportRenderer->GetWidth(),
+				(int)SceneViewportRenderer->GetHeight()
 			});
 
-		Render(
-			deltaTime,
-			MainRenderer,
-			DefaultPipeline,
-			SceneViewportRenderTarget,
-			FreeCam,
-			FreeCam.GetPosition()
-		);
+		SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition());
 
-		RenderImGui(DebugGUI);
-		SubmitImGui(DebugGUI,
-			ImGuiRenderer,
-			ImGuiRenderTarget);
+		RenderImGui(ImGuiRenderer);
+		SubmitImGui(ImGuiRenderer);
 	}
 
 	virtual void OnImGuiRender() override
