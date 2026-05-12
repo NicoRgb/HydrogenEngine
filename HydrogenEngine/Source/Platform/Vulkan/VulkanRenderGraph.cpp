@@ -1,0 +1,388 @@
+#include "Hydrogen/Platform/Vulkan/VulkanRenderGraph.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
+#include "Hydrogen/Core.hpp"
+
+using namespace Hydrogen;
+
+VkSampleCountFlagBits Hydrogen::GetVulkanSampleCount(uint32_t sampleCount)
+{
+	switch (sampleCount)
+	{
+	case 1: return VK_SAMPLE_COUNT_1_BIT;
+	case 2: return VK_SAMPLE_COUNT_2_BIT;
+	case 4: return VK_SAMPLE_COUNT_4_BIT;
+	case 8: return VK_SAMPLE_COUNT_8_BIT;
+	case 16: return VK_SAMPLE_COUNT_16_BIT;
+	case 32: return VK_SAMPLE_COUNT_32_BIT;
+	case 64: return VK_SAMPLE_COUNT_64_BIT;
+	default:
+		HY_ASSERT(false, "Unsupported sample count");
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+}
+
+VulkanRenderGraph::VulkanRenderGraph(const std::shared_ptr<RenderContext>& renderContext,
+									   const RenderGraphSpec& spec)
+	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext)),
+	  m_Spec(spec)
+{
+	CreateAttachments();
+	CreateRenderPass();
+	CreateFramebuffers();
+}
+
+VulkanRenderGraph::~VulkanRenderGraph()
+{
+	vkDestroyRenderPass(m_RenderContext->GetDevice(), m_RenderPass, nullptr);
+	for (auto framebuffer : m_Framebuffers)
+		vkDestroyFramebuffer(m_RenderContext->GetDevice(), framebuffer, nullptr);
+	DestroyAttachments();
+}
+
+void VulkanRenderGraph::CreateAttachments()
+{
+	m_SampleCount = 1;
+	for (const auto& attachmentSpec : m_Spec.Attachments)
+	{
+		if (attachmentSpec.Type == AttachmentType::Color && !attachmentSpec.IsSwapChainAttachment)
+		{
+			m_SampleCount = attachmentSpec.SampleCount;
+
+			VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			if (attachmentSpec.Sampled)
+			{
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+
+			m_ColorImage = std::make_shared<VulkanTexture>(
+				m_RenderContext,
+				TextureFormat::FormatB8G8R8A8,
+				m_Spec.Width, m_Spec.Height,
+				finalLayout,
+				usage,
+				GetVulkanSampleCount(attachmentSpec.SampleCount));
+		}
+		else if (attachmentSpec.Type == AttachmentType::Depth)
+		{
+			HY_ASSERT(attachmentSpec.IsSwapChainAttachment == false, "Depth attachments cannot be swap chain attachments");
+
+			VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			if (attachmentSpec.Sampled)
+			{
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+				finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+
+			m_DepthImage = std::make_shared<VulkanTexture>(
+				m_RenderContext,
+				TextureFormat::FormatD32Float,
+				m_Spec.Width, m_Spec.Height,
+				finalLayout,
+				usage,
+				GetVulkanSampleCount(attachmentSpec.SampleCount));
+		}
+		else if (attachmentSpec.Type == AttachmentType::DepthStencil)
+		{
+			HY_ASSERT(attachmentSpec.IsSwapChainAttachment == false, "Depth-stencil attachments cannot be swap chain attachments");
+
+			VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			if (attachmentSpec.Sampled)
+			{
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+				finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+
+			m_DepthImage = std::make_shared<VulkanTexture>(
+				m_RenderContext,
+				TextureFormat::FormatD24UnormS8Uint,
+				m_Spec.Width, m_Spec.Height,
+				finalLayout,
+				usage,
+				GetVulkanSampleCount(attachmentSpec.SampleCount));
+		}
+		else if (attachmentSpec.Type == AttachmentType::Resolve && !attachmentSpec.IsSwapChainAttachment)
+		{
+			VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			if (attachmentSpec.Sampled)
+			{
+				usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+				finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+
+			HY_ASSERT(attachmentSpec.SampleCount == 1, "Resolve attachments must be single-sampled");
+
+			m_ResolveImage = std::make_shared<VulkanTexture>(
+				m_RenderContext,
+				TextureFormat::FormatB8G8R8A8,
+				m_Spec.Width, m_Spec.Height,
+				finalLayout,
+				usage,
+				VK_SAMPLE_COUNT_1_BIT);
+		}
+	}
+}
+
+void VulkanRenderGraph::CreateRenderPass()
+{
+	std::vector<VkAttachmentDescription> attachments;
+
+	std::vector<VkAttachmentReference> colorRefs;
+	VkAttachmentReference depthRef{};
+	VkAttachmentReference resolveRef{};
+
+	bool hasDepth = false;
+	bool hasResolve = false;
+
+	uint32_t attachmentIndex = 0;
+
+	for (const auto& spec : m_Spec.Attachments)
+	{
+		VkAttachmentDescription desc{};
+		desc.flags = 0;
+		desc.samples = GetVulkanSampleCount(spec.SampleCount);
+
+		desc.loadOp = spec.Clear ? VK_ATTACHMENT_LOAD_OP_CLEAR
+			: VK_ATTACHMENT_LOAD_OP_LOAD;
+
+		desc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		desc.stencilLoadOp = desc.loadOp;
+		desc.stencilStoreOp = desc.storeOp;
+
+		desc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+		if (spec.Type == AttachmentType::Color)
+		{
+			desc.format = VK_FORMAT_B8G8R8A8_SRGB;
+			desc.finalLayout = spec.Sampled
+				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			if (spec.IsSwapChainAttachment)
+			{
+				desc.format = m_RenderContext->GetSwapChainImageFormat();
+				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			}
+
+			attachments.push_back(desc);
+
+			VkAttachmentReference ref{};
+			ref.attachment = attachmentIndex;
+			ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			colorRefs.push_back(ref);
+		}
+		else if (spec.Type == AttachmentType::Depth)
+		{
+			desc.format = VK_FORMAT_D32_SFLOAT;
+			desc.finalLayout = spec.Sampled
+				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			attachments.push_back(desc);
+
+			depthRef.attachment = attachmentIndex;
+			depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			hasDepth = true;
+		}
+		else if (spec.Type == AttachmentType::DepthStencil)
+		{
+			desc.format = VK_FORMAT_D24_UNORM_S8_UINT;
+			desc.finalLayout = spec.Sampled
+				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			attachments.push_back(desc);
+
+			depthRef.attachment = attachmentIndex;
+			depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			hasDepth = true;
+		}
+		else if (spec.Type == AttachmentType::Resolve)
+		{
+			desc.format = VK_FORMAT_B8G8R8A8_UNORM;
+			desc.samples = VK_SAMPLE_COUNT_1_BIT;
+			desc.finalLayout = spec.Sampled
+				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+				: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			if (spec.IsSwapChainAttachment)
+			{
+				desc.format = m_RenderContext->GetSwapChainImageFormat();
+				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			}
+
+			attachments.push_back(desc);
+
+			resolveRef.attachment = attachmentIndex;
+			resolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			hasResolve = true;
+		}
+
+		attachmentIndex++;
+	}
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = static_cast<uint32_t>(colorRefs.size());
+	subpass.pColorAttachments = colorRefs.data();
+
+	if (hasDepth)
+		subpass.pDepthStencilAttachment = &depthRef;
+
+	if (hasResolve)
+		subpass.pResolveAttachments = &resolveRef;
+
+	VkSubpassDependency dependency{};
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcAccessMask = 0;
+	dependency.dstAccessMask =
+	VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+	VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+	VkRenderPassCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	createInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+	createInfo.pAttachments = attachments.data();
+	createInfo.subpassCount = 1;
+	createInfo.pSubpasses = &subpass;
+	createInfo.dependencyCount = 1;
+	createInfo.pDependencies = &dependency;
+
+	HY_ASSERT(vkCreateRenderPass(m_RenderContext->GetDevice(), &createInfo, nullptr, &m_RenderPass) == VK_SUCCESS, 
+			 "Failed to create vulkan render pass");
+}
+
+void VulkanRenderGraph::CreateFramebuffers()
+{
+	m_IsSwapChainBacked = false;
+	for (const auto& spec : m_Spec.Attachments)
+	{
+		if (spec.IsSwapChainAttachment)
+		{
+			m_IsSwapChainBacked = true;
+			break;
+		}
+	}
+
+	if (m_IsSwapChainBacked)
+		CreateSwapChainFramebuffers();
+	else
+		CreateTextureFramebuffers();
+}
+
+void VulkanRenderGraph::CreateSwapChainFramebuffers()
+{
+	VkFramebufferCreateInfo framebufferInfo{};
+	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	framebufferInfo.renderPass = m_RenderPass;
+	framebufferInfo.width = m_Spec.Width;
+	framebufferInfo.height = m_Spec.Height;
+	framebufferInfo.layers = 1;
+
+	const auto& swapchainImageViews = m_RenderContext->GetSwapChainImageViews();
+
+	m_Framebuffers.resize(swapchainImageViews.size());
+
+	for (size_t i = 0; i < swapchainImageViews.size(); i++)
+	{
+		std::vector<VkImageView> attachments;
+
+		for (const auto& spec : m_Spec.Attachments)
+		{
+			if (spec.IsSwapChainAttachment)
+			{
+				attachments.push_back(swapchainImageViews[i]);
+			}
+			else if (spec.Type == AttachmentType::Color)
+			{
+				attachments.push_back(m_ColorImage->GetImageView());
+			}
+			else if (spec.Type == AttachmentType::Depth || spec.Type == AttachmentType::DepthStencil)
+			{
+				attachments.push_back(m_DepthImage->GetImageView());
+			}
+			else if (spec.Type == AttachmentType::Resolve)
+			{
+				attachments.push_back(m_ResolveImage->GetImageView());
+			}
+		}
+
+		framebufferInfo.attachmentCount = attachments.size();
+		framebufferInfo.pAttachments = attachments.data();
+
+		HY_ASSERT(vkCreateFramebuffer(m_RenderContext->GetDevice(), &framebufferInfo, nullptr, &m_Framebuffers[i]) == VK_SUCCESS,
+			"Failed to create vulkan framebuffer");
+	}
+}
+
+void VulkanRenderGraph::CreateTextureFramebuffers()
+{
+	m_Framebuffers.resize(m_RenderContext->GetMaxFramesInFlight());
+
+	for (size_t i = 0; i < m_Framebuffers.size(); i++)
+	{
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = m_RenderPass;
+		framebufferInfo.width = m_Spec.Width;
+		framebufferInfo.height = m_Spec.Height;
+		framebufferInfo.layers = 1;
+
+		std::vector<VkImageView> attachmentViews;
+		for (const auto& spec : m_Spec.Attachments)
+		{
+			if (spec.Type == AttachmentType::Color)
+				attachmentViews.push_back(m_ColorImage->GetImageView());
+			if (spec.Type == AttachmentType::Depth || spec.Type == AttachmentType::DepthStencil)
+				attachmentViews.push_back(m_DepthImage->GetImageView());
+			if (spec.Type == AttachmentType::Resolve)
+				attachmentViews.push_back(m_ResolveImage->GetImageView());
+		}
+
+		framebufferInfo.attachmentCount = attachmentViews.size();
+		framebufferInfo.pAttachments = attachmentViews.data();
+
+		HY_ASSERT(vkCreateFramebuffer(m_RenderContext->GetDevice(), &framebufferInfo, nullptr, &m_Framebuffers[i]) == VK_SUCCESS,
+			"Failed to create vulkan framebuffer");
+	}
+}
+
+void VulkanRenderGraph::OnResize(uint32_t width, uint32_t height)
+{
+	m_Spec.Width = width;
+	m_Spec.Height = height;
+	Invalidate();
+}
+
+void VulkanRenderGraph::Invalidate()
+{
+	vkDeviceWaitIdle(m_RenderContext->GetDevice());
+
+	for (auto framebuffer : m_Framebuffers)
+		vkDestroyFramebuffer(m_RenderContext->GetDevice(), framebuffer, nullptr);
+	m_Framebuffers.clear();
+
+	DestroyAttachments();
+	CreateAttachments();
+	CreateFramebuffers();
+}
+
+void VulkanRenderGraph::DestroyAttachments()
+{
+	m_ColorImage = nullptr;
+	m_ResolveImage = nullptr;
+	m_DepthImage = nullptr;
+}

@@ -43,8 +43,17 @@ VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext
 	case TextureFormat::FormatR8G8B8A8:
 		m_Format = VK_FORMAT_R8G8B8A8_SRGB;
 		break;
+	case TextureFormat::FormatB8G8R8A8:
+		m_Format = VK_FORMAT_B8G8R8A8_SRGB;
+		break;
 	case TextureFormat::FormatD32Float:
 		m_Format = VK_FORMAT_D32_SFLOAT;
+		break;
+	case TextureFormat::FormatD32Sfloat:
+		m_Format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+		break;
+	case TextureFormat::FormatD24UnormS8Uint:
+		m_Format = VK_FORMAT_D24_UNORM_S8_UINT;
 		break;
 	default:
 		HY_ASSERT(false, "Invalid TextureFormat");
@@ -216,6 +225,14 @@ void VulkanTexture::TransitionImageLayout(VkCommandBuffer commandBuffer, VkImage
 
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	}
 	else
 	{

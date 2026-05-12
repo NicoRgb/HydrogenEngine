@@ -1,6 +1,6 @@
 #include "Hydrogen/Platform/Vulkan/VulkanCommandBuffer.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
-#include "Hydrogen/Platform/Vulkan/VulkanRenderTarget.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanRenderGraph.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanIndexBuffer.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanPipeline.hpp"
 #include "Hydrogen/Core.hpp"
@@ -98,16 +98,18 @@ const VulkanCommandBuffer::FrameData& VulkanCommandBuffer::GetCurrentFrameData()
 	return m_Frames[m_RenderContext->GetCurrentFrame()];
 }
 
-void VulkanCommandBuffer::BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget)
+void VulkanCommandBuffer::BeginFrame(const std::shared_ptr<RenderGraph>& renderGraph)
 {
+	auto vkGraph = RenderGraph::Get<VulkanRenderGraph>(renderGraph);
+
 	m_IsFrameFinished = false;
-	m_CurrentFrameContext.renderTarget = renderTarget;
+	m_CurrentFrameContext.renderGraph = renderGraph;
 
 	const auto& frameData = GetCurrentFrameData();
 
 	vkWaitForFences(m_RenderContext->GetDevice(), 1, &frameData.inFlightFence, VK_TRUE, UINT64_MAX);
 
-	if (renderTarget->GetSpec().Type == RenderTargetType::SwapChain)
+	if (vkGraph->IsSwapChainBacked())
 	{
 		VkResult result = vkAcquireNextImageKHR(
 			m_RenderContext->GetDevice(),
@@ -154,15 +156,17 @@ void VulkanCommandBuffer::EndFrame()
 
 void VulkanCommandBuffer::SubmitFrame()
 {
+	auto vkGraph = RenderGraph::Get<VulkanRenderGraph>(m_CurrentFrameContext.renderGraph);
+
 	const auto& frameData = GetCurrentFrameData();
-	const bool isSwapChainTarget = m_CurrentFrameContext.renderTarget->GetSpec().Type == RenderTargetType::SwapChain;
+	const bool isSwapChainGraph = vkGraph->IsSwapChainBacked();
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 	VkSemaphore waitSemaphores[] = { frameData.imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	submitInfo.waitSemaphoreCount = isSwapChainTarget ? 1 : 0;
+	submitInfo.waitSemaphoreCount = isSwapChainGraph ? 1 : 0;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
@@ -170,13 +174,13 @@ void VulkanCommandBuffer::SubmitFrame()
 	submitInfo.pCommandBuffers = &frameData.commandBuffer;
 
 	VkSemaphore signalSemaphores[] = { frameData.renderFinishedSemaphore };
-	submitInfo.signalSemaphoreCount = isSwapChainTarget ? 1 : 0;
+	submitInfo.signalSemaphoreCount = isSwapChainGraph ? 1 : 0;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	HY_ASSERT(vkQueueSubmit(m_RenderContext->GetGraphicsQueue(), 1, &submitInfo, frameData.inFlightFence) == VK_SUCCESS,
 		"Failed to submit command buffer");
 
-	if (isSwapChainTarget)
+	if (isSwapChainGraph)
 	{
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -192,7 +196,7 @@ void VulkanCommandBuffer::SubmitFrame()
 	}
 }
 
-void VulkanCommandBuffer::StartRecording(const std::shared_ptr<RenderTarget>& renderTarget)
+void VulkanCommandBuffer::StartRecording(const std::shared_ptr<RenderGraph>& renderGraph)
 {
 	HY_ASSERT(!m_IsRecording, "Already recording");
 
@@ -205,7 +209,7 @@ void VulkanCommandBuffer::StartRecording(const std::shared_ptr<RenderTarget>& re
 
 	m_IsRecording = true;
 
-	BeginRenderPass(renderTarget);
+	BeginRenderPass(renderGraph);
 }
 
 void VulkanCommandBuffer::EndRecording()
@@ -248,24 +252,24 @@ void VulkanCommandBuffer::BindIndexBuffer(const std::shared_ptr<IndexBuffer>& in
 	vkCmdBindIndexBuffer(GetCurrentVkCommandBuffer(), buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-void VulkanCommandBuffer::SetViewport(const std::shared_ptr<RenderTarget>& renderTarget)
+void VulkanCommandBuffer::SetViewport(const std::shared_ptr<RenderGraph>& renderGraph)
 {
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)renderTarget->GetWidth();
-	viewport.height = (float)renderTarget->GetHeight();
+	viewport.width = (float)renderGraph->GetWidth();
+	viewport.height = (float)renderGraph->GetHeight();
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	vkCmdSetViewport(GetCurrentVkCommandBuffer(), 0, 1, &viewport);
 }
 
-void VulkanCommandBuffer::SetScissor(const std::shared_ptr<RenderTarget>& renderTarget)
+void VulkanCommandBuffer::SetScissor(const std::shared_ptr<RenderGraph>& renderGraph)
 {
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = { renderTarget->GetWidth(), renderTarget->GetHeight() };
+	scissor.extent = { renderGraph->GetWidth(), renderGraph->GetHeight() };
 
 	vkCmdSetScissor(GetCurrentVkCommandBuffer(), 0, 1, &scissor);
 }
@@ -287,35 +291,33 @@ void VulkanCommandBuffer::DrawIndexed(const std::shared_ptr<IndexBuffer>& indexB
 	vkCmdDrawIndexed(GetCurrentVkCommandBuffer(), (uint32_t)indexBuffer->GetNumIndices(), 1, 0, 0, 0);
 }
 
-void VulkanCommandBuffer::BeginRenderPass(const std::shared_ptr<RenderTarget>& renderTarget)
+void VulkanCommandBuffer::BeginRenderPass(const std::shared_ptr<RenderGraph>& renderGraph)
 {
-	auto vkTarget = RenderTarget::Get<VulkanRenderTarget>(renderTarget);
+	auto vkGraph = RenderGraph::Get<VulkanRenderGraph>(renderGraph);
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = vkTarget->GetRenderPass();
+	renderPassInfo.renderPass = vkGraph->GetRenderPass();
 
 	uint32_t framebufferIndex = m_RenderContext->GetCurrentFrame();
-	if (vkTarget->GetSpec().Type == RenderTargetType::SwapChain)
+	if (vkGraph->IsSwapChainBacked())
 	{
 		framebufferIndex = m_CurrentFrameContext.swapChainImageIndex;
 	}
 
-	renderPassInfo.framebuffer = vkTarget->GetFramebuffer(framebufferIndex);
+	renderPassInfo.framebuffer = vkGraph->GetFramebuffer(framebufferIndex);
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = { vkTarget->GetWidth(), vkTarget->GetHeight() };
+	renderPassInfo.renderArea.extent = { vkGraph->GetWidth(), vkGraph->GetHeight() };
 
 	std::array<VkClearValue, 3> clearValues{};
 	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
 	clearValues[1].depthStencil = { 1.0f, 0 };
 	clearValues[2].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
 
-	uint32_t clearCount = 0;
-	if (vkTarget->GetSpec().Type == RenderTargetType::SwapChain || vkTarget->GetColorTexture())
+	uint32_t clearCount = 1; // Color attachment is always cleared
+	if (vkGraph->GetDepthImage() != VK_NULL_HANDLE)
 		clearCount++;
-	if (vkTarget->GetDepthImage() != VK_NULL_HANDLE)
-		clearCount++;
-	if (vkTarget->GetResolveImage() != VK_NULL_HANDLE)
+	if (vkGraph->IsMultisampled())
 		clearCount++;
 
 	renderPassInfo.clearValueCount = clearCount;

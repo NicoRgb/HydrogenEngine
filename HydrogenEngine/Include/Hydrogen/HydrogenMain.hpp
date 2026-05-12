@@ -9,7 +9,7 @@
 #include <Hydrogen/Scene.hpp>
 #include <Hydrogen/Physics.hpp>
 #include <Hydrogen/Camera.hpp>
-#include "Hydrogen/Input.hpp"
+#include <Hydrogen/Input.hpp>
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication();
 

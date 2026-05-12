@@ -31,9 +31,9 @@ Renderer::~Renderer()
 	m_CommandBuffer = nullptr;
 }
 
-std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderTarget>& renderTarget, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
+std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
 {
-	return Pipeline::Create(m_RenderContext, renderTarget, vertexShader, fragmentShader,
+	return Pipeline::Create(m_RenderContext, renderGraph, vertexShader, fragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(UniformBuffer), 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
@@ -41,16 +41,16 @@ std::shared_ptr<Pipeline> Renderer::CreatePipeline(const std::shared_ptr<RenderT
 		{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES);
 }
 
-void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderTarget>& renderTarget, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
+void Renderer::CreateDebugPipelines(const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
 {
-	m_DebugLinesShader = Pipeline::Create(m_RenderContext, renderTarget, vertexShader, fragmentShader,
+	m_DebugLinesShader = Pipeline::Create(m_RenderContext, renderGraph, vertexShader, fragmentShader,
 		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::LINES);
 
-	m_DebugTrianglesShader = Pipeline::Create(m_RenderContext, renderTarget, vertexShader, fragmentShader,
+	m_DebugTrianglesShader = Pipeline::Create(m_RenderContext, renderGraph, vertexShader, fragmentShader,
 		{ { VertexElementType::Float3 }, { VertexElementType::Float4 } }, { { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(UniformBuffer), 1 } }, {}, Primitive::TRIANGLES);
 }
 
-void Renderer::BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget, CameraComponent& cameraComponent, glm::vec3 cameraPos)
+void Renderer::BeginFrame(const std::shared_ptr<RenderGraph>& renderGraph, CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
 	ZoneScopedN("Renderer::BeginFrame");
 
@@ -65,26 +65,26 @@ void Renderer::BeginFrame(const std::shared_ptr<RenderTarget>& renderTarget, Cam
 	m_FrameInfo.NumDebugLineVertices = 0;
 	m_FrameInfo.NumDebugTriangleVertices = 0;
 
-	m_CurrentRenderTarget = renderTarget;
+	m_CurrentRenderGraph = renderGraph;
 
 	{
 		ZoneScopedN("RenderAPI::BeginFrame");
-		m_CommandBuffer->BeginFrame(renderTarget);
+		m_CommandBuffer->BeginFrame(renderGraph);
 	}
 	{
 		ZoneScopedN("Prepare Command Queue And Render Pass");
-		m_CommandBuffer->StartRecording(renderTarget);
+		m_CommandBuffer->StartRecording(renderGraph);
 	}
 
-	m_CommandBuffer->SetViewport(m_CurrentRenderTarget);
-	m_CommandBuffer->SetScissor(m_CurrentRenderTarget);
+	m_CommandBuffer->SetViewport(m_CurrentRenderGraph);
+	m_CommandBuffer->SetScissor(m_CurrentRenderGraph);
 }
 
-void Renderer::BeginDebugGuiFrame(const std::shared_ptr<RenderTarget>& renderTarget)
+void Renderer::BeginDebugGuiFrame(const std::shared_ptr<RenderGraph>& renderGraph)
 {
-	m_CurrentRenderTarget = renderTarget;
-	m_CommandBuffer->BeginFrame(renderTarget);
-	m_CommandBuffer->StartRecording(renderTarget);
+	m_CurrentRenderGraph = renderGraph;
+	m_CommandBuffer->BeginFrame(renderGraph);
+	m_CommandBuffer->StartRecording(renderGraph);
 }
 
 void Renderer::EndDebugGuiFrame()

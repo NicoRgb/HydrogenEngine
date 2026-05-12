@@ -123,9 +123,9 @@ void Application::RenderImGui(std::shared_ptr<DebugGUI>& debugGUI)
 	}
 }
 
-void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, const std::shared_ptr<RenderTarget>& renderTarget)
+void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_ptr<Renderer>& ImGuiRenderer, const std::shared_ptr<RenderGraph>& renderGraph)
 {
-	ImGuiRenderer->BeginDebugGuiFrame(renderTarget);
+	ImGuiRenderer->BeginDebugGuiFrame(renderGraph);
 	ImGuiRenderer->DrawDebugGui(debugGUI);
 	ImGuiRenderer->EndDebugGuiFrame();
 
@@ -139,10 +139,10 @@ void Application::SubmitImGui(std::shared_ptr<DebugGUI>& debugGUI, std::shared_p
 
 void Application::Render(float deltaTime, std::shared_ptr<Renderer>& renderer, 
                         const std::shared_ptr<Pipeline>& pipeline, 
-                        const std::shared_ptr<RenderTarget>& renderTarget,
+                        const std::shared_ptr<RenderGraph>& renderGraph,
                         CameraComponent& camera, glm::vec3 cameraPos)
 {
-	renderer->BeginFrame(renderTarget, camera, cameraPos);
+	renderer->BeginFrame(renderGraph, camera, cameraPos);
 
 	CurrentScene->GetScene()->IterateComponents<TransformComponent, MeshRendererComponent>(
 		[&](Entity entity, const TransformComponent& transform, const MeshRendererComponent& mesh)

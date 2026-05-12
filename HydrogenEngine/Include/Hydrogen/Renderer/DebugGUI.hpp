@@ -5,7 +5,7 @@
 #include "Hydrogen/Renderer/RenderContext.hpp"
 #include "Hydrogen/Renderer/Pipeline.hpp"
 #include "Hydrogen/Renderer/CommandBuffer.hpp"
-#include "Hydrogen/Renderer/RenderTarget.hpp"
+#include "Hydrogen/Renderer/RenderGraph.hpp"
 
 namespace Hydrogen
 {
@@ -26,6 +26,6 @@ namespace Hydrogen
 		virtual void EndFrame() = 0;
 		virtual void Render(const std::shared_ptr<CommandBuffer>& commandBuffer) = 0;
 
-		static std::shared_ptr<DebugGUI> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderTarget>& renderTarget);
+		static std::shared_ptr<DebugGUI> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph);
 	};
 }
