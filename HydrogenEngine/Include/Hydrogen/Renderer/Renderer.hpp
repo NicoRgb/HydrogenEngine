@@ -7,6 +7,9 @@
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Camera.hpp"
 
+#define MAX_TEXTURES 128
+#define MAX_LIGHTS 16
+
 using PipelineKey = std::pair<std::string, std::string>;
 
 namespace std
@@ -48,8 +51,12 @@ namespace Hydrogen
 
 	private:
 		void BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos);
-		void EndFrame();
-		void Draw(const MeshRendererComponent& meshRenderer, const glm::mat4& transform, uint32_t* lightData, size_t lightDataSize);
+
+		void RenderFrame(const std::shared_ptr<RenderGraph>& target);
+
+		void SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform);
+		void SubmitLight(const LightComponent& light, const glm::mat4& transform);
+		void SubmitShadowPass(const glm::mat4& lightTransform, const std::shared_ptr<RenderGraph>& lightRenderGraph);
 
 		const std::shared_ptr<Pipeline>& GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 
@@ -60,6 +67,8 @@ namespace Hydrogen
 		std::shared_ptr<CommandBuffer> m_CommandBuffer;
 		std::shared_ptr<RenderGraph> m_RenderGraph;
 		std::unordered_map<PipelineKey, std::shared_ptr<Pipeline>> m_Pipelines;
+
+		std::array<std::shared_ptr<RenderGraph>, MAX_LIGHTS> m_LightRenderGraphs;
 
 		std::shared_ptr<Texture> m_SampledTexture;
 
@@ -100,7 +109,9 @@ namespace Hydrogen
 
 		struct
 		{
-			UniformBuffer _UniformBuffer;
+			UniformBuffer CameraInfo;
+			GPULight Lights[MAX_LIGHTS];
+			uint32_t NumLights;
 
 			std::vector<std::shared_ptr<Texture>> Textures;
 			std::vector<std::shared_ptr<Pipeline>> Pipelines;

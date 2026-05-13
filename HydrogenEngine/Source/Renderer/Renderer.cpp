@@ -11,9 +11,6 @@
 
 using namespace Hydrogen;
 
-#define MAX_TEXTURES 128
-#define MAX_LIGHTS 16
-
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Viewport>& viewport)
 {
 	m_RenderContext = renderContext;
@@ -46,6 +43,17 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 	}
 
 	m_RenderGraph = RenderGraph::Create(m_RenderContext, spec);
+
+	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
+	{
+		RenderGraphSpec lightSpec;
+		lightSpec.Width = (uint32_t)viewport->GetWidth();
+		lightSpec.Height = (uint32_t)viewport->GetHeight();
+		lightSpec.Attachments = {
+			{ AttachmentType::Depth, 1, true, true, false }
+		};
+		//m_LightRenderGraphs[i] = RenderGraph::Create(m_RenderContext, lightSpec);
+	}
 }
 
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height)
@@ -97,48 +105,30 @@ Renderer::~Renderer()
 
 void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
-	uint32_t numLights = 0;
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
-		[&](Entity, const LightComponent&) { numLights++; });
-
-	size_t bufferSize = sizeof(SceneLightsBuffer) + numLights * sizeof(GPULight);
-	uint32_t* data = new uint32_t[bufferSize / sizeof(uint32_t)]();
-
-	SceneLightsBuffer* header = reinterpret_cast<SceneLightsBuffer*>(data);
-	header->lightCount = numLights;
-
-	GPULight* gpuLights = reinterpret_cast<GPULight*>(data + sizeof(SceneLightsBuffer) / sizeof(uint32_t));
-
-	uint32_t idx = 0;
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
-		[&](Entity e, const LightComponent& light)
-		{
-			if (idx >= numLights) return;
-
-			const auto& transform = e.GetComponent<TransformComponent>();
-
-			gpuLights[idx].position = glm::vec4(e.GetComponent<TransformComponent>().GetPosition(), 512.0f);
-			gpuLights[idx].color = light.color;
-
-			idx++;
-		});
-
-	// TODO: find camera
 	BeginFrame(cameraComponent, cameraPos);
+
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
+		[&](Entity e, const LightComponent& l)
+		{
+			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
+		});
 
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
-			Draw(m, e.GetComponent<TransformComponent>().Transform, data, bufferSize);
+			SubmitMesh(m, e.GetComponent<TransformComponent>().Transform);
 		});
 
-	EndFrame();
-
-	delete[] data;
+	RenderFrame(m_RenderGraph);
 }
 
 void Renderer::Resize(uint32_t width, uint32_t height)
 {
+	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
+	{
+		//m_LightRenderGraphs[i]->OnResize(width, height);
+	}
+
 	m_RenderGraph->OnResize(width, height);
 
 	uint32_t maxMsaaSamples = m_RenderContext->GetCapabilities().MaxMSAASamples;
@@ -160,25 +150,47 @@ void Renderer::BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos)
 	m_FrameInfo.Textures.clear();
 	m_FrameInfo.Objects.clear();
 
-	m_FrameInfo._UniformBuffer.View = cameraComponent.View;
-	m_FrameInfo._UniformBuffer.Proj = cameraComponent.Proj;
-	m_FrameInfo._UniformBuffer.ViewPos = cameraPos;
+	m_FrameInfo.Textures.push_back(m_DefaultTexture);
 
-	{
-		ZoneScopedN("RenderAPI::BeginFrame");
-		m_CommandBuffer->BeginFrame(m_RenderGraph);
-	}
-	{
-		ZoneScopedN("Prepare Command Queue And Render Pass");
-		m_CommandBuffer->StartRecording(m_RenderGraph);
-	}
+	m_FrameInfo.CameraInfo.View = cameraComponent.View;
+	m_FrameInfo.CameraInfo.Proj = cameraComponent.Proj;
+	m_FrameInfo.CameraInfo.ViewPos = cameraPos;
+
+	m_FrameInfo.NumLights = 0;
+}
+
+void Renderer::RenderFrame(const std::shared_ptr<RenderGraph>& target)
+{
+	m_CommandBuffer->BeginFrame(m_RenderGraph);
+	m_CommandBuffer->StartRecording(m_RenderGraph);
 
 	m_CommandBuffer->SetViewport(m_RenderGraph);
 	m_CommandBuffer->SetScissor(m_RenderGraph);
-}
 
-void Renderer::EndFrame()
-{
+	size_t lightDataSize = sizeof(SceneLightsBuffer) + m_FrameInfo.NumLights * sizeof(GPULight);
+	uint32_t* lightData = new uint32_t[lightDataSize / sizeof(uint32_t)]();
+
+	SceneLightsBuffer* header = reinterpret_cast<SceneLightsBuffer*>(lightData);
+	header->lightCount = m_FrameInfo.NumLights;
+	GPULight* gpuLights = reinterpret_cast<GPULight*>(lightData + sizeof(SceneLightsBuffer) / sizeof(uint32_t));
+	memcpy(gpuLights, m_FrameInfo.Lights, m_FrameInfo.NumLights * sizeof(GPULight));
+
+	for (const auto& pipeline : m_FrameInfo.Pipelines)
+	{
+		pipeline->UploadUniformBufferData(0, &m_FrameInfo.CameraInfo, sizeof(UniformBuffer));
+		pipeline->UploadStorageBufferData(2, lightData, lightDataSize);
+
+		for (uint32_t i = 0; i < MAX_TEXTURES; i++)
+		{
+			if (i < m_FrameInfo.Textures.size())
+			{
+				pipeline->UploadTextureSampler(1, i, m_FrameInfo.Textures[i]);
+				continue;
+			}
+			pipeline->UploadTextureSampler(1, i, m_DefaultTexture);
+		}
+	}
+
 	for (const auto& object : m_FrameInfo.Objects)
 	{
 		m_CommandBuffer->BindPipeline(object.Shader);
@@ -195,45 +207,56 @@ void Renderer::EndFrame()
 
 	m_CommandBuffer->EndRecording();
 	m_CommandBuffer->EndFrame();
+
+	delete[] lightData;
 }
 
-void Renderer::Draw(const MeshRendererComponent& meshRenderer, const glm::mat4& transform, uint32_t* lightData, size_t lightDataSize)
+void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform)
 {
 	const auto& pipeline = GetOrCreatePipeline(meshRenderer.VertexShader, meshRenderer.FragmentShader);
 
 	if (std::find(m_FrameInfo.Pipelines.begin(), m_FrameInfo.Pipelines.end(), pipeline) == m_FrameInfo.Pipelines.end())
 	{
 		m_FrameInfo.Pipelines.push_back(pipeline);
-		pipeline->UploadUniformBufferData(0, &m_FrameInfo._UniformBuffer, sizeof(UniformBuffer));
-		pipeline->UploadStorageBufferData(2, lightData, lightDataSize);
+	}
 
-		for (uint32_t i = 0; i < MAX_TEXTURES; i++)
+	const auto& texture = meshRenderer.Texture->GetTexture();
+	uint32_t texIndex = 0;
+	if (texture)
+	{
+		auto it = std::find(m_FrameInfo.Textures.begin(), m_FrameInfo.Textures.end(), texture);
+		if (it != m_FrameInfo.Textures.end())
 		{
-			pipeline->UploadTextureSampler(1, i, m_DefaultTexture);
+			texIndex = std::distance(m_FrameInfo.Textures.begin(), it);
+		}
+		else
+		{
+			texIndex = m_FrameInfo.Textures.size();
+			m_FrameInfo.Textures.push_back(texture);
 		}
 	}
 
-	auto texture = meshRenderer.Texture->GetTexture();
-	if (!texture)
+	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, texIndex });
+}
+
+void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transform)
+{
+	if (m_FrameInfo.NumLights >= MAX_LIGHTS)
 	{
-		texture = m_DefaultTexture;
+		HY_ENGINE_WARN("Maximum number of lights reached! Light will not be rendered.");
+		return;
 	}
 
-	uint32_t index = 0;
-	auto it = std::find(m_FrameInfo.Textures.begin(), m_FrameInfo.Textures.end(), texture);
-	if (it != m_FrameInfo.Textures.end())
-	{
-		index = std::distance(m_FrameInfo.Textures.begin(), it);
-	}
-	else
-	{
-		m_FrameInfo.Textures.push_back(texture);
-		index = m_FrameInfo.Textures.size() - 1;
+	uint32_t idx = m_FrameInfo.NumLights++;
+	m_FrameInfo.Lights[idx].position = glm::vec4(transform[3].x, transform[3].y, transform[3].z, 512.0f);
+	m_FrameInfo.Lights[idx].color = light.color;
+}
 
-		pipeline->UploadTextureSampler(1, index, texture);
-	}
+void Renderer::SubmitShadowPass(const glm::mat4& lightTransform, const std::shared_ptr<RenderGraph>& lightRenderGraph)
+{
+	//BeginFrame();
 
-	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, index });
+	//EndFrame();
 }
 
 const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
