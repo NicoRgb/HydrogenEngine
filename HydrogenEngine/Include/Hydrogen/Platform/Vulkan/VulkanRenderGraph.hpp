@@ -43,6 +43,7 @@ namespace Hydrogen
 		uint32_t GetSampleCount() const { return m_SampleCount; }
 		bool IsMultisampled() const { return m_SampleCount > 1; }
 		bool IsSwapChainBacked() const { return m_IsSwapChainBacked; }
+		bool HasColorAttachment() const { return m_HasColorAttachment; }
 
 	private:
 		void CreateAttachments();
@@ -64,5 +65,6 @@ namespace Hydrogen
 
 		uint32_t m_SampleCount = false;
 		bool m_IsSwapChainBacked = false;
+		bool m_HasColorAttachment = false;
 	};
 }

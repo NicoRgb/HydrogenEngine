@@ -342,12 +342,12 @@ public:
 
 	virtual void OnImGuiRender() override
 	{
+		DrawViewports();
+		DrawLogMessages();
+
 		ImGui::Begin("Stats");
 		ImGui::Text("FPS: %.1f", m_FPS);
 		ImGui::End();
-
-		DrawViewports();
-		DrawLogMessages();
 
 		_BrowserPanel.OnImGuiRender();
 		_EditorPanel.OnImGuiRender();

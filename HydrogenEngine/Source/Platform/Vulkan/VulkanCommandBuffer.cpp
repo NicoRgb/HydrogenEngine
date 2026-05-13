@@ -309,18 +309,15 @@ void VulkanCommandBuffer::BeginRenderPass(const std::shared_ptr<RenderGraph>& re
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = { vkGraph->GetWidth(), vkGraph->GetHeight() };
 
-	std::array<VkClearValue, 3> clearValues{};
-	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-	clearValues[1].depthStencil = { 1.0f, 0 };
-	clearValues[2].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
-
-	uint32_t clearCount = 1; // Color attachment is always cleared
+	std::vector<VkClearValue> clearValues;
+	if (vkGraph->HasColorAttachment())
+		clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
 	if (vkGraph->GetDepthImage() != VK_NULL_HANDLE)
-		clearCount++;
+		clearValues.push_back({ .depthStencil = { 1.0f, 0 } });
 	if (vkGraph->IsMultisampled())
-		clearCount++;
+		clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
 
-	renderPassInfo.clearValueCount = clearCount;
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
 	vkCmdBeginRenderPass(GetCurrentVkCommandBuffer(), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);

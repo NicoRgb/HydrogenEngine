@@ -1,5 +1,5 @@
 {
-	"name": "FragmentShader.glsl",
+	"name": "ShadowFragmentShader.glsl",
 	"preferences": { "stage": "fragment" },
 	"type": "Shader"
 }

@@ -53,10 +53,10 @@ namespace Hydrogen
 		void BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
 		void RenderFrame(const std::shared_ptr<RenderGraph>& target);
+		void RenderShadowPass(const glm::mat4& lightTransform, const glm::mat4& lightSpaceMatrix, const std::shared_ptr<RenderGraph>& lightRenderGraph);
 
 		void SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform);
 		void SubmitLight(const LightComponent& light, const glm::mat4& transform);
-		void SubmitShadowPass(const glm::mat4& lightTransform, const std::shared_ptr<RenderGraph>& lightRenderGraph);
 
 		const std::shared_ptr<Pipeline>& GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 
@@ -68,7 +68,8 @@ namespace Hydrogen
 		std::shared_ptr<RenderGraph> m_RenderGraph;
 		std::unordered_map<PipelineKey, std::shared_ptr<Pipeline>> m_Pipelines;
 
-		std::array<std::shared_ptr<RenderGraph>, MAX_LIGHTS> m_LightRenderGraphs;
+		std::array<std::shared_ptr<RenderGraph>, MAX_LIGHTS> m_ShadowRenderGraphs;
+		std::shared_ptr<Pipeline> m_ShadowPipeline;
 
 		std::shared_ptr<Texture> m_SampledTexture;
 
@@ -80,6 +81,11 @@ namespace Hydrogen
 			float padding;
 		};
 
+		struct ShadowUniformBuffer
+		{
+			alignas(16) glm::mat4 LightSpaceMatrix;
+		};
+
 		struct SceneLightsBuffer
 		{
 			alignas(16) uint32_t lightCount;
@@ -88,14 +94,21 @@ namespace Hydrogen
 
 		struct GPULight
 		{
-			alignas(16) glm::vec4 position;
-			alignas(16) glm::vec4 color;
+			glm::vec4 Position;
+			glm::vec4 Color;
+			glm::mat4 LightSpaceMatrix;
+			glm::vec4 ShadowData; // x = tex index
 		};
 
 		struct PushConstants
 		{
 			alignas(16) glm::mat4 Model;
 			alignas(16) uint32_t TextureIndex;
+		};
+
+		struct ShadowPushConstants
+		{
+			alignas(16) glm::mat4 Model;
 		};
 
 		struct RenderObject

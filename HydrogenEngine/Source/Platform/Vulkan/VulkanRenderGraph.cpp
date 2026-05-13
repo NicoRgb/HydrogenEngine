@@ -44,9 +44,14 @@ void VulkanRenderGraph::CreateAttachments()
 	m_SampleCount = 1;
 	for (const auto& attachmentSpec : m_Spec.Attachments)
 	{
-		if (attachmentSpec.Type == AttachmentType::Color && !attachmentSpec.IsSwapChainAttachment)
+		if (attachmentSpec.Type == AttachmentType::Color)
 		{
 			m_SampleCount = attachmentSpec.SampleCount;
+			m_HasColorAttachment = true;
+			if (attachmentSpec.IsSwapChainAttachment)
+			{
+				continue;
+			}
 
 			VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -162,9 +167,7 @@ void VulkanRenderGraph::CreateRenderPass()
 		if (spec.Type == AttachmentType::Color)
 		{
 			desc.format = VK_FORMAT_B8G8R8A8_SRGB;
-			desc.finalLayout = spec.Sampled
-				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-				: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			desc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 			if (spec.IsSwapChainAttachment)
 			{

@@ -1,5 +1,0 @@
-{
-  "name": "DebugLineFragmentShader.glsl",
-  "preferences": { "stage": "fragment" },
-  "type": "Shader"
-}

@@ -52,8 +52,17 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 		lightSpec.Attachments = {
 			{ AttachmentType::Depth, 1, true, true, false }
 		};
-		//m_LightRenderGraphs[i] = RenderGraph::Create(m_RenderContext, lightSpec);
+		m_ShadowRenderGraphs[i] = RenderGraph::Create(m_RenderContext, lightSpec);
 	}
+
+	auto& assetManager = Application::Get()->MainAssetManager;
+	const auto& shadowVertexShader = assetManager.GetAsset<ShaderAsset>("ShadowVertexShader.glsl");
+	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
+
+	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_RenderGraph, shadowVertexShader, shadowFragmentShader,
+		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
+		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES);
 }
 
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height)
@@ -96,6 +105,26 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 	{
 		m_SampledTexture = m_RenderGraph->GetColorTexture();
 	}
+
+	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
+	{
+		RenderGraphSpec lightSpec;
+		lightSpec.Width = width;
+		lightSpec.Height = height;
+		lightSpec.Attachments = {
+			{ AttachmentType::Depth, 1, true, true, false }
+		};
+		m_ShadowRenderGraphs[i] = RenderGraph::Create(m_RenderContext, lightSpec);
+	}
+
+	auto& assetManager = Application::Get()->MainAssetManager;
+	const auto& shadowVertexShader = assetManager.GetAsset<ShaderAsset>("ShadowVertexShader.glsl");
+	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
+
+	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_RenderGraph, shadowVertexShader, shadowFragmentShader,
+		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
+		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES);
 }
 
 Renderer::~Renderer()
@@ -107,16 +136,16 @@ void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& came
 {
 	BeginFrame(cameraComponent, cameraPos);
 
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
-		[&](Entity e, const LightComponent& l)
-		{
-			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
-		});
-
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			SubmitMesh(m, e.GetComponent<TransformComponent>().Transform);
+		});
+
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
+		[&](Entity e, const LightComponent& l)
+		{
+			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
 		});
 
 	RenderFrame(m_RenderGraph);
@@ -126,7 +155,7 @@ void Renderer::Resize(uint32_t width, uint32_t height)
 {
 	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
 	{
-		//m_LightRenderGraphs[i]->OnResize(width, height);
+		m_ShadowRenderGraphs[i]->OnResize(width, height);
 	}
 
 	m_RenderGraph->OnResize(width, height);
@@ -211,6 +240,36 @@ void Renderer::RenderFrame(const std::shared_ptr<RenderGraph>& target)
 	delete[] lightData;
 }
 
+void Renderer::RenderShadowPass(const glm::mat4& lightTransform, const glm::mat4& lightSpaceMatrix, const std::shared_ptr<RenderGraph>& lightRenderGraph)
+{
+	m_CommandBuffer->BeginFrame(m_RenderGraph);
+	m_CommandBuffer->StartRecording(m_RenderGraph);
+
+	m_CommandBuffer->SetViewport(m_RenderGraph);
+	m_CommandBuffer->SetScissor(m_RenderGraph);
+
+	ShadowUniformBuffer shadowUBO = {};
+	shadowUBO.LightSpaceMatrix = lightSpaceMatrix;
+
+	m_ShadowPipeline->UploadUniformBufferData(0, &shadowUBO, sizeof(ShadowUniformBuffer));
+
+	for (const auto& object : m_FrameInfo.Objects)
+	{
+		m_CommandBuffer->BindPipeline(m_ShadowPipeline);
+		m_CommandBuffer->BindVertexBuffer(object.VertexBuf);
+		m_CommandBuffer->BindIndexBuffer(object.IndexBuf);
+
+		ShadowPushConstants pc{};
+		pc.Model = object.Transform;
+
+		m_CommandBuffer->UploadPushConstants(m_ShadowPipeline, 0, (void*)&pc);
+		m_CommandBuffer->DrawIndexed(object.IndexBuf);
+	}
+
+	m_CommandBuffer->EndRecording();
+	m_CommandBuffer->EndFrame();
+}
+
 void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform)
 {
 	const auto& pipeline = GetOrCreatePipeline(meshRenderer.VertexShader, meshRenderer.FragmentShader);
@@ -248,15 +307,27 @@ void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transfo
 	}
 
 	uint32_t idx = m_FrameInfo.NumLights++;
-	m_FrameInfo.Lights[idx].position = glm::vec4(transform[3].x, transform[3].y, transform[3].z, 512.0f);
-	m_FrameInfo.Lights[idx].color = light.color;
-}
+	m_FrameInfo.Lights[idx].Position = glm::vec4(transform[3].x, transform[3].y, transform[3].z, 512.0f);
+	m_FrameInfo.Lights[idx].Color = light.color;
 
-void Renderer::SubmitShadowPass(const glm::mat4& lightTransform, const std::shared_ptr<RenderGraph>& lightRenderGraph)
-{
-	//BeginFrame();
+	glm::mat4 lightView = glm::inverse(transform);
 
-	//EndFrame();
+	float orthoSize = 20.0f;
+	float nearPlane = 0.1f;
+	float farPlane = 100.0f;
+
+	glm::mat4 lightProj = glm::ortho(
+		-orthoSize, orthoSize,
+		-orthoSize, orthoSize,
+		nearPlane, farPlane
+	);
+	lightProj[1][1] *= -1.0f;
+
+	m_FrameInfo.Lights[idx].LightSpaceMatrix = lightProj * lightView;
+	RenderShadowPass(transform, m_FrameInfo.Lights[idx].LightSpaceMatrix, m_ShadowRenderGraphs[idx]);
+
+	m_FrameInfo.Lights[idx].ShadowData = glm::vec4(m_FrameInfo.Textures.size(), 0.0f, 0.0f, 0.0f);
+	m_FrameInfo.Textures.push_back(m_ShadowRenderGraphs[idx]->GetDepthTexture());
 }
 
 const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
