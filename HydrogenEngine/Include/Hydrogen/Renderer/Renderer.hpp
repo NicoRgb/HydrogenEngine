@@ -80,7 +80,11 @@ namespace Hydrogen
 		std::array<std::shared_ptr<RenderGraph>, MAX_LIGHTS> m_ShadowRenderGraphs;
 		std::shared_ptr<Pipeline> m_ShadowPipeline;
 
-		std::shared_ptr<Texture> m_RenderedScene;
+		std::shared_ptr<RenderGraph> m_BlurRenderGraphs[2];
+		std::shared_ptr<Pipeline> m_BlurPipeline;
+
+		std::shared_ptr<Texture> m_SceneColor;
+		std::shared_ptr<Texture> m_SceneBright;
 		std::shared_ptr<Texture> m_SampledTexture;
 
 		struct UniformBuffer
@@ -131,6 +135,11 @@ namespace Hydrogen
 			glm::mat4 Transform;
 			glm::vec4 Color;
 			uint32_t TextureIndex;
+		};
+
+		struct BlurPushConstants
+		{
+			int horizontal;
 		};
 
 		struct

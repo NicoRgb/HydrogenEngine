@@ -310,12 +310,13 @@ void VulkanCommandBuffer::BeginRenderPass(const std::shared_ptr<RenderGraph>& re
 	renderPassInfo.renderArea.extent = { vkGraph->GetWidth(), vkGraph->GetHeight() };
 
 	std::vector<VkClearValue> clearValues;
-	if (vkGraph->HasColorAttachment())
+	for (uint32_t i = 0; i < vkGraph->GetNumColorAttachments(); i++)
 		clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
 	if (vkGraph->GetDepthImage() != VK_NULL_HANDLE)
 		clearValues.push_back({ .depthStencil = { 1.0f, 0 } });
 	if (vkGraph->IsMultisampled())
-		clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
+		for (uint32_t i = 0; i < vkGraph->GetNumColorAttachments(); i++)
+			clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
 
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();

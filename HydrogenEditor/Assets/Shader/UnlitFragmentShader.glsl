@@ -16,6 +16,7 @@ layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outBright;
 
 void main()
 {
@@ -25,4 +26,9 @@ void main()
     vec3 finalColor = baseColor * PushConstants.color.a;
 
     outColor = vec4(finalColor, 1.0);
+
+    if (PushConstants.color.a > 1.0)
+        outBright = vec4(outColor.rgb, 1.0);
+    else
+        outBright = vec4(0.0, 0.0, 0.0, 1.0);
 }

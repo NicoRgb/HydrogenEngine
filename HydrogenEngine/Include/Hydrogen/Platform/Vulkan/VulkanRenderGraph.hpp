@@ -20,18 +20,20 @@ namespace Hydrogen
 		uint32_t GetHeight() const override { return m_Spec.Height; }
 		const RenderGraphSpec& GetSpec() const override { return m_Spec; }
 
-		VkImage GetColorImage() const { return m_ColorImage ? m_ColorImage->GetImage() : VK_NULL_HANDLE; }
-		VkImageView GetColorImageView() const { return m_ColorImage ? m_ColorImage->GetImageView() : VK_NULL_HANDLE; }
+		VkImage GetColorImage(uint32_t index) const { return m_ColorImages[index] ? m_ColorImages[index]->GetImage() : VK_NULL_HANDLE; }
+		VkImageView GetColorImageView(uint32_t index) const { return m_ColorImages[index] ? m_ColorImages[index]->GetImageView() : VK_NULL_HANDLE; }
 		
-		VkImage GetResolveImage() const { return m_ResolveImage ? m_ResolveImage->GetImage() : VK_NULL_HANDLE; }
-		VkImageView GetResolveImageView() const { return m_ResolveImage ? m_ResolveImage->GetImageView() : VK_NULL_HANDLE; }
+		VkImage GetResolveImage(uint32_t index) const { return m_ResolveImages[index] ? m_ResolveImages[index]->GetImage() : VK_NULL_HANDLE; }
+		VkImageView GetResolveImageView(uint32_t index) const { return m_ResolveImages[index] ? m_ResolveImages[index]->GetImageView() : VK_NULL_HANDLE; }
 		
 		VkImage GetDepthImage() const { return m_DepthImage ? m_DepthImage->GetImage() : VK_NULL_HANDLE; }
 		VkImageView GetDepthImageView() const { return m_DepthImage ? m_DepthImage->GetImageView() : VK_NULL_HANDLE; }
 
-		std::shared_ptr<Texture> GetColorTexture() const override { return m_ColorImage; }
+		uint32_t GetNumColorAttachments() const { return m_NumColorAttachments; }
+
+		std::shared_ptr<Texture> GetColorTexture(uint32_t index) const override { return m_ColorImages[index]; }
 		std::shared_ptr<Texture> GetDepthTexture() const override { return m_DepthImage; }
-		std::shared_ptr<Texture> GetResolveTexture() const override { return m_ResolveImage; }
+		std::shared_ptr<Texture> GetResolveTexture(uint32_t index) const override { return m_ResolveImages[index]; }
 
 		void OnResize(uint32_t width, uint32_t height) override;
 		void Invalidate() override;
@@ -43,7 +45,6 @@ namespace Hydrogen
 		uint32_t GetSampleCount() const { return m_SampleCount; }
 		bool IsMultisampled() const { return m_SampleCount > 1; }
 		bool IsSwapChainBacked() const { return m_IsSwapChainBacked; }
-		bool HasColorAttachment() const { return m_HasColorAttachment; }
 
 	private:
 		void CreateAttachments();
@@ -56,8 +57,8 @@ namespace Hydrogen
 		std::shared_ptr<VulkanRenderContext> m_RenderContext;
 		RenderGraphSpec m_Spec;
 
-		std::shared_ptr<VulkanTexture> m_ColorImage;
-		std::shared_ptr<VulkanTexture> m_ResolveImage;
+		std::vector<std::shared_ptr<VulkanTexture>> m_ColorImages;
+		std::vector<std::shared_ptr<VulkanTexture>> m_ResolveImages;
 		std::shared_ptr<VulkanTexture> m_DepthImage;
 
 		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
@@ -65,6 +66,6 @@ namespace Hydrogen
 
 		uint32_t m_SampleCount = false;
 		bool m_IsSwapChainBacked = false;
-		bool m_HasColorAttachment = false;
+		uint32_t m_NumColorAttachments = 0;
 	};
 }

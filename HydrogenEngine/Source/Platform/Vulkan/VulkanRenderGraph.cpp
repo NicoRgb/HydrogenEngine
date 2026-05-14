@@ -42,12 +42,14 @@ VulkanRenderGraph::~VulkanRenderGraph()
 void VulkanRenderGraph::CreateAttachments()
 {
 	m_SampleCount = 1;
+	m_ColorImages.clear();
+	m_ResolveImages.clear();
+
 	for (const auto& attachmentSpec : m_Spec.Attachments)
 	{
 		if (attachmentSpec.Type == AttachmentType::Color)
 		{
 			m_SampleCount = attachmentSpec.SampleCount;
-			m_HasColorAttachment = true;
 			if (attachmentSpec.IsSwapChainAttachment)
 			{
 				continue;
@@ -62,13 +64,15 @@ void VulkanRenderGraph::CreateAttachments()
 				finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			}
 
-			m_ColorImage = std::make_shared<VulkanTexture>(
+			auto texture = std::make_shared<VulkanTexture>(
 				m_RenderContext,
 				m_Spec.ColorFormat,
 				m_Spec.Width, m_Spec.Height,
 				finalLayout,
 				usage,
 				GetVulkanSampleCount(attachmentSpec.SampleCount));
+
+			m_ColorImages.push_back(texture);
 		}
 		else if (attachmentSpec.Type == AttachmentType::Depth)
 		{
@@ -125,13 +129,15 @@ void VulkanRenderGraph::CreateAttachments()
 
 			HY_ASSERT(attachmentSpec.SampleCount == 1, "Resolve attachments must be single-sampled");
 
-			m_ResolveImage = std::make_shared<VulkanTexture>(
+			auto texture = std::make_shared<VulkanTexture>(
 				m_RenderContext,
 				m_Spec.ColorFormat,
 				m_Spec.Width, m_Spec.Height,
 				finalLayout,
 				usage,
 				VK_SAMPLE_COUNT_1_BIT);
+
+			m_ResolveImages.push_back(texture);
 		}
 	}
 }
@@ -141,11 +147,12 @@ void VulkanRenderGraph::CreateRenderPass()
 	std::vector<VkAttachmentDescription> attachments;
 
 	std::vector<VkAttachmentReference> colorRefs;
+	std::vector<VkAttachmentReference> resolveRefs;
 	VkAttachmentReference depthRef{};
-	VkAttachmentReference resolveRef{};
+
+	std::vector<uint32_t> resolveAttachmentIndices;
 
 	bool hasDepth = false;
-	bool hasResolve = false;
 
 	uint32_t attachmentIndex = 0;
 
@@ -224,13 +231,21 @@ void VulkanRenderGraph::CreateRenderPass()
 			}
 
 			attachments.push_back(desc);
-
-			resolveRef.attachment = attachmentIndex;
-			resolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			hasResolve = true;
+			resolveAttachmentIndices.push_back(attachmentIndex);
 		}
 
 		attachmentIndex++;
+	}
+
+	if (m_SampleCount > 1)
+	{
+		for (uint32_t i = 0; i < colorRefs.size(); i++)
+		{
+			VkAttachmentReference ref{};
+			ref.attachment = resolveAttachmentIndices[i];
+			ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			resolveRefs.push_back(ref);
+		}
 	}
 
 	VkSubpassDescription subpass{};
@@ -241,8 +256,10 @@ void VulkanRenderGraph::CreateRenderPass()
 	if (hasDepth)
 		subpass.pDepthStencilAttachment = &depthRef;
 
-	if (hasResolve)
-		subpass.pResolveAttachments = &resolveRef;
+	if (!resolveRefs.empty())
+	{
+		subpass.pResolveAttachments = resolveRefs.data();
+	}
 
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -266,6 +283,8 @@ void VulkanRenderGraph::CreateRenderPass()
 
 	HY_ASSERT(vkCreateRenderPass(m_RenderContext->GetDevice(), &createInfo, nullptr, &m_RenderPass) == VK_SUCCESS, 
 			 "Failed to create vulkan render pass");
+
+	m_NumColorAttachments = static_cast<uint32_t>(colorRefs.size());
 }
 
 void VulkanRenderGraph::CreateFramebuffers()
@@ -296,12 +315,13 @@ void VulkanRenderGraph::CreateSwapChainFramebuffers()
 	framebufferInfo.layers = 1;
 
 	const auto& swapchainImageViews = m_RenderContext->GetSwapChainImageViews();
-
 	m_Framebuffers.resize(swapchainImageViews.size());
 
 	for (size_t i = 0; i < swapchainImageViews.size(); i++)
 	{
 		std::vector<VkImageView> attachments;
+		uint32_t colorImageIdx = 0;
+		uint32_t resolveImageIdx = 0;
 
 		for (const auto& spec : m_Spec.Attachments)
 		{
@@ -311,7 +331,7 @@ void VulkanRenderGraph::CreateSwapChainFramebuffers()
 			}
 			else if (spec.Type == AttachmentType::Color)
 			{
-				attachments.push_back(m_ColorImage->GetImageView());
+				attachments.push_back(m_ColorImages[colorImageIdx++]->GetImageView());
 			}
 			else if (spec.Type == AttachmentType::Depth || spec.Type == AttachmentType::DepthStencil)
 			{
@@ -319,15 +339,15 @@ void VulkanRenderGraph::CreateSwapChainFramebuffers()
 			}
 			else if (spec.Type == AttachmentType::Resolve)
 			{
-				attachments.push_back(m_ResolveImage->GetImageView());
+				attachments.push_back(m_ResolveImages[resolveImageIdx++]->GetImageView());
 			}
 		}
 
-		framebufferInfo.attachmentCount = attachments.size();
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 		framebufferInfo.pAttachments = attachments.data();
 
 		HY_ASSERT(vkCreateFramebuffer(m_RenderContext->GetDevice(), &framebufferInfo, nullptr, &m_Framebuffers[i]) == VK_SUCCESS,
-			"Failed to create vulkan framebuffer");
+			"Failed to create vulkan swapchain framebuffer");
 	}
 }
 
@@ -345,14 +365,17 @@ void VulkanRenderGraph::CreateTextureFramebuffers()
 		framebufferInfo.layers = 1;
 
 		std::vector<VkImageView> attachmentViews;
+		uint32_t colorImageIdx = 0;
+		uint32_t resolveImageIdx = 0;
+
 		for (const auto& spec : m_Spec.Attachments)
 		{
 			if (spec.Type == AttachmentType::Color)
-				attachmentViews.push_back(m_ColorImage->GetImageView());
+				attachmentViews.push_back(m_ColorImages[colorImageIdx++]->GetImageView());
 			if (spec.Type == AttachmentType::Depth || spec.Type == AttachmentType::DepthStencil)
 				attachmentViews.push_back(m_DepthImage->GetImageView());
 			if (spec.Type == AttachmentType::Resolve)
-				attachmentViews.push_back(m_ResolveImage->GetImageView());
+				attachmentViews.push_back(m_ResolveImages[resolveImageIdx++]->GetImageView());
 		}
 
 		framebufferInfo.attachmentCount = attachmentViews.size();
@@ -385,7 +408,7 @@ void VulkanRenderGraph::Invalidate()
 
 void VulkanRenderGraph::DestroyAttachments()
 {
-	m_ColorImage = nullptr;
-	m_ResolveImage = nullptr;
+	m_ColorImages.clear();
+	m_ResolveImages.clear();
 	m_DepthImage = nullptr;
 }

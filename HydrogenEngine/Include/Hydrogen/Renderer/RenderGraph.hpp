@@ -43,9 +43,9 @@ namespace Hydrogen
 		virtual void OnResize(uint32_t width, uint32_t height) = 0;
 		virtual void Invalidate() = 0;
 
-		virtual std::shared_ptr<Texture> GetColorTexture() const = 0;
+		virtual std::shared_ptr<Texture> GetColorTexture(uint32_t index) const = 0;
 		virtual std::shared_ptr<Texture> GetDepthTexture() const = 0;
-		virtual std::shared_ptr<Texture> GetResolveTexture() const = 0;
+		virtual std::shared_ptr<Texture> GetResolveTexture(uint32_t index) const = 0;
 
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<RenderGraph>& target)
