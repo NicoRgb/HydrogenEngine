@@ -8,6 +8,7 @@
 namespace Hydrogen
 {
 	uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties, VkPhysicalDevice physicalDevice);
+	VkFormat TextureFormatToVkFormat(TextureFormat format, std::shared_ptr<VulkanRenderContext> renderContext);
 
 	class VulkanTexture : public Texture
 	{

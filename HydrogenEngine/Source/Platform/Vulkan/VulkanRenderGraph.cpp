@@ -64,7 +64,7 @@ void VulkanRenderGraph::CreateAttachments()
 
 			m_ColorImage = std::make_shared<VulkanTexture>(
 				m_RenderContext,
-				TextureFormat::FormatB8G8R8A8,
+				m_Spec.ColorFormat,
 				m_Spec.Width, m_Spec.Height,
 				finalLayout,
 				usage,
@@ -127,7 +127,7 @@ void VulkanRenderGraph::CreateAttachments()
 
 			m_ResolveImage = std::make_shared<VulkanTexture>(
 				m_RenderContext,
-				TextureFormat::FormatB8G8R8A8,
+				m_Spec.ColorFormat,
 				m_Spec.Width, m_Spec.Height,
 				finalLayout,
 				usage,
@@ -166,14 +166,13 @@ void VulkanRenderGraph::CreateRenderPass()
 
 		if (spec.Type == AttachmentType::Color)
 		{
-			desc.format = VK_FORMAT_B8G8R8A8_SRGB;
+			desc.format = TextureFormatToVkFormat(m_Spec.ColorFormat, m_RenderContext);
 			desc.finalLayout = spec.Sampled
 				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 			if (spec.IsSwapChainAttachment)
 			{
-				desc.format = m_RenderContext->GetSwapChainImageFormat();
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 			}
 
@@ -213,7 +212,7 @@ void VulkanRenderGraph::CreateRenderPass()
 		}
 		else if (spec.Type == AttachmentType::Resolve)
 		{
-			desc.format = VK_FORMAT_B8G8R8A8_SRGB;
+			desc.format = TextureFormatToVkFormat(m_Spec.ColorFormat, m_RenderContext);
 			desc.samples = VK_SAMPLE_COUNT_1_BIT;
 			desc.finalLayout = spec.Sampled
 				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -221,7 +220,6 @@ void VulkanRenderGraph::CreateRenderPass()
 
 			if (spec.IsSwapChainAttachment)
 			{
-				desc.format = m_RenderContext->GetSwapChainImageFormat();
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 			}
 

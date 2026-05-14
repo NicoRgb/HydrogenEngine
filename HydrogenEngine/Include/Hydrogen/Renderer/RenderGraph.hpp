@@ -27,6 +27,7 @@ namespace Hydrogen
 	{
 		uint32_t Width;
 		uint32_t Height;
+		TextureFormat ColorFormat;
 		std::vector<AttachmentSpec> Attachments;
 	};
 

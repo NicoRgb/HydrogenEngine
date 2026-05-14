@@ -31,6 +31,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
 		.Width = static_cast<uint32_t>(viewport->GetWidth()),
 		.Height = static_cast<uint32_t>(viewport->GetHeight()),
+		.ColorFormat = TextureFormat::ViewportDefault,
 		.Attachments = {
 			{ AttachmentType::Color, 1, false, true, true }
 		}
@@ -53,6 +54,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
 		.Width = static_cast<uint32_t>(width),
 		.Height = static_cast<uint32_t>(height),
+		.ColorFormat = TextureFormat::FormatB8G8R8A8,
 		.Attachments = {
 			{ AttachmentType::Color, 1, true, true, false }
 		}
@@ -134,6 +136,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	RenderGraphSpec spec;
 	spec.Width = width;
 	spec.Height = height;
+	spec.ColorFormat = TextureFormat::FormatR16G16B16A16;
 
 	if (maxMsaaSamples > 1)
 	{
@@ -166,6 +169,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 		RenderGraphSpec lightSpec;
 		lightSpec.Width = width;
 		lightSpec.Height = height;
+		lightSpec.ColorFormat = TextureFormat::FormatB8G8R8A8; // doesnt matter because no color attachment
 		lightSpec.Attachments = {
 			{ AttachmentType::Depth, 1, true, true, false }
 		};
@@ -409,6 +413,7 @@ DebugGUIRenderer::DebugGUIRenderer(const std::shared_ptr<RenderContext>& renderC
 	RenderGraphSpec spec;
 	spec.Width = (uint32_t)viewport->GetWidth();
 	spec.Height = (uint32_t)viewport->GetHeight();
+	spec.ColorFormat = TextureFormat::ViewportDefault;
 	spec.Attachments = {
 		{ AttachmentType::Color, 1, false, true, true },
 		{ AttachmentType::Depth, 1, false, true, false }

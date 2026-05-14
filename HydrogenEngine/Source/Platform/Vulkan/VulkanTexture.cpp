@@ -29,35 +29,36 @@ uint32_t Hydrogen::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
 	return 0;
 }
 
+VkFormat Hydrogen::TextureFormatToVkFormat(TextureFormat format, std::shared_ptr<VulkanRenderContext> renderContext)
+{
+	switch (format)
+	{
+	case TextureFormat::ViewportDefault:
+		return renderContext->GetSwapChainImageFormat();
+	case TextureFormat::FormatR8G8B8A8:
+		return VK_FORMAT_R8G8B8A8_SRGB;
+	case TextureFormat::FormatB8G8R8A8:
+		return VK_FORMAT_B8G8R8A8_SRGB;
+	case TextureFormat::FormatR16G16B16A16:
+		return VK_FORMAT_R16G16B16A16_SFLOAT;
+	case TextureFormat::FormatD32Float:
+		return VK_FORMAT_D32_SFLOAT;
+	case TextureFormat::FormatD32Sfloat:
+		return VK_FORMAT_D32_SFLOAT_S8_UINT;
+	case TextureFormat::FormatD24UnormS8Uint:
+		return VK_FORMAT_D24_UNORM_S8_UINT;
+	default:
+		HY_ASSERT(false, "Invalid TextureFormat");
+		return VK_FORMAT_UNDEFINED;
+	}
+}
+
 VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height, VkImageLayout finalLayout, VkImageUsageFlags usage, VkSampleCountFlagBits samples)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext)), m_Usage(usage), m_Samples(samples), m_FinalLayout(finalLayout)
 {
 	m_Width = width;
 	m_Height = height;
-
-	switch (format)
-	{
-	case TextureFormat::ViewportDefault:
-		m_Format = m_RenderContext->GetSwapChainImageFormat();
-		break;
-	case TextureFormat::FormatR8G8B8A8:
-		m_Format = VK_FORMAT_R8G8B8A8_SRGB;
-		break;
-	case TextureFormat::FormatB8G8R8A8:
-		m_Format = VK_FORMAT_B8G8R8A8_SRGB;
-		break;
-	case TextureFormat::FormatD32Float:
-		m_Format = VK_FORMAT_D32_SFLOAT;
-		break;
-	case TextureFormat::FormatD32Sfloat:
-		m_Format = VK_FORMAT_D32_SFLOAT_S8_UINT;
-		break;
-	case TextureFormat::FormatD24UnormS8Uint:
-		m_Format = VK_FORMAT_D24_UNORM_S8_UINT;
-		break;
-	default:
-		HY_ASSERT(false, "Invalid TextureFormat");
-	}
+	m_Format = TextureFormatToVkFormat(format, m_RenderContext);
 
 	CreateTexture();
 }
