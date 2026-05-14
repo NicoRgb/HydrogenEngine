@@ -113,7 +113,9 @@ namespace Hydrogen
 		struct PushConstants
 		{
 			alignas(16) glm::mat4 Model;
-			alignas(16) uint32_t TextureIndex;
+			alignas(16) glm::vec4 Color;
+			uint32_t TextureIndex;
+			uint32_t _Padding[3];
 		};
 
 		struct ShadowPushConstants
@@ -127,6 +129,7 @@ namespace Hydrogen
 			std::shared_ptr<IndexBuffer> IndexBuf;
 			std::shared_ptr<Pipeline> Shader;
 			glm::mat4 Transform;
+			glm::vec4 Color;
 			uint32_t TextureIndex;
 		};
 

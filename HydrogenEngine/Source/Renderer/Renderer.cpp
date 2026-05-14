@@ -181,7 +181,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
 
 	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
 		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES, CullMode::Back);
 }
@@ -254,6 +254,7 @@ void Renderer::RenderFrame(const std::shared_ptr<RenderGraph>& target)
 
 		PushConstants pc{};
 		pc.Model = object.Transform;
+		pc.Color = object.Color;
 		pc.TextureIndex = object.TextureIndex;
 
 		m_CommandBuffer->UploadPushConstants(object.Shader, 0, (void*)&pc);
@@ -298,6 +299,9 @@ void Renderer::RenderShadowPass(const glm::mat4& lightTransform, const glm::mat4
 
 void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform)
 {
+	if (!meshRenderer.Mesh || !meshRenderer.VertexShader || !meshRenderer.FragmentShader)
+		return;
+
 	const auto& pipeline = GetOrCreatePipeline(meshRenderer.VertexShader, meshRenderer.FragmentShader);
 
 	if (std::find(m_FrameInfo.Pipelines.begin(), m_FrameInfo.Pipelines.end(), pipeline) == m_FrameInfo.Pipelines.end())
@@ -305,10 +309,10 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 		m_FrameInfo.Pipelines.push_back(pipeline);
 	}
 
-	const auto& texture = meshRenderer.Texture->GetTexture();
 	uint32_t texIndex = 0;
-	if (texture)
+	if (meshRenderer.Texture)
 	{
+		const auto& texture = meshRenderer.Texture->GetTexture();
 		auto it = std::find(m_FrameInfo.Textures.begin(), m_FrameInfo.Textures.end(), texture);
 		if (it != m_FrameInfo.Textures.end())
 		{
@@ -321,7 +325,7 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 		}
 	}
 
-	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, texIndex });
+	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, meshRenderer.Color, texIndex });
 }
 
 void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transform)
@@ -395,7 +399,7 @@ const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared
 
 	m_Pipelines[key] =
 		Pipeline::Create(m_RenderContext, m_RenderGraph, vertexShader, fragmentShader,
-			{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+			{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 			{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(UniformBuffer), 1 },
 			  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
 			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 },

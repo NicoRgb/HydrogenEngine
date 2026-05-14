@@ -363,23 +363,56 @@ namespace Hydrogen
 		std::shared_ptr<MeshAsset> Mesh;
 		std::shared_ptr<ShaderAsset> VertexShader;
 		std::shared_ptr<ShaderAsset> FragmentShader;
+		glm::vec4 Color = glm::vec4(1.0f);
 
 		static void OnImGuiRender(MeshRendererComponent& t);
 
 		static void ToJson(json& j, const MeshRendererComponent& t)
 		{
-			j = json{ { "Texture", std::filesystem::path(t.Texture->GetPath()).filename().string() },
-					  { "Mesh", std::filesystem::path(t.Mesh->GetPath()).filename().string() },
-					  { "VertexShader", std::filesystem::path(t.VertexShader->GetPath()).filename().string() },
-					  { "FragmentShader", std::filesystem::path(t.FragmentShader->GetPath()).filename().string() } };
+			j = json();
+			if (t.Texture)
+				j["Texture"] = std::filesystem::path(t.Texture->GetPath()).filename().string();
+			if (t.Mesh)
+				j["Mesh"] = std::filesystem::path(t.Mesh->GetPath()).filename().string();
+			if (t.VertexShader)
+				j["VertexShader"] = std::filesystem::path(t.VertexShader->GetPath()).filename().string();
+			if (t.FragmentShader)
+				j["FragmentShader"] = std::filesystem::path(t.FragmentShader->GetPath()).filename().string();
+			j["Color"] = { { "r", t.Color.r }, { "g", t.Color.g }, { "b", t.Color.b }, { "a", t.Color.a } };
 		}
 
 		static void FromJson(const json& j, MeshRendererComponent& t, AssetManager* assetManager)
 		{
-			t.Texture = assetManager->GetAsset<TextureAsset>(j.at("Texture"));
-			t.Mesh = assetManager->GetAsset<MeshAsset>(j.at("Mesh"));
-			t.VertexShader = assetManager->GetAsset<ShaderAsset>(j.at("VertexShader"));
-			t.FragmentShader = assetManager->GetAsset<ShaderAsset>(j.at("FragmentShader"));
+			auto texturePath = j.value("Texture", "");
+			auto meshPath = j.value("Mesh", "");
+			auto vertexShaderPath = j.value("VertexShader", "");
+			auto fragmentShaderPath = j.value("FragmentShader", "");
+
+			if (!texturePath.empty())
+			{
+				t.Texture = assetManager->GetAsset<TextureAsset>(texturePath);
+			}
+			if (!meshPath.empty())
+			{
+				t.Mesh = assetManager->GetAsset<MeshAsset>(meshPath);
+			}
+			if (!vertexShaderPath.empty())
+			{
+				t.VertexShader = assetManager->GetAsset<ShaderAsset>(vertexShaderPath);
+			}
+			if (!fragmentShaderPath.empty())
+			{
+				t.FragmentShader = assetManager->GetAsset<ShaderAsset>(fragmentShaderPath);
+			}
+
+			const auto& color = j.value("Color", nlohmann::json::object());
+
+			float r = color.value("r", 1.0f);
+			float g = color.value("g", 1.0f);
+			float b = color.value("b", 1.0f);
+			float a = color.value("a", 1.0f);
+
+			t.Color = glm::vec4(r, g, b, a);
 		}
 	};
 

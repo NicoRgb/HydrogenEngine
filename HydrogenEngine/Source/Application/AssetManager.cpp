@@ -196,9 +196,6 @@ void MeshAsset::Parse(std::string path)
 			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
 			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
 			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
-			m_Vertices.push_back(1.0f);
-			m_Vertices.push_back(1.0f);
-			m_Vertices.push_back(1.0f);
 			m_Vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
 			m_Vertices.push_back(1.0f - attrib.texcoords[2 * index.texcoord_index + 1]);
 			if (index.normal_index >= 0)
@@ -218,7 +215,7 @@ void MeshAsset::Parse(std::string path)
 		}
 	}
 
-	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} }, (void*)m_Vertices.data(), m_Vertices.size() / 11);
+	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} }, (void*)m_Vertices.data(), m_Vertices.size() / 8);
 	m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
 }
 
