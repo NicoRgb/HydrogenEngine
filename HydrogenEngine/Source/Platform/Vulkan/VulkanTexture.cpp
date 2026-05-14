@@ -355,6 +355,15 @@ void VulkanTexture::CreateTexture()
 		samplerInfo.minLod = 0.0f;
 		samplerInfo.maxLod = 0.0f;
 
+		if (IsDepthFormat(m_Format))
+		{
+			samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+			samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+			samplerInfo.compareEnable = VK_TRUE;
+			samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+			samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		}
+
 		vkCreateSampler(m_RenderContext->GetDevice(), &samplerInfo, nullptr, &m_Sampler);
 	}
 }

@@ -4,7 +4,7 @@ layout(binding = 0) uniform UniformBufferObject
 {
     mat4 view;
     mat4 proj;
-    vec3 viewPos;   // NEW: camera world position
+    vec3 viewPos;
 } ubo;
 
 layout(push_constant) uniform constants
@@ -14,12 +14,12 @@ layout(push_constant) uniform constants
 } PushConstants;
 
 layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inColor;      // still usable as albedo multiplier
+layout(location = 1) in vec3 inColor;
 layout(location = 2) in vec2 inTexCoord;
-layout(location = 3) in vec3 inNormal;     // NEW
+layout(location = 3) in vec3 inNormal;
 
-layout(location = 0) out vec3 fragPos;     // NEW
-layout(location = 1) out vec3 fragNormal;  // NEW
+layout(location = 0) out vec3 fragPos;
+layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragTexCoord;
 layout(location = 3) out vec3 fragColor;
 
@@ -36,6 +36,6 @@ void main()
 
     fragTexCoord = inTexCoord;
     fragColor = inColor;
-
+    
     gl_Position = ubo.proj * ubo.view * worldPos;
 }

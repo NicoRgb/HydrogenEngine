@@ -137,6 +137,50 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			}
 			ImGui::EndDragDropTarget();
 		}
+
+		if (t.VertexShader)
+		{
+			ImGui::Text(t.VertexShader->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.VertexShader = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (t.FragmentShader)
+		{
+			ImGui::Text(t.FragmentShader->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.FragmentShader = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
 		ImGui::TreePop();
 	}
 }

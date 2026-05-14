@@ -1,10 +1,10 @@
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include "Hydrogen/Renderer/Renderer.hpp"
 #include "Hydrogen/Application.hpp"
 
 #include <tracy/Tracy.hpp>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -59,7 +59,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 	const auto& shadowVertexShader = assetManager.GetAsset<ShaderAsset>("ShadowVertexShader.glsl");
 	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
 
-	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_RenderGraph, shadowVertexShader, shadowFragmentShader,
+	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
 		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES);
@@ -121,7 +121,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 	const auto& shadowVertexShader = assetManager.GetAsset<ShaderAsset>("ShadowVertexShader.glsl");
 	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
 
-	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_RenderGraph, shadowVertexShader, shadowFragmentShader,
+	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
 		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES);
@@ -177,6 +177,7 @@ void Renderer::BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos)
 
 	m_FrameInfo.Pipelines.clear();
 	m_FrameInfo.Textures.clear();
+	m_FrameInfo.ShadowMaps.clear();
 	m_FrameInfo.Objects.clear();
 
 	m_FrameInfo.Textures.push_back(m_DefaultTexture);
@@ -218,6 +219,16 @@ void Renderer::RenderFrame(const std::shared_ptr<RenderGraph>& target)
 			}
 			pipeline->UploadTextureSampler(1, i, m_DefaultTexture);
 		}
+
+		for (uint32_t i = 0; i < MAX_LIGHTS; i++)
+		{
+			if (i < m_FrameInfo.ShadowMaps.size())
+			{
+				pipeline->UploadTextureSampler(3, i, m_FrameInfo.ShadowMaps[i]);
+				continue;
+			}
+			pipeline->UploadTextureSampler(3, i, m_DefaultTexture);
+		}
 	}
 
 	for (const auto& object : m_FrameInfo.Objects)
@@ -242,11 +253,11 @@ void Renderer::RenderFrame(const std::shared_ptr<RenderGraph>& target)
 
 void Renderer::RenderShadowPass(const glm::mat4& lightTransform, const glm::mat4& lightSpaceMatrix, const std::shared_ptr<RenderGraph>& lightRenderGraph)
 {
-	m_CommandBuffer->BeginFrame(m_RenderGraph);
-	m_CommandBuffer->StartRecording(m_RenderGraph);
+	m_CommandBuffer->BeginFrame(lightRenderGraph);
+	m_CommandBuffer->StartRecording(lightRenderGraph);
 
-	m_CommandBuffer->SetViewport(m_RenderGraph);
-	m_CommandBuffer->SetScissor(m_RenderGraph);
+	m_CommandBuffer->SetViewport(lightRenderGraph);
+	m_CommandBuffer->SetScissor(lightRenderGraph);
 
 	ShadowUniformBuffer shadowUBO = {};
 	shadowUBO.LightSpaceMatrix = lightSpaceMatrix;
@@ -300,34 +311,41 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 
 void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transform)
 {
-	if (m_FrameInfo.NumLights >= MAX_LIGHTS)
+	uint32_t idx = m_FrameInfo.NumLights++;
+
+	glm::vec3 lightDir = glm::normalize(glm::vec3(transform[2]));
+	glm::vec3 lightPos = glm::vec3(transform[3]);
+
+	m_FrameInfo.Lights[idx].Position = glm::vec4(lightPos, 0.0f);
+	m_FrameInfo.Lights[idx].Color = light.color;
+	m_FrameInfo.Lights[idx].Color.a = light.intensity;
+	m_FrameInfo.Lights[idx].Direction = glm::vec4(lightDir, 0.0f);
+
+	if (light.type == LightType::Point)
 	{
-		HY_ENGINE_WARN("Maximum number of lights reached! Light will not be rendered.");
-		return;
+		m_FrameInfo.Lights[idx].Direction.w = 0.0f;
+	}
+	else if (light.type == LightType::Directional)
+	{
+		m_FrameInfo.Lights[idx].Direction.w = 1.0f;
+	}
+	if (light.type == LightType::Spot)
+	{
+		m_FrameInfo.Lights[idx].Direction.w = 2.0f;
 	}
 
-	uint32_t idx = m_FrameInfo.NumLights++;
-	m_FrameInfo.Lights[idx].Position = glm::vec4(transform[3].x, transform[3].y, transform[3].z, 512.0f);
-	m_FrameInfo.Lights[idx].Color = light.color;
+	glm::mat4 lightView = glm::lookAt(lightPos, lightPos + lightDir, glm::vec3(0.0f, 1.0f, 0.0f));
 
-	glm::mat4 lightView = glm::inverse(transform);
-
-	float orthoSize = 20.0f;
-	float nearPlane = 0.1f;
-	float farPlane = 100.0f;
-
-	glm::mat4 lightProj = glm::ortho(
-		-orthoSize, orthoSize,
-		-orthoSize, orthoSize,
-		nearPlane, farPlane
-	);
+	constexpr float size = 20.0f;
+	glm::mat4 lightProj = glm::ortho(-size, size, -size, size, 0.1f, 100.0f);
 	lightProj[1][1] *= -1.0f;
 
 	m_FrameInfo.Lights[idx].LightSpaceMatrix = lightProj * lightView;
-	RenderShadowPass(transform, m_FrameInfo.Lights[idx].LightSpaceMatrix, m_ShadowRenderGraphs[idx]);
 
-	m_FrameInfo.Lights[idx].ShadowData = glm::vec4(m_FrameInfo.Textures.size(), 0.0f, 0.0f, 0.0f);
-	m_FrameInfo.Textures.push_back(m_ShadowRenderGraphs[idx]->GetDepthTexture());
+	RenderShadowPass(transform, m_FrameInfo.Lights[idx].LightSpaceMatrix, m_ShadowRenderGraphs[idx]);
+	m_FrameInfo.ShadowMaps.push_back(m_ShadowRenderGraphs[idx]->GetDepthTexture());
+
+	m_FrameInfo.Lights[idx].Position.w = idx;
 }
 
 const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
@@ -345,7 +363,8 @@ const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared
 			{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 			{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(UniformBuffer), 1 },
 			  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
-			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 }, },
+			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 },
+			  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_LIGHTS } },
 			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES);
 
 	return m_Pipelines[key];

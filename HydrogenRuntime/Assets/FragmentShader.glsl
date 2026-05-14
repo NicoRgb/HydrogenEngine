@@ -19,8 +19,10 @@ layout(push_constant) uniform constants
 
 struct Light
 {
-    vec4 position;   // xyz = position, w = radius
-    vec4 color;      // rgb = color, w = intensity
+    vec4 position;
+    vec4 color;
+    mat4 lightSpaceMatrix;
+    vec4 shadowData; // x = tex index
 };
 
 layout(std430, binding = 2) readonly buffer SceneLights
@@ -35,6 +37,28 @@ layout(location = 2) in vec2 fragTexCoord;
 layout(location = 3) in vec3 fragColor;
 
 layout(location = 0) out vec4 outColor;
+
+float CalculateShadow(Light light, vec3 worldPos)
+{
+    vec4 lightSpacePos = light.lightSpaceMatrix * vec4(worldPos, 1.0);
+
+    vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+
+    projCoords = projCoords * 0.5 + 0.5;
+
+    if (projCoords.z > 1.0)
+        return 1.0;
+
+    int shadowIndex = int(light.shadowData.x);
+
+    float closestDepth = texture(texSampler[shadowIndex], projCoords.xy).r;
+    float currentDepth = projCoords.z;
+
+    // bias to prevent acne
+    float bias = 0.005;
+
+    return (currentDepth - bias) > closestDepth ? 0.0 : 1.0;
+}
 
 vec3 AccumulateLights(vec3 fragPos, vec3 normal)
 {
@@ -69,10 +93,13 @@ vec3 AccumulateLights(vec3 fragPos, vec3 normal)
         float spec = pow(max(dot(V, R), 0.0), 32.0);
         vec3 specular = spec * light.color.rgb;
 
+        float shadow = CalculateShadow(light, fragPos);
+
         vec3 contribution =
             (diffuse + specular) *
-            light.color.a *      // intensity
-            attenuation;
+            light.color.a *
+            attenuation *
+            shadow;
 
         result += contribution;
     }

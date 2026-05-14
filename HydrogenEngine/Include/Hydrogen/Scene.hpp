@@ -383,6 +383,13 @@ namespace Hydrogen
 		}
 	};
 
+	enum class LightType
+	{
+		Point = 0,
+		Directional,
+		Spot
+	};
+
 	struct LightComponent
 	{
 		LightComponent(Entity entity)
@@ -391,6 +398,8 @@ namespace Hydrogen
 		}
 
 		glm::vec4 color;
+		float intensity;
+		LightType type;
 
 		static void OnImGuiRender(LightComponent& t)
 		{
@@ -398,22 +407,65 @@ namespace Hydrogen
 			{
 				ImGui::ColorPicker4("Color", glm::value_ptr(t.color));
 				ImGui::TreePop();
+
+				ImGui::SliderFloat("Intensity", &t.intensity, 0.0f, 1.0f);
+
+				const char* lightTypes[] = { "Point", "Directional", "Spot" };
+				int currentIndex = 0;
+				switch (t.type)
+				{
+				case LightType::Point:
+					currentIndex = 0;
+					break;
+				case LightType::Directional:
+					currentIndex = 1;
+					break;
+				case LightType::Spot:
+					currentIndex = 2;
+					break;
+				default:
+					break;
+				}
+
+				if (ImGui::Combo("Type", &currentIndex, lightTypes, IM_ARRAYSIZE(lightTypes)))
+				{
+					switch (currentIndex)
+					{
+					case 0:
+						t.type = LightType::Point;
+						break;
+					case 1:
+						t.type = LightType::Directional;
+						break;
+					case 2:
+						t.type = LightType::Spot;
+						break;
+					default:
+						break;
+					}
+				}
 			}
 		}
 
 		static void ToJson(json& j, const LightComponent& t)
 		{
-			j = json{ { "color", { { "r", t.color.r }, { "g", t.color.g }, { "b", t.color.b }, { "a", t.color.a } } } };
+			j = json{ { "color", { { "r", t.color.r }, { "g", t.color.g }, { "b", t.color.b }, { "a", t.color.a } } },
+					  { "intensity", t.intensity },
+					  { "type", static_cast<int>(t.type) } };
 		}
 
 		static void FromJson(const json& j, LightComponent& t, AssetManager* assetManager)
 		{
-			float r = j.at("color").at("r").get<float>();
-			float g = j.at("color").at("g").get<float>();
-			float b = j.at("color").at("b").get<float>();
-			float a = j.at("color").at("a").get<float>();
+			const auto& color = j.value("color", nlohmann::json::object());
+
+			float r = color.value("r", 1.0f);
+			float g = color.value("g", 1.0f);
+			float b = color.value("b", 1.0f);
+			float a = color.value("a", 1.0f);
 
 			t.color = glm::vec4(r, g, b, a);
+			t.intensity = j.value("intensity", 1.0f);
+			t.type = static_cast<LightType>(j.value("type", 0));
 		}
 	};
 

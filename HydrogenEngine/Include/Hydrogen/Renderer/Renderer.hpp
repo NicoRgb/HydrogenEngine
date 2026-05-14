@@ -96,8 +96,8 @@ namespace Hydrogen
 		{
 			glm::vec4 Position;
 			glm::vec4 Color;
+			glm::vec4 Direction;
 			glm::mat4 LightSpaceMatrix;
-			glm::vec4 ShadowData; // x = tex index
 		};
 
 		struct PushConstants
@@ -127,6 +127,7 @@ namespace Hydrogen
 			uint32_t NumLights;
 
 			std::vector<std::shared_ptr<Texture>> Textures;
+			std::vector<std::shared_ptr<Texture>> ShadowMaps;
 			std::vector<std::shared_ptr<Pipeline>> Pipelines;
 			std::vector<RenderObject> Objects;
 		} m_FrameInfo;
