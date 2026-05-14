@@ -408,7 +408,7 @@ namespace Hydrogen
 				ImGui::ColorPicker4("Color", glm::value_ptr(t.color));
 				ImGui::TreePop();
 
-				ImGui::SliderFloat("Intensity", &t.intensity, 0.0f, 1.0f);
+				ImGui::SliderFloat("Intensity", &t.intensity, 0.0f, 10.0f);
 
 				const char* lightTypes[] = { "Point", "Directional", "Spot" };
 				int currentIndex = 0;

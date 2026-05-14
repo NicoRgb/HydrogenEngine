@@ -50,6 +50,8 @@ namespace Hydrogen
 		uint32_t GetHeight() const { return m_RenderGraph->GetHeight(); }
 
 	private:
+		void InitComponents(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height);
+
 		void BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
 		void RenderFrame(const std::shared_ptr<RenderGraph>& target);
@@ -57,6 +59,8 @@ namespace Hydrogen
 
 		void SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform);
 		void SubmitLight(const LightComponent& light, const glm::mat4& transform);
+
+		void RenderPostProcessing();
 
 		const std::shared_ptr<Pipeline>& GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader);
 
@@ -68,9 +72,15 @@ namespace Hydrogen
 		std::shared_ptr<RenderGraph> m_RenderGraph;
 		std::unordered_map<PipelineKey, std::shared_ptr<Pipeline>> m_Pipelines;
 
+		std::shared_ptr<RenderGraph> m_PostProcessingRenderGraph;
+		std::shared_ptr<Pipeline> m_PostProcessingPipeline;
+		std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
+		std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
+
 		std::array<std::shared_ptr<RenderGraph>, MAX_LIGHTS> m_ShadowRenderGraphs;
 		std::shared_ptr<Pipeline> m_ShadowPipeline;
 
+		std::shared_ptr<Texture> m_RenderedScene;
 		std::shared_ptr<Texture> m_SampledTexture;
 
 		struct UniformBuffer

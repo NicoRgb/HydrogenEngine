@@ -11,61 +11,116 @@
 
 using namespace Hydrogen;
 
+struct ScreenVertex {
+	glm::vec2 pos;
+	glm::vec2 uv;
+};
+
+ScreenVertex vertices[] = {
+	{{-1.0f, -1.0f}, {0.0f, 0.0f}},
+	{{ 1.0f, -1.0f}, {1.0f, 0.0f}},
+	{{ 1.0f,  1.0f}, {1.0f, 1.0f}},
+	{{-1.0f,  1.0f}, {0.0f, 1.0f}}
+};
+
+std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
+
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Viewport>& viewport)
 {
-	m_RenderContext = renderContext;
-	m_CommandBuffer = CommandBuffer::Create(m_RenderContext);
+	InitComponents(renderContext, viewport->GetWidth(), viewport->GetHeight());
+	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
+		.Width = static_cast<uint32_t>(viewport->GetWidth()),
+		.Height = static_cast<uint32_t>(viewport->GetHeight()),
+		.Attachments = {
+			{ AttachmentType::Color, 1, false, true, true }
+		}
+		});
 
-	m_DefaultTexture = Texture::Create(renderContext, TextureFormat::FormatR8G8B8A8, 1, 1);
-	uint32_t data = 0xFFFFFFFF;
-	m_DefaultTexture->UploadData(&data);
+	m_PostProcessingPipeline = Pipeline::Create(m_RenderContext, m_PostProcessingRenderGraph,
+		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl"),
+		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl"),
+		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
+		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 }, },
+		{ }, Primitive::TRIANGLES, CullMode::None);
 
-	uint32_t maxMsaaSamples = m_RenderContext->GetCapabilities().MaxMSAASamples;
-
-	RenderGraphSpec spec;
-	spec.Width = (uint32_t)viewport->GetWidth();
-	spec.Height = (uint32_t)viewport->GetHeight();
-
-	if (maxMsaaSamples > 1)
-	{
-		spec.Attachments = {
-			{ AttachmentType::Color, maxMsaaSamples, false, true, false },
-			{ AttachmentType::Depth, maxMsaaSamples, false, true, false },
-			{ AttachmentType::Resolve, 1, false, true, true }
-		};
-	}
-	else
-	{
-		spec.Attachments = {
-			{ AttachmentType::Color, 1, false, true, true },
-			{ AttachmentType::Depth, 1, false, true, false }
-		};
-	}
-
-	m_RenderGraph = RenderGraph::Create(m_RenderContext, spec);
-
-	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
-	{
-		RenderGraphSpec lightSpec;
-		lightSpec.Width = (uint32_t)viewport->GetWidth();
-		lightSpec.Height = (uint32_t)viewport->GetHeight();
-		lightSpec.Attachments = {
-			{ AttachmentType::Depth, 1, true, true, false }
-		};
-		m_ShadowRenderGraphs[i] = RenderGraph::Create(m_RenderContext, lightSpec);
-	}
-
-	auto& assetManager = Application::Get()->MainAssetManager;
-	const auto& shadowVertexShader = assetManager.GetAsset<ShaderAsset>("ShadowVertexShader.glsl");
-	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
-
-	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
-		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
-		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES);
+	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
+	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
 }
 
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height)
+{
+	InitComponents(renderContext, width, height);
+	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
+		.Width = static_cast<uint32_t>(width),
+		.Height = static_cast<uint32_t>(height),
+		.Attachments = {
+			{ AttachmentType::Color, 1, true, true, false }
+		}
+		});
+
+	m_PostProcessingPipeline = Pipeline::Create(m_RenderContext, m_PostProcessingRenderGraph,
+		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl"),
+		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl"),
+		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
+		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 }, },
+		{ }, Primitive::TRIANGLES, CullMode::None);
+
+	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
+	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
+
+	m_SampledTexture = m_PostProcessingRenderGraph->GetColorTexture();
+}
+
+Renderer::~Renderer()
+{
+	m_CommandBuffer = nullptr;
+}
+
+void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos)
+{
+	BeginFrame(cameraComponent, cameraPos);
+
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
+		[&](Entity e, const MeshRendererComponent& m)
+		{
+			SubmitMesh(m, e.GetComponent<TransformComponent>().Transform);
+		});
+
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
+		[&](Entity e, const LightComponent& l)
+		{
+			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
+		});
+
+	RenderFrame(m_RenderGraph);
+
+	RenderPostProcessing();
+}
+
+void Renderer::Resize(uint32_t width, uint32_t height)
+{
+	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
+	{
+		m_ShadowRenderGraphs[i]->OnResize(width, height);
+	}
+
+	m_RenderGraph->OnResize(width, height);
+	m_PostProcessingRenderGraph->OnResize(width, height);
+
+	uint32_t maxMsaaSamples = m_RenderContext->GetCapabilities().MaxMSAASamples;
+	if (maxMsaaSamples > 1)
+	{
+		m_RenderedScene = m_RenderGraph->GetResolveTexture();
+	}
+	else
+	{
+		m_RenderedScene = m_RenderGraph->GetColorTexture();
+	}
+
+	m_SampledTexture = m_PostProcessingRenderGraph->GetColorTexture();
+}
+
+void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height)
 {
 	m_RenderContext = renderContext;
 	m_CommandBuffer = CommandBuffer::Create(m_RenderContext);
@@ -99,11 +154,11 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 	m_RenderGraph = RenderGraph::Create(m_RenderContext, spec);
 	if (maxMsaaSamples > 1)
 	{
-		m_SampledTexture = m_RenderGraph->GetResolveTexture();
+		m_RenderedScene = m_RenderGraph->GetResolveTexture();
 	}
 	else
 	{
-		m_SampledTexture = m_RenderGraph->GetColorTexture();
+		m_RenderedScene = m_RenderGraph->GetColorTexture();
 	}
 
 	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
@@ -124,51 +179,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
-		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES);
-}
-
-Renderer::~Renderer()
-{
-	m_CommandBuffer = nullptr;
-}
-
-void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos)
-{
-	BeginFrame(cameraComponent, cameraPos);
-
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
-		[&](Entity e, const MeshRendererComponent& m)
-		{
-			SubmitMesh(m, e.GetComponent<TransformComponent>().Transform);
-		});
-
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
-		[&](Entity e, const LightComponent& l)
-		{
-			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
-		});
-
-	RenderFrame(m_RenderGraph);
-}
-
-void Renderer::Resize(uint32_t width, uint32_t height)
-{
-	for (uint32_t i = 0; i < MAX_LIGHTS; i++)
-	{
-		m_ShadowRenderGraphs[i]->OnResize(width, height);
-	}
-
-	m_RenderGraph->OnResize(width, height);
-
-	uint32_t maxMsaaSamples = m_RenderContext->GetCapabilities().MaxMSAASamples;
-	if (maxMsaaSamples > 1)
-	{
-		m_SampledTexture = m_RenderGraph->GetResolveTexture();
-	}
-	else
-	{
-		m_SampledTexture = m_RenderGraph->GetColorTexture();
-	}
+		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES, CullMode::Back);
 }
 
 void Renderer::BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos)
@@ -348,6 +359,26 @@ void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transfo
 	m_FrameInfo.Lights[idx].Position.w = idx;
 }
 
+void Renderer::RenderPostProcessing()
+{
+	m_CommandBuffer->BeginFrame(m_PostProcessingRenderGraph);
+	m_CommandBuffer->StartRecording(m_PostProcessingRenderGraph);
+
+	m_CommandBuffer->SetViewport(m_PostProcessingRenderGraph);
+	m_CommandBuffer->SetScissor(m_PostProcessingRenderGraph);
+
+	m_PostProcessingPipeline->UploadTextureSampler(0, 0, m_RenderedScene);
+
+	m_CommandBuffer->BindPipeline(m_PostProcessingPipeline);
+	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+
+	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+
+	m_CommandBuffer->EndRecording();
+	m_CommandBuffer->EndFrame();
+}
+
 const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader)
 {
 	PipelineKey key = PipelineKey{ std::filesystem::path(vertexShader->GetPath()).filename().string(),
@@ -365,7 +396,7 @@ const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared
 			  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
 			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 },
 			  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_LIGHTS } },
-			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES);
+			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES, CullMode::Back);
 
 	return m_Pipelines[key];
 }
