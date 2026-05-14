@@ -78,6 +78,10 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 Renderer::~Renderer()
 {
 	m_CommandBuffer = nullptr;
+	m_DefaultTexture = nullptr;
+	m_SceneColor = nullptr;
+	m_SceneBright = nullptr;
+	m_SampledTexture = nullptr;
 }
 
 void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos)
@@ -92,7 +96,7 @@ void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& came
 
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
 		[&](Entity e, const LightComponent& l)
-		{
+		{ 
 			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
 		});
 
