@@ -35,10 +35,12 @@ VkFormat Hydrogen::TextureFormatToVkFormat(TextureFormat format, std::shared_ptr
 	{
 	case TextureFormat::ViewportDefault:
 		return renderContext->GetSwapChainImageFormat();
-	case TextureFormat::FormatR8G8B8A8:
+	case TextureFormat::FormatR8G8B8A8_SRGB:
 		return VK_FORMAT_R8G8B8A8_SRGB;
-	case TextureFormat::FormatB8G8R8A8:
+	case TextureFormat::FormatB8G8R8A8_SRGB:
 		return VK_FORMAT_B8G8R8A8_SRGB;
+	case TextureFormat::FormatR8G8B8A8:
+		return VK_FORMAT_R8G8B8A8_UNORM;
 	case TextureFormat::FormatR16G16B16A16:
 		return VK_FORMAT_R16G16B16A16_SFLOAT;
 	case TextureFormat::FormatD32Float:

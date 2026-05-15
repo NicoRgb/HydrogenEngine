@@ -10,6 +10,7 @@
 #include <Hydrogen/Physics.hpp>
 #include <Hydrogen/Camera.hpp>
 #include <Hydrogen/Input.hpp>
+#include <Hydrogen/Renderer/DeferredRenderer.hpp>
 
 extern std::shared_ptr<Hydrogen::Application> GetApplication();
 

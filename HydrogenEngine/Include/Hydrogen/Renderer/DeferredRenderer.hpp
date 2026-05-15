@@ -1,0 +1,79 @@
+#pragma once
+
+#include "Hydrogen/Renderer/RenderContext.hpp"
+#include "Hydrogen/Renderer/CommandBuffer.hpp"
+#include "Hydrogen/Renderer/RenderGraph.hpp"
+#include "Hydrogen/Renderer/Pipeline.hpp"
+#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Camera.hpp"
+
+namespace Hydrogen
+{
+	class DeferredRenderer
+	{
+	public:
+		DeferredRenderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height);
+		~DeferredRenderer();
+
+		void Resize(uint32_t width, uint32_t height);
+		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos);
+
+		uint32_t GetWidth() const { return m_GBufferRenderGraph->GetWidth(); }
+		uint32_t GetHeight() const { return m_GBufferRenderGraph->GetHeight(); }
+		std::shared_ptr<Texture> GetSceneColorTexture() const { return m_LightingRenderGraph->GetColorTexture(0); }
+
+	private:
+		void RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		void RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
+
+		std::unordered_map<Texture*, uint32_t> UploadAlbedoTextures(const std::shared_ptr<Scene>& scene);
+
+		const std::shared_ptr<RenderContext> m_RenderContext;
+		std::shared_ptr<CommandBuffer> m_CommandBuffer;
+
+		std::shared_ptr<Texture> m_DefaultTexture;
+		std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
+		std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
+
+		std::shared_ptr<RenderGraph> m_GBufferRenderGraph;
+		std::shared_ptr<Pipeline> m_GBufferPipeline;
+
+		std::shared_ptr<RenderGraph> m_LightingRenderGraph;
+		std::shared_ptr<Pipeline> m_DirectionalLightsPipeline;
+		std::shared_ptr<Pipeline> m_PointLightPipeline;
+
+		struct CameraInfoUniformBuffer
+		{
+			glm::mat4 ViewProj;
+			glm::vec3 CameraPos;
+			float _Padding;
+		};
+
+		struct GeometryPassPushConstants
+		{
+			alignas(16) glm::mat4 Model;
+			alignas(16) glm::vec4 Color;
+			uint32_t TextureIndex;
+			uint32_t _Padding[3];
+		};
+
+		struct LightingPassPushConstants
+		{
+			alignas(16) glm::mat4 InverseViewProj;
+		};
+
+		struct DirectionalLightsBuffer
+		{
+			alignas(16) uint32_t lightCount;
+			uint32_t padding[3];
+		};
+
+		struct DirectionalLight
+		{
+			glm::vec3 color;
+			float intensity;
+			glm::vec3 direction;
+			float padding;
+		};
+	};
+}

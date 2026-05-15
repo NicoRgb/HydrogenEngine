@@ -11,19 +11,20 @@
 
 using namespace Hydrogen;
 
-struct ScreenVertex {
+struct ScreenVertex
+{
 	glm::vec2 pos;
 	glm::vec2 uv;
 };
 
-ScreenVertex vertices[] = {
+static ScreenVertex vertices[] = {
 	{{-1.0f, -1.0f}, {0.0f, 0.0f}},
 	{{ 1.0f, -1.0f}, {1.0f, 0.0f}},
 	{{ 1.0f,  1.0f}, {1.0f, 1.0f}},
 	{{-1.0f,  1.0f}, {0.0f, 1.0f}}
 };
 
-std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
+static std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
 
 Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<Viewport>& viewport)
 {
@@ -31,9 +32,8 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
 		.Width = static_cast<uint32_t>(viewport->GetWidth()),
 		.Height = static_cast<uint32_t>(viewport->GetHeight()),
-		.ColorFormat = TextureFormat::ViewportDefault,
 		.Attachments = {
-			{ AttachmentType::Color, 1, false, true, true }
+			{ AttachmentType::Color, 1, TextureFormat::ViewportDefault, false, true, true }
 		}
 		});
 
@@ -55,9 +55,8 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
 		.Width = static_cast<uint32_t>(width),
 		.Height = static_cast<uint32_t>(height),
-		.ColorFormat = TextureFormat::FormatB8G8R8A8,
 		.Attachments = {
-			{ AttachmentType::Color, 1, true, true, false }
+			{ AttachmentType::Color, 1, TextureFormat::FormatB8G8R8A8_SRGB, true, true, false }
 		}
 		});
 
@@ -147,24 +146,23 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	RenderGraphSpec spec;
 	spec.Width = width;
 	spec.Height = height;
-	spec.ColorFormat = TextureFormat::FormatR16G16B16A16;
 
 	if (maxMsaaSamples > 1)
 	{
 		spec.Attachments = {
-			{ AttachmentType::Color, maxMsaaSamples, false, true, false },
-			{ AttachmentType::Color, maxMsaaSamples, false, true, false },
-			{ AttachmentType::Depth, maxMsaaSamples, false, true, false },
-			{ AttachmentType::Resolve, 1, true, true, false },
-			{ AttachmentType::Resolve, 1, true, true, false }
+			{ AttachmentType::Color, maxMsaaSamples, TextureFormat::FormatR16G16B16A16, false, true, false },
+			{ AttachmentType::Color, maxMsaaSamples, TextureFormat::FormatR16G16B16A16, false, true, false },
+			{ AttachmentType::Depth, maxMsaaSamples, TextureFormat::FormatD32Float, false, true, false },
+			{ AttachmentType::Resolve, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
+			{ AttachmentType::Resolve, 1, TextureFormat::FormatR16G16B16A16, true, true, false }
 		};
 	}
 	else
 	{
 		spec.Attachments = {
-			{ AttachmentType::Color, 1, true, true, false },
-			{ AttachmentType::Color, 1, true, true, false },
-			{ AttachmentType::Depth, 1, false, true, false }
+			{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
+			{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
+			{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false }
 		};
 	}
 
@@ -185,9 +183,8 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 		RenderGraphSpec lightSpec;
 		lightSpec.Width = width;
 		lightSpec.Height = height;
-		lightSpec.ColorFormat = TextureFormat::FormatB8G8R8A8; // doesnt matter because no color attachment
 		lightSpec.Attachments = {
-			{ AttachmentType::Depth, 1, true, true, false }
+			{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, true, true, false }
 		};
 		m_ShadowRenderGraphs[i] = RenderGraph::Create(m_RenderContext, lightSpec);
 	}
@@ -204,8 +201,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	RenderGraphSpec blurSpec;
 	blurSpec.Width = width;
 	blurSpec.Height = height;
-	blurSpec.ColorFormat = TextureFormat::FormatR16G16B16A16;
-	blurSpec.Attachments = { { AttachmentType::Color, 1, true, true, false } };
+	blurSpec.Attachments = { { AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false } };
 
 	m_BlurRenderGraphs[0] = RenderGraph::Create(m_RenderContext, blurSpec); // horizontal
 	m_BlurRenderGraphs[1] = RenderGraph::Create(m_RenderContext, blurSpec); // vertical
@@ -487,10 +483,9 @@ DebugGUIRenderer::DebugGUIRenderer(const std::shared_ptr<RenderContext>& renderC
 	RenderGraphSpec spec;
 	spec.Width = (uint32_t)viewport->GetWidth();
 	spec.Height = (uint32_t)viewport->GetHeight();
-	spec.ColorFormat = TextureFormat::ViewportDefault;
 	spec.Attachments = {
-		{ AttachmentType::Color, 1, false, true, true },
-		{ AttachmentType::Depth, 1, false, true, false }
+		{ AttachmentType::Color, 1, TextureFormat::ViewportDefault, false, true, true },
+		{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false }
 	};
 
 	m_RenderGraph = RenderGraph::Create(m_RenderContext, spec);

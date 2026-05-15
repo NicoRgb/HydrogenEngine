@@ -10,8 +10,9 @@ namespace Hydrogen
 	enum class TextureFormat
 	{
 		ViewportDefault,
+		FormatR8G8B8A8_SRGB,
+		FormatB8G8R8A8_SRGB,
 		FormatR8G8B8A8,
-		FormatB8G8R8A8,
 		FormatR16G16B16A16,
 		FormatD32Float,
 		FormatD32Sfloat,

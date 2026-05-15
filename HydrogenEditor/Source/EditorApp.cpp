@@ -29,7 +29,7 @@ private:
 	bool  m_IsSimulating = false;
 
 	std::shared_ptr<Renderer> SceneViewportRenderer;
-	std::shared_ptr<Renderer> ViewportRenderer;
+	std::shared_ptr<DeferredRenderer> ViewportRenderer;
 	std::shared_ptr<DebugGUIRenderer> ImGuiRenderer;
 
 	std::shared_ptr<DebugGUI> DebugGUI;
@@ -235,7 +235,7 @@ private:
 				contentRegion.y);
 		}
 
-		ImGui::Image(ViewportRenderer->GetSampledTexture()->GetImGuiImage(), contentRegion);
+		ImGui::Image(ViewportRenderer->GetSceneColorTexture()->GetImGuiImage(), contentRegion);
 
 		ImGui::End();
 	}
@@ -293,7 +293,7 @@ public:
 			});
 
 		SceneViewportRenderer = std::make_shared<Renderer>(_RenderContext, (uint32_t)SceneViewportSize.x, (uint32_t)SceneViewportSize.y);
-		ViewportRenderer = std::make_shared<Renderer>(_RenderContext, (uint32_t)ViewportSize.x, (uint32_t)ViewportSize.y);
+		ViewportRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)ViewportSize.x, (uint32_t)ViewportSize.y);
 		ImGuiRenderer = std::make_shared<DebugGUIRenderer>(_RenderContext, MainViewport);
 	}
 

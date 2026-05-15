@@ -18,6 +18,7 @@ namespace Hydrogen
 	{
 		AttachmentType Type;
 		uint32_t SampleCount = 1;
+		TextureFormat Format;
 		bool Sampled = false;
 		bool Clear = true;
 		bool IsSwapChainAttachment = false;
@@ -27,7 +28,6 @@ namespace Hydrogen
 	{
 		uint32_t Width;
 		uint32_t Height;
-		TextureFormat ColorFormat;
 		std::vector<AttachmentSpec> Attachments;
 	};
 
