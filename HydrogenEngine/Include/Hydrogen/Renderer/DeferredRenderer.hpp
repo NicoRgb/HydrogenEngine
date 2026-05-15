@@ -55,10 +55,15 @@ namespace Hydrogen
 
 		struct GeometryPassPushConstants
 		{
-			alignas(16) glm::mat4 Model;
-			alignas(16) glm::vec4 Color;
-			uint32_t TextureIndex;
-			uint32_t _Padding[3];
+			glm::mat4 Model;
+			uint32_t AlbedoIndex;
+			uint32_t Padding0[3];
+			glm::vec3 Tint;
+			uint32_t Padding1;
+			float Roughness;
+			float Metallic;
+			float Emissive;
+			float Padding;
 		};
 
 		struct LightingPassPushConstants

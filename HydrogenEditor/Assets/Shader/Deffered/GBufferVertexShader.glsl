@@ -9,8 +9,12 @@ layout(binding = 0) uniform UniformBufferObject
 layout(push_constant) uniform constants
 {
     mat4 model;
-    vec4 color;
-    int texIndex;
+    
+    int albedoIndex;
+    vec3 tint;
+    float roughness;
+    float metallic;
+    float emissive;
 } PushConstants;
 
 layout(location = 0) in vec3 inPosition;

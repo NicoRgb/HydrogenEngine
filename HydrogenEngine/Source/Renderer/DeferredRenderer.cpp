@@ -47,7 +47,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // position
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // normal
 				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // rgb = albedo, a = roughness
-				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, g = occulion, b = emissive
+				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, b = emissive
 
 				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false },
 			}
@@ -59,7 +59,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBuffer), 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
-		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back, BlendMode::Alpha, { true, true });
+		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back, BlendMode::None, { true, true });
 
 	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 	{
@@ -140,8 +140,11 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 
 			GeometryPassPushConstants pushConstants{};
 			pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
-			pushConstants.Color = glm::vec4(m.Material->GetTint(), 1.0f);
-			pushConstants.TextureIndex = textureMap[albedo ? albedo->GetTexture().get() : nullptr];
+			pushConstants.AlbedoIndex = textureMap[albedo ? albedo->GetTexture().get() : nullptr];
+			pushConstants.Tint = m.Material->GetTint();
+			pushConstants.Roughness = m.Material->GetRoughnessFactor();
+			pushConstants.Metallic = m.Material->GetMetallicFactor();
+			pushConstants.Emissive = m.Material->GetEmissiveStrength();
 
 			m_CommandBuffer->BindPipeline(m_GBufferPipeline);
 			m_CommandBuffer->BindVertexBuffer(m.Mesh->GetVertexBuffer());
@@ -162,16 +165,16 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	uniformBuffer.CameraPos = cameraPos;
 
 	m_DirectionalLightsPipeline->UploadUniformBufferData(5, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0)); // position
-	m_DirectionalLightsPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1)); // normal
-	m_DirectionalLightsPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2)); // albedo
-	m_DirectionalLightsPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3)); // emissive
+	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
+	m_DirectionalLightsPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
+	m_DirectionalLightsPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
+	m_DirectionalLightsPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
 
 	m_PointLightPipeline->UploadUniformBufferData(4, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	m_PointLightPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0)); // position
-	m_PointLightPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1)); // normal
-	m_PointLightPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2)); // albedo
-	m_PointLightPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3)); // emissive
+	m_PointLightPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
+	m_PointLightPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
+	m_PointLightPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
+	m_PointLightPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
 
 	std::vector<DirectionalLight> directionalLights;
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<DirectionalLightComponent>(

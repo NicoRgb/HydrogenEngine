@@ -5,8 +5,8 @@
 
 layout(binding = 0) uniform sampler2D gPosition;
 layout(binding = 1) uniform sampler2D gNormal;
-layout(binding = 2) uniform sampler2D gAlbedo;
-layout(binding = 3) uniform sampler2D gEmissive;
+layout(binding = 2) uniform sampler2D gAlbedoRough;
+layout(binding = 3) uniform sampler2D gMaterial;
 
 struct DirectionalLight
 {
@@ -53,7 +53,7 @@ void main()
 {
     vec3 fragPos = texture(gPosition, fragUV).rgb;
     vec3 normal = texture(gNormal, fragUV).rgb;
-    vec3 albedo = texture(gAlbedo, fragUV).rgb;
+    vec3 albedo = texture(gAlbedoRough, fragUV).rgb;
 
     vec3 viewDir = normalize(ubo.viewPos - fragPos);
 
