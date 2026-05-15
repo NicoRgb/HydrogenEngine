@@ -6,6 +6,7 @@
 #include "Hydrogen/Renderer/Pipeline.hpp"
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Camera.hpp"
+#include "Hydrogen/ProceduralMesh.hpp"
 
 namespace Hydrogen
 {
@@ -27,6 +28,7 @@ namespace Hydrogen
 		void RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
 		std::unordered_map<Texture*, uint32_t> UploadAlbedoTextures(const std::shared_ptr<Scene>& scene);
+		void RenderPointLights(const std::shared_ptr<Scene>& scene);
 
 		const std::shared_ptr<RenderContext> m_RenderContext;
 		std::shared_ptr<CommandBuffer> m_CommandBuffer;
@@ -34,6 +36,8 @@ namespace Hydrogen
 		std::shared_ptr<Texture> m_DefaultTexture;
 		std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
 		std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
+		std::shared_ptr<VertexBuffer> m_SphereVertexBuffer;
+		std::shared_ptr<IndexBuffer> m_SphereIndexBuffer;
 
 		std::shared_ptr<RenderGraph> m_GBufferRenderGraph;
 		std::shared_ptr<Pipeline> m_GBufferPipeline;
@@ -59,21 +63,25 @@ namespace Hydrogen
 
 		struct LightingPassPushConstants
 		{
-			alignas(16) glm::mat4 InverseViewProj;
+			alignas(16) glm::mat4 Model;
+			alignas(16) glm::vec3 Color;
+			float Intensity;
+			alignas(16) glm::vec3 Position;
+			float Radius;
 		};
 
 		struct DirectionalLightsBuffer
 		{
-			alignas(16) uint32_t lightCount;
+			alignas(16) uint32_t LightCount;
 			uint32_t padding[3];
 		};
 
 		struct DirectionalLight
 		{
-			glm::vec3 color;
-			float intensity;
-			glm::vec3 direction;
-			float padding;
+			glm::vec3 Color;
+			float Intensity;
+			glm::vec3 Direction;
+			float Padding;
 		};
 	};
 }

@@ -58,7 +58,8 @@ namespace Hydrogen
 		void RenderShadowPass(const glm::mat4& lightTransform, const glm::mat4& lightSpaceMatrix, const std::shared_ptr<RenderGraph>& lightRenderGraph);
 
 		void SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::mat4& transform);
-		void SubmitLight(const LightComponent& light, const glm::mat4& transform);
+		void SubmitDirectionalLight(const DirectionalLightComponent& light, const glm::mat4& transform);
+		void SubmitPointLight(const PointLightComponent& light, const glm::mat4& transform);
 
 		void RenderPostProcessing();
 

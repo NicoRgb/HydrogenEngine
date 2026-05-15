@@ -245,9 +245,13 @@ json Scene::SerializeScene()
 		{
 			ColliderComponent::ToJson(entityJson["ColliderComponent"], m_Registry.get<ColliderComponent>(entity));
 		}
-		if (m_Registry.all_of<LightComponent>(entity))
+		if (m_Registry.all_of<DirectionalLightComponent>(entity))
 		{
-			LightComponent::ToJson(entityJson["LightComponent"], m_Registry.get<LightComponent>(entity));
+			DirectionalLightComponent::ToJson(entityJson["DirectionalLightComponent"], m_Registry.get<DirectionalLightComponent>(entity));
+		}
+		if (m_Registry.all_of<PointLightComponent>(entity))
+		{
+			PointLightComponent::ToJson(entityJson["PointLightComponent"], m_Registry.get<PointLightComponent>(entity));
 		}
 
 		j[std::to_string(m_Registry.get<UUIDComponent>(entity).UUID)] = entityJson;
@@ -303,10 +307,15 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 			ColliderComponent& component = m_Registry.emplace<ColliderComponent>(entity, e);
 			ColliderComponent::FromJson(value["ColliderComponent"], component, assetManager);
 		}
-		if (value.contains("LightComponent"))
+		if (value.contains("DirectionalLightComponent"))
 		{
-			LightComponent& component = m_Registry.emplace<LightComponent>(entity, e);
-			LightComponent::FromJson(value["LightComponent"], component, assetManager);
+			DirectionalLightComponent& component = m_Registry.emplace<DirectionalLightComponent>(entity, e);
+			DirectionalLightComponent::FromJson(value["DirectionalLightComponent"], component, assetManager);
+		}
+		if (value.contains("PointLightComponent"))
+		{
+			PointLightComponent& component = m_Registry.emplace<PointLightComponent>(entity, e);
+			PointLightComponent::FromJson(value["PointLightComponent"], component, assetManager);
 		}
 	}
 }

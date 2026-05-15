@@ -5,7 +5,7 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
@@ -166,10 +166,10 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	switch (primitive)
 	{
-	case Primitive::LINES:
+	case Primitive::Lines:
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 		break;
-	case Primitive::TRIANGLES:
+	case Primitive::Triangles:
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		break;
 	default:
@@ -239,17 +239,36 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(vulkanRenderGraph->GetNumColorAttachments());
 	for (size_t i = 0; i < colorBlendAttachments.size(); i++)
 	{
-		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-		colorBlendAttachment.blendEnable = VK_TRUE;
-		colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-		colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-		colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-		colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+		VkPipelineColorBlendAttachmentState blendState{};
+		blendState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-		colorBlendAttachments[i] = colorBlendAttachment;
+		if (blendMode == BlendMode::Additive)
+		{
+			blendState.blendEnable = VK_TRUE;
+			blendState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendState.colorBlendOp = VK_BLEND_OP_ADD;
+			blendState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendState.alphaBlendOp = VK_BLEND_OP_ADD;
+		}
+		else if (blendMode == BlendMode::Alpha)
+		{
+			blendState.blendEnable = VK_TRUE;
+			blendState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			blendState.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			blendState.colorBlendOp = VK_BLEND_OP_ADD;
+			blendState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			blendState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+			blendState.alphaBlendOp = VK_BLEND_OP_ADD;
+		}
+		else
+		{
+			blendState.blendEnable = VK_FALSE;
+		}
+
+		colorBlendAttachments[i] = blendState;
 	}
 
 	VkPipelineColorBlendStateCreateInfo colorBlending{};

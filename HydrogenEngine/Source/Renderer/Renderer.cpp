@@ -43,7 +43,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ }, Primitive::TRIANGLES, CullMode::None);
+		{ }, Primitive::Triangles, CullMode::None);
 
 	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
 	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
@@ -66,7 +66,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ }, Primitive::TRIANGLES, CullMode::None);
+		{ }, Primitive::Triangles, CullMode::None);
 
 	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
 	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
@@ -93,10 +93,16 @@ void Renderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& came
 			SubmitMesh(m, e.GetComponent<TransformComponent>().Transform);
 		});
 
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
-		[&](Entity e, const LightComponent& l)
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<DirectionalLightComponent>(
+		[&](Entity e, const DirectionalLightComponent& l)
 		{ 
-			SubmitLight(l, e.GetComponent<TransformComponent>().Transform);
+			SubmitDirectionalLight(l, e.GetComponent<TransformComponent>().Transform);
+		});
+
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<PointLightComponent>(
+		[&](Entity e, const PointLightComponent& l)
+		{
+			SubmitPointLight(l, e.GetComponent<TransformComponent>().Transform);
 		});
 
 	RenderFrame(m_RenderGraph);
@@ -196,7 +202,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
-		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::TRIANGLES, CullMode::Back);
+		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::Triangles, CullMode::Back);
 
 	RenderGraphSpec blurSpec;
 	blurSpec.Width = width;
@@ -212,7 +218,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	m_BlurPipeline = Pipeline::Create(m_RenderContext, m_BlurRenderGraphs[0], blurVS, blurFS,
 		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ { sizeof(BlurPushConstants), ShaderStage::Fragment } }, Primitive::TRIANGLES, CullMode::None);
+		{ { sizeof(BlurPushConstants), ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None);
 }
 
 void Renderer::BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos)
@@ -357,7 +363,7 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, meshRenderer.Color, texIndex });
 }
 
-void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transform)
+void Renderer::SubmitDirectionalLight(const DirectionalLightComponent& light, const glm::mat4& transform)
 {
 	uint32_t idx = m_FrameInfo.NumLights++;
 
@@ -365,22 +371,38 @@ void Renderer::SubmitLight(const LightComponent& light, const glm::mat4& transfo
 	glm::vec3 lightPos = glm::vec3(transform[3]);
 
 	m_FrameInfo.Lights[idx].Position = glm::vec4(lightPos, 0.0f);
-	m_FrameInfo.Lights[idx].Color = light.color;
-	m_FrameInfo.Lights[idx].Color.a = light.intensity;
+	m_FrameInfo.Lights[idx].Color = glm::vec4(light.Color, 0.0f);
+	m_FrameInfo.Lights[idx].Color.a = light.Intensity;
+	m_FrameInfo.Lights[idx].Direction = glm::vec4(lightDir, 0.0f);
+	m_FrameInfo.Lights[idx].Direction.w = 1.0f;
+
+	glm::mat4 lightView = glm::lookAt(lightPos, lightPos + lightDir, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	constexpr float size = 20.0f;
+	glm::mat4 lightProj = glm::ortho(-size, size, -size, size, 0.1f, 100.0f);
+	lightProj[1][1] *= -1.0f;
+
+	m_FrameInfo.Lights[idx].LightSpaceMatrix = lightProj * lightView;
+
+	RenderShadowPass(transform, m_FrameInfo.Lights[idx].LightSpaceMatrix, m_ShadowRenderGraphs[idx]);
+	m_FrameInfo.ShadowMaps.push_back(m_ShadowRenderGraphs[idx]->GetDepthTexture());
+
+	m_FrameInfo.Lights[idx].Position.w = idx;
+}
+
+void Renderer::SubmitPointLight(const PointLightComponent& light, const glm::mat4& transform)
+{
+	uint32_t idx = m_FrameInfo.NumLights++;
+
+	glm::vec3 lightDir = glm::normalize(glm::vec3(transform[2]));
+	glm::vec3 lightPos = glm::vec3(transform[3]);
+
+	m_FrameInfo.Lights[idx].Position = glm::vec4(lightPos, 0.0f);
+	m_FrameInfo.Lights[idx].Color = glm::vec4(light.Color, 0.0f);
+	m_FrameInfo.Lights[idx].Color.a = light.Intensity;
 	m_FrameInfo.Lights[idx].Direction = glm::vec4(lightDir, 0.0f);
 
-	if (light.type == LightType::Point)
-	{
-		m_FrameInfo.Lights[idx].Direction.w = 0.0f;
-	}
-	else if (light.type == LightType::Directional)
-	{
-		m_FrameInfo.Lights[idx].Direction.w = 1.0f;
-	}
-	if (light.type == LightType::Spot)
-	{
-		m_FrameInfo.Lights[idx].Direction.w = 2.0f;
-	}
+	m_FrameInfo.Lights[idx].Direction.w = 0.0f;
 
 	glm::mat4 lightView = glm::lookAt(lightPos, lightPos + lightDir, glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -470,7 +492,7 @@ const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared
 			  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
 			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 },
 			  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_LIGHTS } },
-			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES, CullMode::Back);
+			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back);
 
 	return m_Pipelines[key];
 }

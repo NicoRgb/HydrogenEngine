@@ -33,6 +33,10 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
 	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
 
+	auto sphereData = GenerateUVSphere(16, 16);
+	m_SphereVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 } }, (void*)sphereData.Vertices.data(), sphereData.Vertices.size() / 8);
+	m_SphereIndexBuffer = IndexBuffer::Create(m_RenderContext, sphereData.Indices);
+
 	m_CommandBuffer = CommandBuffer::Create(renderContext);
 
 	m_GBufferRenderGraph = RenderGraph::Create(renderContext,
@@ -54,7 +58,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBuffer), 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
-		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::TRIANGLES, CullMode::Back);
+		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back);
 
 	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 	{
@@ -80,7 +84,19 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 4, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_LIGHTS * sizeof(DirectionalLight), 1 },
 		  { 5, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex}}, Primitive::TRIANGLES, CullMode::None);
+		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex}}, Primitive::Triangles, CullMode::None, BlendMode::None);
+
+	const auto& pointLightVertexShader = assetManager.GetAsset<ShaderAsset>("PointLightVertexShader.glsl");
+	const auto& pointLightFragmentShader = assetManager.GetAsset<ShaderAsset>("PointLightFragmentShader.glsl");
+	m_PointLightPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, pointLightVertexShader, pointLightFragmentShader,
+		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive);
+	// TODO: depth testing
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -144,31 +160,34 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	uniformBuffer.CameraPos = cameraPos;
 
 	m_DirectionalLightsPipeline->UploadUniformBufferData(5, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0)); // position
+	m_DirectionalLightsPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1)); // normal
+	m_DirectionalLightsPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2)); // albedo
+	m_DirectionalLightsPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3)); // emissive
+
+	m_PointLightPipeline->UploadUniformBufferData(4, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	m_PointLightPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0)); // position
+	m_PointLightPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1)); // normal
+	m_PointLightPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2)); // albedo
+	m_PointLightPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3)); // emissive
 
 	std::vector<DirectionalLight> directionalLights;
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<LightComponent>(
-		[&](Entity e, const LightComponent& l)
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<DirectionalLightComponent>(
+		[&](Entity e, const DirectionalLightComponent& l)
 		{
-			if (l.type == LightType::Directional)
-			{
-				const auto& transform = e.GetComponent<TransformComponent>().Transform;
-				directionalLights.push_back({ l.color, l.intensity, glm::vec3(transform[2]), 0.0f });
-			}
+			const auto& transform = e.GetComponent<TransformComponent>().Transform;
+			directionalLights.push_back({ l.Color, l.Intensity, glm::vec3(transform[2]), 0.0f });
 		});
 
 	size_t lightDataSize = sizeof(DirectionalLightsBuffer) + directionalLights.size() * sizeof(DirectionalLight);
 	uint32_t* lightData = new uint32_t[lightDataSize / sizeof(uint32_t)]();
 
 	DirectionalLightsBuffer* header = reinterpret_cast<DirectionalLightsBuffer*>(lightData);
-	header->lightCount = directionalLights.size();
+	header->LightCount = directionalLights.size();
 	DirectionalLight* gpuLights = reinterpret_cast<DirectionalLight*>(lightData + sizeof(DirectionalLightsBuffer) / sizeof(uint32_t));
 	memcpy(gpuLights, directionalLights.data(), directionalLights.size() * sizeof(DirectionalLight));
 
 	m_DirectionalLightsPipeline->UploadStorageBufferData(4, lightData, lightDataSize);
-	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0)); // position
-	m_DirectionalLightsPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1)); // normal
-	m_DirectionalLightsPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2)); // albedo
-	m_DirectionalLightsPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3)); // emissive
 
 	m_CommandBuffer->BeginFrame(m_LightingRenderGraph);
 	m_CommandBuffer->StartRecording(m_LightingRenderGraph);
@@ -182,6 +201,8 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
 
 	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+
+	RenderPointLights(scene);
 
 	m_CommandBuffer->EndRecording();
 	m_CommandBuffer->EndFrame();
@@ -220,4 +241,40 @@ std::unordered_map<Texture*, uint32_t> DeferredRenderer::UploadAlbedoTextures(co
 		});
 
 	return result;
+}
+
+void DeferredRenderer::RenderPointLights(const std::shared_ptr<Scene>& scene)
+{
+	/*
+	Cull Mode	Front	Renders back faces so you can see the light from inside.
+	Depth Test	On	Prevents the light from bleeding through walls behind the sphere.
+	Depth Write	Off	Multiple lights need to overlap without blocking each other.
+	Blending	Additive	One, One blending ensures light intensities sum up correctly.
+
+	glm::mat4 model = glm::translate(glm::mat4(1.0f), lightPos)
+				* glm::scale(glm::mat4(1.0f), glm::vec3(lightRadius));
+	
+	16 sectors and 16 stacks
+	*/
+
+	Application::Get()->CurrentScene->GetScene()->IterateComponents<PointLightComponent>(
+		[&](Entity e, const PointLightComponent& l)
+		{
+			const auto& transform = e.GetComponent<TransformComponent>().Transform;
+			glm::vec3 position = glm::vec3(transform[3]);
+			glm::mat4 model = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(l.Radius));
+
+			LightingPassPushConstants pushConstants{};
+			pushConstants.Model = model;
+			pushConstants.Color = l.Color;
+			pushConstants.Intensity = l.Intensity;
+			pushConstants.Position = position;
+			pushConstants.Radius = l.Radius;
+
+			m_CommandBuffer->BindPipeline(m_PointLightPipeline);
+			m_CommandBuffer->BindVertexBuffer(m_SphereVertexBuffer);
+			m_CommandBuffer->BindIndexBuffer(m_SphereIndexBuffer);
+			m_CommandBuffer->UploadPushConstants(m_PointLightPipeline, 0, (void*)&pushConstants);
+			m_CommandBuffer->DrawIndexed(m_SphereIndexBuffer);
+		});
 }

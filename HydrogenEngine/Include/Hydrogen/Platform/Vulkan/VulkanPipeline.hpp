@@ -9,7 +9,7 @@ namespace Hydrogen
 	class VulkanPipeline : public Pipeline
 	{
 	public:
-		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode);
+		VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode);
 		~VulkanPipeline();
 
 		void UploadUniformBufferData(uint32_t binding, void* data, size_t size) override;

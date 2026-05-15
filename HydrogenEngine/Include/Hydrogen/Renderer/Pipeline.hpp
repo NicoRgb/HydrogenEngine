@@ -20,8 +20,15 @@ namespace Hydrogen
 
 	enum class Primitive
 	{
-		LINES,
-		TRIANGLES
+		Lines,
+		Triangles
+	};
+
+	enum class BlendMode
+	{
+		None,
+		Additive,
+		Alpha
 	};
 
 	enum class ShaderStage : uint32_t
@@ -80,6 +87,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(pipeline);
 		}
 
-		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode);
+		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode = BlendMode::Alpha);
 	};
 }
