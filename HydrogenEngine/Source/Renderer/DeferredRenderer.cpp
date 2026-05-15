@@ -46,8 +46,9 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 			.Attachments = {
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // position
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // normal
-				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // albedo
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // emissive
+				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // rgb = albedo, a = roughness
+				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, g = occulion, b = emissive
+
 				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false },
 			}
 		});
@@ -134,12 +135,12 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
-			auto albedo = m.Material->GetAlbedo();
+			auto albedo = m.Material->GetAlbedoMap();
 			HY_ASSERT(textureMap.count(albedo ? albedo->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
 
 			GeometryPassPushConstants pushConstants{};
 			pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
-			pushConstants.Color = m.Color;
+			pushConstants.Color = glm::vec4(m.Material->GetTint(), 1.0f);
 			pushConstants.TextureIndex = textureMap[albedo ? albedo->GetTexture().get() : nullptr];
 
 			m_CommandBuffer->BindPipeline(m_GBufferPipeline);
@@ -219,7 +220,7 @@ std::unordered_map<Texture*, uint32_t> DeferredRenderer::UploadAlbedoTextures(co
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
-			auto albedo = m.Material->GetAlbedo();
+			auto albedo = m.Material->GetAlbedoMap();
 			if (!albedo)
 			{
 				result[nullptr] = 0;

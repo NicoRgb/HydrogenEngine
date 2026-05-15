@@ -182,7 +182,6 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			ImGui::EndDragDropTarget();
 		}
 
-		ImGui::ColorPicker4("Color", glm::value_ptr(t.Color));
 		ImGui::TreePop();
 	}
 }

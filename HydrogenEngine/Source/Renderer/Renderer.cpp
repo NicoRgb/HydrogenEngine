@@ -346,7 +346,7 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 
 	uint32_t texIndex = 0;
 
-	auto albedo = meshRenderer.Material->GetAlbedo();
+	auto albedo = meshRenderer.Material->GetAlbedoMap();
 	if (albedo)
 	{
 		const auto& texture = albedo->GetTexture();
@@ -362,7 +362,7 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 		}
 	}
 
-	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, meshRenderer.Color, texIndex });
+	m_FrameInfo.Objects.push_back({ meshRenderer.Mesh->GetVertexBuffer(), meshRenderer.Mesh->GetIndexBuffer(), pipeline, transform, glm::vec4(meshRenderer.Material->GetTint(), 1.0f), texIndex });
 }
 
 void Renderer::SubmitDirectionalLight(const DirectionalLightComponent& light, const glm::mat4& transform)

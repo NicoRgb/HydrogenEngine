@@ -363,7 +363,6 @@ namespace Hydrogen
 		std::shared_ptr<MaterialAsset> Material;
 		std::shared_ptr<ShaderAsset> VertexShader;
 		std::shared_ptr<ShaderAsset> FragmentShader;
-		glm::vec4 Color = glm::vec4(1.0f);
 
 		static void OnImGuiRender(MeshRendererComponent& t);
 
@@ -378,7 +377,6 @@ namespace Hydrogen
 				j["VertexShader"] = std::filesystem::path(t.VertexShader->GetPath()).filename().string();
 			if (t.FragmentShader)
 				j["FragmentShader"] = std::filesystem::path(t.FragmentShader->GetPath()).filename().string();
-			j["Color"] = { { "r", t.Color.r }, { "g", t.Color.g }, { "b", t.Color.b }, { "a", t.Color.a } };
 		}
 
 		static void FromJson(const json& j, MeshRendererComponent& t, AssetManager* assetManager)
@@ -408,15 +406,6 @@ namespace Hydrogen
 			{
 				t.FragmentShader = assetManager->GetAsset<ShaderAsset>(fragmentShaderPath);
 			}
-
-			const auto& color = j.value("Color", nlohmann::json::object());
-
-			float r = color.value("r", 1.0f);
-			float g = color.value("g", 1.0f);
-			float b = color.value("b", 1.0f);
-			float a = color.value("a", 1.0f);
-
-			t.Color = glm::vec4(r, g, b, a);
 		}
 	};
 

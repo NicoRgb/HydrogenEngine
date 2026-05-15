@@ -253,35 +253,55 @@ void MaterialAsset::Parse()
 {
 	auto material = json::parse(m_Content);
 
-	m_AlbedoFilename = material.value("Albedo", "");
-	m_NormalFilename = material.value("Normal", "");
+	m_AlbedoMapFilename = material.value("Albedo", "");
+	m_NormalMapFilename = material.value("Normal", "");
+	m_MetallicRoughnessMapFilename = material.value("MetallicRoughness", "");
 
-	m_Roughness = material.value("Roughness", 0.0f);
-	m_Metallic = material.value("Metallic", 0.0f);
-	m_Occlusion = material.value("Occlusion", 0.0f);
-	m_Emissive = material.value("Emissive", 0.0f);
+	m_RoughnessFactor = material.value("Roughness", 0.5f);
+	m_MetallicFactor = material.value("Metallic", 0.0f);
+	m_EmissiveStrength = material.value("Emissive", 0.0f);
+
+	const auto& tint = material.value("Tint", nlohmann::json::object());
+
+	float r = tint.value("r", 1.0f);
+	float g = tint.value("g", 1.0f);
+	float b = tint.value("b", 1.0f);
+
+	m_Tint = glm::vec3(r, g, b);
 }
 
-std::shared_ptr<TextureAsset> MaterialAsset::GetAlbedo()
+std::shared_ptr<TextureAsset> MaterialAsset::GetAlbedoMap()
 {
-	if (m_AlbedoFilename == "")
+	if (m_AlbedoMapFilename == "")
 		return nullptr;
 
-	if (m_Albedo)
-		return m_Albedo;
+	if (m_AlbedoMap)
+		return m_AlbedoMap;
 
-	m_Albedo = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_AlbedoFilename);
-	return m_Albedo;
+	m_AlbedoMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_AlbedoMapFilename);
+	return m_AlbedoMap;
 }
 
-std::shared_ptr<TextureAsset> MaterialAsset::GetNormal()
+std::shared_ptr<TextureAsset> MaterialAsset::GetNormalMap()
 {
-	if (m_NormalFilename == "")
+	if (m_NormalMapFilename == "")
 		return nullptr;
 
-	if (m_Normal)
-		return m_Normal;
+	if (m_NormalMap)
+		return m_NormalMap;
 
-	m_Normal = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_NormalFilename);
-	return m_Normal;
+	m_NormalMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_NormalMapFilename);
+	return m_NormalMap;
+}
+
+std::shared_ptr<TextureAsset> MaterialAsset::GetMetallicRoughnessMap()
+{
+	if (m_MetallicRoughnessMapFilename == "")
+		return nullptr;
+
+	if (m_MetallicRoughnessMap)
+		return m_MetallicRoughnessMap;
+
+	m_MetallicRoughnessMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_MetallicRoughnessMapFilename);
+	return m_MetallicRoughnessMap;
 }
