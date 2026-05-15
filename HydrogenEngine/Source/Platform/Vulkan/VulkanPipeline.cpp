@@ -5,7 +5,7 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode, DepthSpec depthSpec)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
@@ -284,8 +284,8 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	VkPipelineDepthStencilStateCreateInfo depthStencil{};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthTestEnable = depthSpec.DepthTest ? VK_TRUE : VK_FALSE;
+	depthStencil.depthWriteEnable = depthSpec.DepthWrite ? VK_TRUE : VK_FALSE;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f;

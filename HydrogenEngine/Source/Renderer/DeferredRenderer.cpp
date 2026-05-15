@@ -58,7 +58,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBuffer), 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
-		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back);
+		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back, BlendMode::Alpha, { true, true });
 
 	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 	{
@@ -70,7 +70,8 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 			.Width = width,
 			.Height = height,
 			.Attachments = {
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }
+				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
+				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false }
 			}
 		});
 
@@ -84,7 +85,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 4, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_LIGHTS * sizeof(DirectionalLight), 1 },
 		  { 5, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex}}, Primitive::Triangles, CullMode::None, BlendMode::None);
+		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex}}, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
 
 	const auto& pointLightVertexShader = assetManager.GetAsset<ShaderAsset>("PointLightVertexShader.glsl");
 	const auto& pointLightFragmentShader = assetManager.GetAsset<ShaderAsset>("PointLightFragmentShader.glsl");
@@ -95,8 +96,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive);
-	// TODO: depth testing
+		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive, { true, false });
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -245,18 +245,6 @@ std::unordered_map<Texture*, uint32_t> DeferredRenderer::UploadAlbedoTextures(co
 
 void DeferredRenderer::RenderPointLights(const std::shared_ptr<Scene>& scene)
 {
-	/*
-	Cull Mode	Front	Renders back faces so you can see the light from inside.
-	Depth Test	On	Prevents the light from bleeding through walls behind the sphere.
-	Depth Write	Off	Multiple lights need to overlap without blocking each other.
-	Blending	Additive	One, One blending ensures light intensities sum up correctly.
-
-	glm::mat4 model = glm::translate(glm::mat4(1.0f), lightPos)
-				* glm::scale(glm::mat4(1.0f), glm::vec3(lightRadius));
-	
-	16 sectors and 16 stacks
-	*/
-
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<PointLightComponent>(
 		[&](Entity e, const PointLightComponent& l)
 		{

@@ -43,7 +43,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, const st
 		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ }, Primitive::Triangles, CullMode::None);
+		{ }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
 
 	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
 	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
@@ -66,7 +66,7 @@ Renderer::Renderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t
 		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ }, Primitive::Triangles, CullMode::None);
+		{ }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
 
 	m_FullscreenVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
 	m_FullscreenIndexBuffer = IndexBuffer::Create(m_RenderContext, indices);
@@ -202,7 +202,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
-		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::Triangles, CullMode::Back);
+		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::Triangles, CullMode::Back, BlendMode::None, { true, true });
 
 	RenderGraphSpec blurSpec;
 	blurSpec.Width = width;
@@ -218,7 +218,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	m_BlurPipeline = Pipeline::Create(m_RenderContext, m_BlurRenderGraphs[0], blurVS, blurFS,
 		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ { sizeof(BlurPushConstants), ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None);
+		{ { sizeof(BlurPushConstants), ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
 }
 
 void Renderer::BeginFrame(CameraComponent& cameraComponent, glm::vec3 cameraPos)
@@ -492,7 +492,7 @@ const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared
 			  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
 			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 },
 			  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_LIGHTS } },
-			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back);
+			{ { sizeof(PushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back, BlendMode::Alpha, { true, true });
 
 	return m_Pipelines[key];
 }
