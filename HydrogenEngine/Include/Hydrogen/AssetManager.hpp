@@ -238,6 +238,56 @@ namespace Hydrogen
 		class std::shared_ptr<class Scene> m_Scene;
 	};
 
+	class MaterialAsset : public Asset
+	{
+	public:
+		MaterialAsset(std::string path, json config)
+			: Asset(path, config)
+		{
+			std::ifstream fin(path);
+			std::stringstream buffer;
+			buffer << fin.rdbuf();
+			m_Content = std::move(buffer.str());
+			fin.close();
+
+			if (m_Content.empty())
+			{
+				m_Content = "{}";
+			}
+
+			Parse();
+		}
+
+		~MaterialAsset() = default;
+
+		void Parse();
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		std::shared_ptr<TextureAsset> GetAlbedo();
+		std::shared_ptr<TextureAsset> GetNormal();
+
+	private:
+		std::string m_Content;
+		
+		std::string m_AlbedoFilename;
+		std::string m_NormalFilename;
+
+		float m_Roughness;
+		float m_Metallic;
+		float m_Occlusion;
+		float m_Emissive;
+
+		std::shared_ptr<TextureAsset> m_Albedo;
+		std::shared_ptr<TextureAsset> m_Normal;
+	};
+
 	class AssetManager
 	{
 	public:

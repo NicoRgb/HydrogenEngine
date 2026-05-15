@@ -359,8 +359,8 @@ namespace Hydrogen
 			(void)entity;
 		}
 
-		std::shared_ptr<TextureAsset> Texture;
 		std::shared_ptr<MeshAsset> Mesh;
+		std::shared_ptr<MaterialAsset> Material;
 		std::shared_ptr<ShaderAsset> VertexShader;
 		std::shared_ptr<ShaderAsset> FragmentShader;
 		glm::vec4 Color = glm::vec4(1.0f);
@@ -370,8 +370,8 @@ namespace Hydrogen
 		static void ToJson(json& j, const MeshRendererComponent& t)
 		{
 			j = json();
-			if (t.Texture)
-				j["Texture"] = std::filesystem::path(t.Texture->GetPath()).filename().string();
+			if (t.Material)
+				j["Material"] = std::filesystem::path(t.Material->GetPath()).filename().string();
 			if (t.Mesh)
 				j["Mesh"] = std::filesystem::path(t.Mesh->GetPath()).filename().string();
 			if (t.VertexShader)
@@ -383,14 +383,18 @@ namespace Hydrogen
 
 		static void FromJson(const json& j, MeshRendererComponent& t, AssetManager* assetManager)
 		{
-			auto texturePath = j.value("Texture", "");
+			auto materialPath = j.value("Material", "");
 			auto meshPath = j.value("Mesh", "");
 			auto vertexShaderPath = j.value("VertexShader", "");
 			auto fragmentShaderPath = j.value("FragmentShader", "");
 
-			if (!texturePath.empty())
+			if (!materialPath.empty())
 			{
-				t.Texture = assetManager->GetAsset<TextureAsset>(texturePath);
+				t.Material = assetManager->GetAsset<MaterialAsset>(materialPath);
+			}
+			else
+			{
+				t.Material = assetManager->GetAsset<MaterialAsset>("DefaultMaterial.hymat");
 			}
 			if (!meshPath.empty())
 			{

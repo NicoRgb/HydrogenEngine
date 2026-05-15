@@ -345,9 +345,11 @@ void Renderer::SubmitMesh(const MeshRendererComponent& meshRenderer, const glm::
 	}
 
 	uint32_t texIndex = 0;
-	if (meshRenderer.Texture)
+
+	auto albedo = meshRenderer.Material->GetAlbedo();
+	if (albedo)
 	{
-		const auto& texture = meshRenderer.Texture->GetTexture();
+		const auto& texture = albedo->GetTexture();
 		auto it = std::find(m_FrameInfo.Textures.begin(), m_FrameInfo.Textures.end(), texture);
 		if (it != m_FrameInfo.Textures.end())
 		{

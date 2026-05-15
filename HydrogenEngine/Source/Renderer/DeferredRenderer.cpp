@@ -134,12 +134,13 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
-			HY_ASSERT(textureMap.count(m.Texture ? m.Texture->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
+			auto albedo = m.Material->GetAlbedo();
+			HY_ASSERT(textureMap.count(albedo ? albedo->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
 
 			GeometryPassPushConstants pushConstants{};
 			pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
 			pushConstants.Color = m.Color;
-			pushConstants.TextureIndex = textureMap[m.Texture ? m.Texture->GetTexture().get() : nullptr];
+			pushConstants.TextureIndex = textureMap[albedo ? albedo->GetTexture().get() : nullptr];
 
 			m_CommandBuffer->BindPipeline(m_GBufferPipeline);
 			m_CommandBuffer->BindVertexBuffer(m.Mesh->GetVertexBuffer());
@@ -218,13 +219,14 @@ std::unordered_map<Texture*, uint32_t> DeferredRenderer::UploadAlbedoTextures(co
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
-			if (!m.Texture)
+			auto albedo = m.Material->GetAlbedo();
+			if (!albedo)
 			{
 				result[nullptr] = 0;
 				return;
 			}
 
-			if (result.count(m.Texture->GetTexture().get()) > 0)
+			if (result.count(albedo->GetTexture().get()) > 0)
 			{
 				return;
 			}
@@ -232,12 +234,12 @@ std::unordered_map<Texture*, uint32_t> DeferredRenderer::UploadAlbedoTextures(co
 			if (numUploadedTextures >= MAX_TEXTURES)
 			{
 				HY_ENGINE_ERROR("Exceeded maximum texture limit of {}", MAX_TEXTURES);
-				result[m.Texture->GetTexture().get()] = 0;
+				result[albedo->GetTexture().get()] = 0;
 				return;
 			}
 
-			result[m.Texture->GetTexture().get()] = numUploadedTextures;
-			m_GBufferPipeline->UploadTextureSampler(1, numUploadedTextures++, m.Texture->GetTexture());
+			result[albedo->GetTexture().get()] = numUploadedTextures;
+			m_GBufferPipeline->UploadTextureSampler(1, numUploadedTextures++, albedo->GetTexture());
 		});
 
 	return result;

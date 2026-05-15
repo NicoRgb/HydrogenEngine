@@ -116,9 +116,9 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			ImGui::EndDragDropTarget();
 		}
 
-		if (t.Texture)
+		if (t.Material)
 		{
-			ImGui::Text(t.Texture->GetPath().c_str());
+			ImGui::Text(t.Material->GetPath().c_str());
 		}
 		else
 		{
@@ -129,10 +129,10 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
 			{
 				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
+				auto asset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(newPath.filename().string());
 				if (asset)
 				{
-					t.Texture = asset;
+					t.Material = asset;
 				}
 			}
 			ImGui::EndDragDropTarget();

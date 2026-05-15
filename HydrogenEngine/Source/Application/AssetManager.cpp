@@ -1,5 +1,6 @@
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Application.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -100,6 +101,10 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 			{
 				assetType = "Scene";
 			}
+			else if (ext == ".hymat")
+			{
+				assetType = "Material";
+			}
 			else
 			{
 				HY_ENGINE_WARN("Ignoring file '{}'", filePath);
@@ -149,6 +154,11 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 		{
 			auto scene = std::make_shared<SceneAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(scene);
+		}
+		else if (assetConfig["type"] == "Material")
+		{
+			auto material = std::make_shared<MaterialAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(material);
 		}
 		else
 		{
@@ -237,4 +247,41 @@ void SceneAsset::Save() const
 void SceneAsset::ClearScene()
 {
 	m_Scene = std::make_shared<Scene>();
+}
+
+void MaterialAsset::Parse()
+{
+	auto material = json::parse(m_Content);
+
+	m_AlbedoFilename = material.value("Albedo", "");
+	m_NormalFilename = material.value("Normal", "");
+
+	m_Roughness = material.value("Roughness", 0.0f);
+	m_Metallic = material.value("Metallic", 0.0f);
+	m_Occlusion = material.value("Occlusion", 0.0f);
+	m_Emissive = material.value("Emissive", 0.0f);
+}
+
+std::shared_ptr<TextureAsset> MaterialAsset::GetAlbedo()
+{
+	if (m_AlbedoFilename == "")
+		return nullptr;
+
+	if (m_Albedo)
+		return m_Albedo;
+
+	m_Albedo = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_AlbedoFilename);
+	return m_Albedo;
+}
+
+std::shared_ptr<TextureAsset> MaterialAsset::GetNormal()
+{
+	if (m_NormalFilename == "")
+		return nullptr;
+
+	if (m_Normal)
+		return m_Normal;
+
+	m_Normal = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_NormalFilename);
+	return m_Normal;
 }
