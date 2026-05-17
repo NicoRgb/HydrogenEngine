@@ -275,10 +275,20 @@ namespace Hydrogen
 		std::shared_ptr<TextureAsset> GetORMMap();
 		std::shared_ptr<TextureAsset> GetEmissiveMap();
 
+		void SetAlbedoMap(const std::shared_ptr<TextureAsset>& albedo) { m_AlbedoMapFilename = std::filesystem::path(albedo->GetPath()).filename().string(); m_AlbedoMap = albedo; }
+		void SetNormalMap(const std::shared_ptr<TextureAsset>& normal) { m_NormalMapFilename = std::filesystem::path(normal->GetPath()).filename().string(); m_NormalMap = normal; }
+		void SetORMMap(const std::shared_ptr<TextureAsset>& orm) { m_ORMMapFilename = std::filesystem::path(orm->GetPath()).filename().string(); m_ORMMap = orm; }
+		void SetEmissiveMap(const std::shared_ptr<TextureAsset>& emissive) { m_EmissiveMapFilename = std::filesystem::path(emissive->GetPath()).filename().string(); m_EmissiveMap = emissive; }
+
 		glm::vec3 GetTint() const { return m_Tint; }
 		float GetRoughnessFactor() const { return m_RoughnessFactor; }
 		float GetMetallicFactor() const { return m_MetallicFactor; }
 		glm::vec4 GetEmissive() const { return m_Emissive; }
+
+		void SetTint(glm::vec3 tint) { m_Tint = tint; }
+		void SetRoughnessFactor(float roughness) { m_RoughnessFactor = roughness; }
+		void SetMetallicFactor(float metallic) { m_MetallicFactor=  metallic; }
+		void SetEmissive(glm::vec4 emissive) { m_Emissive = emissive; }
 
 	private:
 		std::string m_Content;

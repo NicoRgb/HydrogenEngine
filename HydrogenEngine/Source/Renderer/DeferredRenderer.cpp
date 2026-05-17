@@ -141,7 +141,7 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 	m_CommandBuffer->SetViewport(m_GBufferRenderGraph);
 	m_CommandBuffer->SetScissor(m_GBufferRenderGraph);
 
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
+	scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			auto albedo = m.Material->GetAlbedoMap();
@@ -197,7 +197,7 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	m_PointLightPipeline->UploadTextureSampler(4, 0, m_GBufferRenderGraph->GetColorTexture(4));
 
 	std::vector<DirectionalLight> directionalLights;
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<DirectionalLightComponent>(
+	scene->IterateComponents<DirectionalLightComponent>(
 		[&](Entity e, const DirectionalLightComponent& l)
 		{
 			const auto& transform = e.GetComponent<TransformComponent>().Transform;
@@ -242,7 +242,7 @@ void DeferredRenderer::UploadMaterialTextures(const std::shared_ptr<Scene>& scen
 	m_ORMTextures.clear();
 	m_EmissiveTextures.clear();
 
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
+	scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			auto albedo = m.Material->GetAlbedoMap();
@@ -291,7 +291,7 @@ void DeferredRenderer::UploadMaterialTexture(const std::shared_ptr<Texture>& tex
 
 void DeferredRenderer::RenderPointLights(const std::shared_ptr<Scene>& scene)
 {
-	Application::Get()->CurrentScene->GetScene()->IterateComponents<PointLightComponent>(
+	scene->IterateComponents<PointLightComponent>(
 		[&](Entity e, const PointLightComponent& l)
 		{
 			const auto& transform = e.GetComponent<TransformComponent>().Transform;
