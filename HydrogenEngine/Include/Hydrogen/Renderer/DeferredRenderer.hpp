@@ -21,7 +21,12 @@ namespace Hydrogen
 
 		uint32_t GetWidth() const { return m_GBufferRenderGraph->GetWidth(); }
 		uint32_t GetHeight() const { return m_GBufferRenderGraph->GetHeight(); }
+
 		std::shared_ptr<Texture> GetSceneColorTexture() const { return m_LightingRenderGraph->GetColorTexture(0); }
+		std::shared_ptr<Texture> GetSceneBrightTexture() const { return m_LightingRenderGraph->GetColorTexture(1); }
+
+		const std::shared_ptr<RenderContext>& GetRenderContext() { return m_RenderContext; }
+		const std::shared_ptr<CommandBuffer>& GetCommandBuffer() { return m_CommandBuffer; }
 
 	private:
 		void RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
@@ -101,6 +106,36 @@ namespace Hydrogen
 			float Intensity;
 			glm::vec3 Direction;
 			float Padding;
+		};
+	};
+
+	class PostProcessing
+	{
+	public:
+		void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
+		const std::shared_ptr<Texture>& PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
+
+		const std::shared_ptr<Texture>& GetFinalImage() { return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0); }
+
+	private:
+		void InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
+		void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height, const std::shared_ptr<RenderGraph>& renderGraph);
+
+		void Resize(uint32_t width, uint32_t height);
+
+		std::shared_ptr<RenderGraph> m_PostProcessingRenderGraph;
+		std::shared_ptr<RenderGraph> m_PostProcessingOffscreenRenderGraph;
+
+		std::shared_ptr<Pipeline> m_PostProcessingPipeline;
+		std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
+		std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
+
+		std::shared_ptr<RenderGraph> m_BlurRenderGraphs[2];
+		std::shared_ptr<Pipeline> m_BlurPipeline;
+
+		struct BlurPushConstants
+		{
+			int horizontal;
 		};
 	};
 }

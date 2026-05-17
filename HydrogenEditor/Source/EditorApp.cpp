@@ -34,9 +34,12 @@ private:
 	std::shared_ptr<DeferredRenderer> ViewportRenderer;
 	std::shared_ptr<DebugGUIRenderer> ImGuiRenderer;
 
+	PostProcessing ViewportPostProcessing;
+
 	std::shared_ptr<DeferredRenderer> MaterialPreviewRenderer;
 	std::shared_ptr<Scene> MaterialPreviewScene;
 	std::shared_ptr<MaterialAsset> PreviewMaterial;
+	PostProcessing MaterialPreviewPP;
 
 	std::shared_ptr<DebugGUI> DebugGUI;
 	FreeCamera FreeCam;
@@ -240,7 +243,7 @@ private:
 				contentRegion.y);
 		}
 
-		ImGui::Image(ViewportRenderer->GetSceneColorTexture()->GetImGuiImage(), contentRegion);
+		ImGui::Image(ViewportPostProcessing.GetFinalImage()->GetImGuiImage(), contentRegion);
 
 		ImGui::End();
 
@@ -264,7 +267,7 @@ private:
 				contentRegion.y);
 		}
 
-		ImGui::Image(MaterialPreviewRenderer->GetSceneColorTexture()->GetImGuiImage(), contentRegion);
+		ImGui::Image(MaterialPreviewPP.GetFinalImage()->GetImGuiImage(), contentRegion);
 
 		ImGui::End();
 
@@ -458,6 +461,7 @@ public:
 		if (UpdateCamera(CurrentScene->GetScene(), cameraEntity, ViewportSize.x, ViewportSize.y))
 		{
 			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
+			ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
 		}
 
 		if (Input::IsMouseButtonDown(KeyCode::MouseRight) && IsHoveringSceneViewport())
@@ -485,6 +489,7 @@ public:
 		if (UpdateCamera(MaterialPreviewScene, cameraEntity, MaterialPreviewSize.x, MaterialPreviewSize.y))
 		{
 			MaterialPreviewRenderer->Render(MaterialPreviewScene, cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
+			MaterialPreviewPP.PostProcessOffscreen(MaterialPreviewRenderer, MaterialPreviewSize.x, MaterialPreviewSize.y);
 		}
 
 		RenderImGui(ImGuiRenderer);
