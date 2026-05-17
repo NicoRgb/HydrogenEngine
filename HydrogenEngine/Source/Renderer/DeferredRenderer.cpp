@@ -84,26 +84,28 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		});
 
 	const auto& directionalLightsVertexShader = assetManager.GetAsset<ShaderAsset>("DirectionalLightsVertexShader.glsl");
-	const auto& directionalLightsFragmentShader = assetManager.GetAsset<ShaderAsset>("DirectionalLightsFragmentShader.glsl");
+	const auto& directionalLightsFragmentShader = assetManager.GetAsset<ShaderAsset>("DirectionalLightsPBRFragmentShader.glsl");
 	m_DirectionalLightsPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, directionalLightsVertexShader, directionalLightsFragmentShader,
 		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 4, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_LIGHTS * sizeof(DirectionalLight), 1 },
-		  { 5, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		  { 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 5, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_LIGHTS * sizeof(DirectionalLight), 1 },
+		  { 6, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
 		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex}}, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
 
 	const auto& pointLightVertexShader = assetManager.GetAsset<ShaderAsset>("PointLightVertexShader.glsl");
-	const auto& pointLightFragmentShader = assetManager.GetAsset<ShaderAsset>("PointLightFragmentShader.glsl");
+	const auto& pointLightFragmentShader = assetManager.GetAsset<ShaderAsset>("PointLightPBRFragmentShader.glsl");
 	m_PointLightPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, pointLightVertexShader, pointLightFragmentShader,
 		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		  { 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 5, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
 		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive, { true, false });
 }
 
@@ -180,17 +182,19 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
 	uniformBuffer.CameraPos = cameraPos;
 
-	m_DirectionalLightsPipeline->UploadUniformBufferData(5, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	m_DirectionalLightsPipeline->UploadUniformBufferData(6, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
 	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
 	m_DirectionalLightsPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
 	m_DirectionalLightsPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
 	m_DirectionalLightsPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
+	m_DirectionalLightsPipeline->UploadTextureSampler(4, 0, m_GBufferRenderGraph->GetColorTexture(4));
 
-	m_PointLightPipeline->UploadUniformBufferData(4, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	m_PointLightPipeline->UploadUniformBufferData(5, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
 	m_PointLightPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
 	m_PointLightPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
 	m_PointLightPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
 	m_PointLightPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
+	m_PointLightPipeline->UploadTextureSampler(4, 0, m_GBufferRenderGraph->GetColorTexture(4));
 
 	std::vector<DirectionalLight> directionalLights;
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<DirectionalLightComponent>(
@@ -208,7 +212,7 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	DirectionalLight* gpuLights = reinterpret_cast<DirectionalLight*>(lightData + sizeof(DirectionalLightsBuffer) / sizeof(uint32_t));
 	memcpy(gpuLights, directionalLights.data(), directionalLights.size() * sizeof(DirectionalLight));
 
-	m_DirectionalLightsPipeline->UploadStorageBufferData(4, lightData, lightDataSize);
+	m_DirectionalLightsPipeline->UploadStorageBufferData(5, lightData, lightDataSize);
 
 	m_CommandBuffer->BeginFrame(m_LightingRenderGraph);
 	m_CommandBuffer->StartRecording(m_LightingRenderGraph);

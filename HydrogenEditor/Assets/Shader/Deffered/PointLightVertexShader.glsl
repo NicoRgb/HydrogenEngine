@@ -4,7 +4,7 @@ layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec2 inUV;
 layout(location = 2) in vec3 inNormal;
 
-layout(binding = 4) uniform CameraBuffer
+layout(binding = 5) uniform CameraBuffer
 {
     mat4 viewProj;
     vec3 viewPos;
