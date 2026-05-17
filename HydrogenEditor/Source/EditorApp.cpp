@@ -282,6 +282,11 @@ private:
 		if (ImGui::ColorPicker3("Tint", glm::value_ptr(tint)))
 			PreviewMaterial->SetTint(tint);
 
+		glm::vec3 emissive = PreviewMaterial->GetEmissive();
+		float emissiveStrength = PreviewMaterial->GetEmissive().a;
+		if (ImGui::ColorPicker3("Emissive", glm::value_ptr(emissive)) || ImGui::SliderFloat("Emissive Strength", &emissiveStrength, 0.0f, 10.0f))
+			PreviewMaterial->SetEmissive(glm::vec4(emissive, emissiveStrength));
+
 		auto albedo = PreviewMaterial->GetAlbedoMap();
 		auto normal = PreviewMaterial->GetNormalMap();
 		auto orm = PreviewMaterial->GetORMMap();

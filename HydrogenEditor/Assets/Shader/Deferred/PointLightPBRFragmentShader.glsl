@@ -7,9 +7,8 @@ layout(binding = 0) uniform sampler2D gPosition;
 layout(binding = 1) uniform sampler2D gNormal;
 layout(binding = 2) uniform sampler2D gAlbedoRough;
 layout(binding = 3) uniform sampler2D gMaterial; // r = metallic, g = ao
-layout(binding = 4) uniform sampler2D gEmissive;
 
-layout(binding = 5) uniform CameraBuffer
+layout(binding = 4) uniform CameraBuffer
 {
     mat4 viewProj;
     vec3 viewPos;
@@ -81,8 +80,6 @@ void main()
 
     L = normalize(L);
 
-    vec3 normal = texture(gNormal, uv).rgb;
-
     vec4 albedoRough = texture(gAlbedoRough, uv);
     vec3 albedo = albedoRough.rgb;
     float roughness = albedoRough.a;
@@ -91,12 +88,12 @@ void main()
     float metallic = material.r;
     float ao = material.g;
 
-    vec3 N = normal;
+    vec3 N = normalize(texture(gNormal, uv).rgb);
     vec3 V = normalize(ubo.viewPos - fragPos);
     vec3 H = normalize(V + L);
 
-    float atten = pow(clamp(1.0 - (dist * dist) / (light.radius * light.radius), 0.0, 1.0), 2.0); 
-    vec3 radiance = light.color.rgb * atten;
+    float atten = pow(clamp(1.0 - (dist * dist) / (light.radius * light.radius), 0.0, 1.0), 2.0);
+    vec3 radiance = light.color.rgb * atten * light.color.a;
 
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metallic);
@@ -118,9 +115,11 @@ void main()
     float NdotL = max(dot(N, L), 0.0);
     vec3 Lo = (kD * albedo / PI + specular) * radiance * NdotL;
 
-    vec3 ambient = vec3(0.03) * albedo * ao; // temporary
-    vec3 color = ambient + Lo;
+    outColor = vec4(Lo, 1.0);
 
-    outColor = vec4(color, 1.0);
-    outBright = vec4(0.0);
+    float brightness = dot(outColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    if (brightness > 1.0)
+        outBright = vec4(outColor.rgb, 1.0);
+    else
+        outBright = vec4(0.0, 0.0, 0.0, 1.0);
 }

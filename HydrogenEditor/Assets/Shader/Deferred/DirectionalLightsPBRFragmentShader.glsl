@@ -43,11 +43,10 @@ vec3 CalculateDirectionalLight(vec3 normal, vec3 viewDir, int lightIndex, vec3 a
 
     vec3 lightCol = lightInfo.lights[lightIndex].color.rgb;
 
-    vec3 ambient = 0.15 * albedo * lightCol;
     vec3 diffuse = diff * albedo * lightCol;
     vec3 specular = spec * lightCol;
 
-    return ambient + diffuse + specular;
+    return diffuse + specular;
 }
 
 void main()
@@ -55,6 +54,11 @@ void main()
     vec3 fragPos = texture(gPosition, fragUV).rgb;
     vec3 normal = texture(gNormal, fragUV).rgb;
     vec3 albedo = texture(gAlbedoRough, fragUV).rgb;
+    vec4 material = texture(gMaterial, fragUV);
+    float ao = material.g;
+
+    vec4 emissiveSample = texture(gEmissive, fragUV);
+    vec3 emissive = emissiveSample.rgb * emissiveSample.a;
 
     vec3 viewDir = normalize(ubo.viewPos - fragPos);
 
@@ -63,8 +67,11 @@ void main()
     {
         lighting += CalculateDirectionalLight(normal, viewDir, int(i), albedo) * lightInfo.lights[i].color.a;
     }
-    
-    outColor = vec4(lighting, 1.0);
+
+    vec3 ambient = vec3(0.03) * albedo * ao;    
+    vec3 finalColor = lighting + ambient + emissive;
+
+    outColor = vec4(finalColor, 1.0);
 
     float brightness = dot(outColor.rgb, vec3(0.2126, 0.7152, 0.0722));
     if(brightness > 1.0)

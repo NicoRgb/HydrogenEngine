@@ -322,10 +322,10 @@ void MaterialAsset::Parse()
 
 	const auto& emissive = material.value("Emissive", nlohmann::json::object());
 
-	float r = emissive.value("r", 1.0f);
-	float g = emissive.value("g", 1.0f);
-	float b = emissive.value("b", 1.0f);
-	float intensity = emissive.value("intensity", 1.0f);
+	float r = emissive.value("r", 0.0f);
+	float g = emissive.value("g", 0.0f);
+	float b = emissive.value("b", 0.0f);
+	float intensity = emissive.value("intensity", 0.0f);
 
 	m_Emissive = glm::vec4(r, g, b, intensity);
 
