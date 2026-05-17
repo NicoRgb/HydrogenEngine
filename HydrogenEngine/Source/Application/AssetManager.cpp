@@ -196,36 +196,95 @@ void MeshAsset::Parse(std::string path)
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 	std::string warn, err;
-	
+
 	HY_ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str()), "Failed to load object {}", err);
 
-	for (const auto& shape : shapes) // TODO: this is really rudimentary -> no support for materials, textures and duplicate vertices
+	for (const auto& shape : shapes)
 	{
-		for (const auto& index : shape.mesh.indices)
+		for (size_t i = 0; i < shape.mesh.indices.size(); i += 3)
 		{
-			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
-			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
-			m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
-			m_Vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
-			m_Vertices.push_back(1.0f - attrib.texcoords[2 * index.texcoord_index + 1]);
-			if (index.normal_index >= 0)
+			tinyobj::index_t idx0 = shape.mesh.indices[i + 0];
+			tinyobj::index_t idx1 = shape.mesh.indices[i + 1];
+			tinyobj::index_t idx2 = shape.mesh.indices[i + 2];
+
+			// positions
+			glm::vec3 p0(attrib.vertices[3 * idx0.vertex_index + 0], attrib.vertices[3 * idx0.vertex_index + 1], attrib.vertices[3 * idx0.vertex_index + 2]);
+			glm::vec3 p1(attrib.vertices[3 * idx1.vertex_index + 0], attrib.vertices[3 * idx1.vertex_index + 1], attrib.vertices[3 * idx1.vertex_index + 2]);
+			glm::vec3 p2(attrib.vertices[3 * idx2.vertex_index + 0], attrib.vertices[3 * idx2.vertex_index + 1], attrib.vertices[3 * idx2.vertex_index + 2]);
+
+			// UVs
+			glm::vec2 uv0(attrib.texcoords[2 * idx0.texcoord_index + 0], 1.0f - attrib.texcoords[2 * idx0.texcoord_index + 1]);
+			glm::vec2 uv1(attrib.texcoords[2 * idx1.texcoord_index + 0], 1.0f - attrib.texcoords[2 * idx1.texcoord_index + 1]);
+			glm::vec2 uv2(attrib.texcoords[2 * idx2.texcoord_index + 0], 1.0f - attrib.texcoords[2 * idx2.texcoord_index + 1]);
+
+			// tangents
+			glm::vec3 edge1 = p1 - p0;
+			glm::vec3 edge2 = p2 - p0;
+			glm::vec2 deltaUV1 = uv1 - uv0;
+			glm::vec2 deltaUV2 = uv2 - uv0;
+
+			float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+			glm::vec3 tangent;
+			if (std::isinf(f) || std::isnan(f))
 			{
-				m_Vertices.push_back(attrib.normals[3 * index.normal_index + 0]);
-				m_Vertices.push_back(attrib.normals[3 * index.normal_index + 1]);
-				m_Vertices.push_back(attrib.normals[3 * index.normal_index + 2]);
+				tangent = glm::vec3(1.0f, 0.0f, 0.0f);
 			}
 			else
 			{
-				m_Vertices.push_back(0.0f);
-				m_Vertices.push_back(0.0f);
-				m_Vertices.push_back(1.0f); // default normal pointing +Z
+				tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+				tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+				tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+				tangent = glm::normalize(tangent);
 			}
 
-			m_Indices.push_back((uint32_t)m_Indices.size());
+			auto PushVertex = [&](const tinyobj::index_t& index, const glm::vec3& tng) {
+				// position
+				m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
+				m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
+				m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
+
+				// UVs
+				m_Vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
+				m_Vertices.push_back(1.0f - attrib.texcoords[2 * index.texcoord_index + 1]);
+
+				// normals
+				if (index.normal_index >= 0) {
+					m_Vertices.push_back(attrib.normals[3 * index.normal_index + 0]);
+					m_Vertices.push_back(attrib.normals[3 * index.normal_index + 1]);
+					m_Vertices.push_back(attrib.normals[3 * index.normal_index + 2]);
+				}
+				else {
+					m_Vertices.push_back(0.0f);
+					m_Vertices.push_back(0.0f);
+					m_Vertices.push_back(1.0f);
+				}
+
+				// tangents
+				m_Vertices.push_back(tng.x);
+				m_Vertices.push_back(tng.y);
+				m_Vertices.push_back(tng.z);
+
+				m_Indices.push_back((uint32_t)m_Indices.size());
+				};
+
+			PushVertex(idx0, tangent);
+			PushVertex(idx1, tangent);
+			PushVertex(idx2, tangent);
 		}
 	}
 
-	m_VertexBuffer = VertexBuffer::Create(m_RenderContext, { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} }, (void*)m_Vertices.data(), m_Vertices.size() / 8);
+	m_VertexBuffer = VertexBuffer::Create(m_RenderContext,
+		{
+			{VertexElementType::Float3}, // position
+			{VertexElementType::Float2}, // UV
+			{VertexElementType::Float3}, // normal
+			{VertexElementType::Float3}  // tangent
+		},
+		(void*)m_Vertices.data(),
+		m_Vertices.size() / 11
+	);
+
 	m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
 }
 
@@ -255,17 +314,26 @@ void MaterialAsset::Parse()
 
 	m_AlbedoMapFilename = material.value("Albedo", "");
 	m_NormalMapFilename = material.value("Normal", "");
-	m_MetallicRoughnessMapFilename = material.value("MetallicRoughness", "");
+	m_ORMMapFilename = material.value("ORM", "");
+	m_EmissiveMapFilename = material.value("EmissiveMap", "");
 
 	m_RoughnessFactor = material.value("Roughness", 0.5f);
 	m_MetallicFactor = material.value("Metallic", 0.0f);
-	m_EmissiveStrength = material.value("Emissive", 0.0f);
+
+	const auto& emissive = material.value("Emissive", nlohmann::json::object());
+
+	float r = emissive.value("r", 1.0f);
+	float g = emissive.value("g", 1.0f);
+	float b = emissive.value("b", 1.0f);
+	float intensity = emissive.value("intensity", 1.0f);
+
+	m_Emissive = glm::vec4(r, g, b, intensity);
 
 	const auto& tint = material.value("Tint", nlohmann::json::object());
 
-	float r = tint.value("r", 1.0f);
-	float g = tint.value("g", 1.0f);
-	float b = tint.value("b", 1.0f);
+	r = tint.value("r", 1.0f);
+	g = tint.value("g", 1.0f);
+	b = tint.value("b", 1.0f);
 
 	m_Tint = glm::vec3(r, g, b);
 }
@@ -294,14 +362,26 @@ std::shared_ptr<TextureAsset> MaterialAsset::GetNormalMap()
 	return m_NormalMap;
 }
 
-std::shared_ptr<TextureAsset> MaterialAsset::GetMetallicRoughnessMap()
+std::shared_ptr<TextureAsset> MaterialAsset::GetORMMap()
 {
-	if (m_MetallicRoughnessMapFilename == "")
+	if (m_ORMMapFilename == "")
 		return nullptr;
 
-	if (m_MetallicRoughnessMap)
-		return m_MetallicRoughnessMap;
+	if (m_ORMMap)
+		return m_ORMMap;
 
-	m_MetallicRoughnessMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_MetallicRoughnessMapFilename);
-	return m_MetallicRoughnessMap;
+	m_ORMMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_ORMMapFilename);
+	return m_ORMMap;
+}
+
+std::shared_ptr<TextureAsset> MaterialAsset::GetEmissiveMap()
+{
+	if (m_EmissiveMapFilename == "")
+		return nullptr;
+
+	if (m_EmissiveMap)
+		return m_EmissiveMap;
+
+	m_EmissiveMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_EmissiveMapFilename);
+	return m_EmissiveMap;
 }

@@ -27,7 +27,8 @@ namespace Hydrogen
 		void RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
 		void RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
-		std::unordered_map<Texture*, uint32_t> UploadAlbedoTextures(const std::shared_ptr<Scene>& scene);
+		void UploadMaterialTextures(const std::shared_ptr<Scene>& scene);
+		void UploadMaterialTexture(const std::shared_ptr<Texture>& texture, std::unordered_map<Texture*, uint32_t>& textureMap, uint32_t descriptorIndex);
 		void RenderPointLights(const std::shared_ptr<Scene>& scene);
 
 		const std::shared_ptr<RenderContext> m_RenderContext;
@@ -46,6 +47,12 @@ namespace Hydrogen
 		std::shared_ptr<Pipeline> m_DirectionalLightsPipeline;
 		std::shared_ptr<Pipeline> m_PointLightPipeline;
 
+		// per frame info
+		std::unordered_map<Texture*, uint32_t> m_AlbedoTextures;
+		std::unordered_map<Texture*, uint32_t> m_NormalTextures;
+		std::unordered_map<Texture*, uint32_t> m_ORMTextures;
+		std::unordered_map<Texture*, uint32_t> m_EmissiveTextures;
+
 		struct CameraInfoUniformBuffer
 		{
 			glm::mat4 ViewProj;
@@ -56,14 +63,21 @@ namespace Hydrogen
 		struct GeometryPassPushConstants
 		{
 			glm::mat4 Model;
+
+			// MAX_TEXTURES + 1 = no texture
 			uint32_t AlbedoIndex;
-			uint32_t Padding0[3];
-			glm::vec3 Tint;
-			uint32_t Padding1;
+			uint32_t NormalIndex;
+			uint32_t ORMIndex;
+			uint32_t EmissiveIndex;
+
+			glm::vec4 Tint;
+
 			float Roughness;
 			float Metallic;
-			float Emissive;
-			float Padding;
+			float Padding0;
+			float Padding1;
+			
+			glm::vec4 Emissive;
 		};
 
 		struct LightingPassPushConstants

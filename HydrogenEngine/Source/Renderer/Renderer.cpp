@@ -200,7 +200,7 @@ void Renderer::InitComponents(const std::shared_ptr<RenderContext>& renderContex
 	const auto& shadowFragmentShader = assetManager.GetAsset<ShaderAsset>("ShadowFragmentShader.glsl");
 
 	m_ShadowPipeline = Pipeline::Create(m_RenderContext, m_ShadowRenderGraphs[0], shadowVertexShader, shadowFragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(ShadowUniformBuffer), 1 }, },
 		{ { sizeof(ShadowPushConstants), ShaderStage::Vertex } }, Primitive::Triangles, CullMode::Back, BlendMode::None, { true, true });
 
@@ -489,7 +489,7 @@ const std::shared_ptr<Pipeline>& Renderer::GetOrCreatePipeline(const std::shared
 
 	m_Pipelines[key] =
 		Pipeline::Create(m_RenderContext, m_RenderGraph, vertexShader, fragmentShader,
-			{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+			{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} },
 			{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(UniformBuffer), 1 },
 			  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
 			  { 2, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(SceneLightsBuffer) + MAX_LIGHTS * sizeof(GPULight), 1 },

@@ -272,28 +272,32 @@ namespace Hydrogen
 
 		std::shared_ptr<TextureAsset> GetAlbedoMap();
 		std::shared_ptr<TextureAsset> GetNormalMap();
-		std::shared_ptr<TextureAsset> GetMetallicRoughnessMap();
+		std::shared_ptr<TextureAsset> GetORMMap();
+		std::shared_ptr<TextureAsset> GetEmissiveMap();
 
 		glm::vec3 GetTint() const { return m_Tint; }
 		float GetRoughnessFactor() const { return m_RoughnessFactor; }
 		float GetMetallicFactor() const { return m_MetallicFactor; }
-		float GetEmissiveStrength() const { return m_EmissiveStrength; }
+		glm::vec4 GetEmissive() const { return m_Emissive; }
 
 	private:
 		std::string m_Content;
 		
 		std::string m_AlbedoMapFilename;
 		std::string m_NormalMapFilename;
-		std::string m_MetallicRoughnessMapFilename;
+		std::string m_ORMMapFilename;
+		std::string m_EmissiveMapFilename;
 
 		glm::vec3 m_Tint;
 		float m_RoughnessFactor;
 		float m_MetallicFactor;
-		float m_EmissiveStrength;
+
+		glm::vec4 m_Emissive; // a = intesity scalar
 
 		std::shared_ptr<TextureAsset> m_AlbedoMap;
 		std::shared_ptr<TextureAsset> m_NormalMap;
-		std::shared_ptr<TextureAsset> m_MetallicRoughnessMap;
+		std::shared_ptr<TextureAsset> m_ORMMap;
+		std::shared_ptr<TextureAsset> m_EmissiveMap;
 	};
 
 	class AssetManager

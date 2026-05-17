@@ -47,7 +47,8 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // position
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // normal
 				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // rgb = albedo, a = roughness
-				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, b = emissive
+				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, g = ao
+				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // emissive
 
 				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false },
 			}
@@ -56,14 +57,20 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 	const auto& gBufferVertexShader = assetManager.GetAsset<ShaderAsset>("GBufferVertexShader.glsl");
 	const auto& gBufferFragmentShader = assetManager.GetAsset<ShaderAsset>("GBufferFragmentShader.glsl");
 	m_GBufferPipeline = Pipeline::Create(renderContext, m_GBufferRenderGraph, gBufferVertexShader, gBufferFragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} },
 		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBuffer), 1 },
-		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
+		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+		  { 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
 		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back, BlendMode::None, { true, true });
 
 	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 	{
 		m_GBufferPipeline->UploadTextureSampler(1, i, m_DefaultTexture);
+		m_GBufferPipeline->UploadTextureSampler(2, i, m_DefaultTexture);
+		m_GBufferPipeline->UploadTextureSampler(3, i, m_DefaultTexture);
+		m_GBufferPipeline->UploadTextureSampler(4, i, m_DefaultTexture);
 	}
 
 	m_LightingRenderGraph = RenderGraph::Create(renderContext,
@@ -118,7 +125,7 @@ void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraCompone
 
 void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
-	auto textureMap = UploadAlbedoTextures(scene);
+	UploadMaterialTextures(scene);
 
 	CameraInfoUniformBuffer uniformBuffer{};
 	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
@@ -136,15 +143,24 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			auto albedo = m.Material->GetAlbedoMap();
-			HY_ASSERT(textureMap.count(albedo ? albedo->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
+			auto normal = m.Material->GetNormalMap();
+			auto orm = m.Material->GetORMMap();
+			auto emissive = m.Material->GetEmissiveMap();
+			HY_ASSERT(m_AlbedoTextures.count(albedo ? albedo->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
+			HY_ASSERT(m_NormalTextures.count(normal ? normal->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
+			HY_ASSERT(m_ORMTextures.count(orm ? orm->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
+			HY_ASSERT(m_EmissiveTextures.count(emissive ? emissive->GetTexture().get() : nullptr) > 0, "Texture not found in texture map");
 
 			GeometryPassPushConstants pushConstants{};
 			pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
-			pushConstants.AlbedoIndex = textureMap[albedo ? albedo->GetTexture().get() : nullptr];
-			pushConstants.Tint = m.Material->GetTint();
+			pushConstants.AlbedoIndex = m_AlbedoTextures[albedo ? albedo->GetTexture().get() : nullptr];
+			pushConstants.NormalIndex = m_NormalTextures[normal ? normal->GetTexture().get() : nullptr];
+			pushConstants.ORMIndex = m_ORMTextures[orm ? orm->GetTexture().get() : nullptr];
+			pushConstants.EmissiveIndex = m_EmissiveTextures[emissive ? emissive->GetTexture().get() : nullptr];
+			pushConstants.Tint = glm::vec4(m.Material->GetTint(), 1.0);
 			pushConstants.Roughness = m.Material->GetRoughnessFactor();
 			pushConstants.Metallic = m.Material->GetMetallicFactor();
-			pushConstants.Emissive = m.Material->GetEmissiveStrength();
+			pushConstants.Emissive = m.Material->GetEmissive();
 
 			m_CommandBuffer->BindPipeline(m_GBufferPipeline);
 			m_CommandBuffer->BindVertexBuffer(m.Mesh->GetVertexBuffer());
@@ -215,38 +231,58 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	delete[] lightData;
 }
 
-std::unordered_map<Texture*, uint32_t> DeferredRenderer::UploadAlbedoTextures(const std::shared_ptr<Scene>& scene)
+void DeferredRenderer::UploadMaterialTextures(const std::shared_ptr<Scene>& scene)
 {
-	std::unordered_map<Texture*, uint32_t> result;
-	uint32_t numUploadedTextures = 1;
+	m_AlbedoTextures.clear();
+	m_NormalTextures.clear();
+	m_ORMTextures.clear();
+	m_EmissiveTextures.clear();
 
 	Application::Get()->CurrentScene->GetScene()->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			auto albedo = m.Material->GetAlbedoMap();
-			if (!albedo)
+			if (albedo)
 			{
-				result[nullptr] = 0;
-				return;
+				UploadMaterialTexture(albedo->GetTexture(), m_AlbedoTextures, 1);
 			}
 
-			if (result.count(albedo->GetTexture().get()) > 0)
+			auto normal = m.Material->GetNormalMap();
+			if (normal)
 			{
-				return;
+				UploadMaterialTexture(normal->GetTexture(), m_NormalTextures, 2);
 			}
 
-			if (numUploadedTextures >= MAX_TEXTURES)
+			auto orm = m.Material->GetORMMap();
+			if (orm)
 			{
-				HY_ENGINE_ERROR("Exceeded maximum texture limit of {}", MAX_TEXTURES);
-				result[albedo->GetTexture().get()] = 0;
-				return;
+				UploadMaterialTexture(orm->GetTexture(), m_ORMTextures, 3);
 			}
 
-			result[albedo->GetTexture().get()] = numUploadedTextures;
-			m_GBufferPipeline->UploadTextureSampler(1, numUploadedTextures++, albedo->GetTexture());
+			auto emissive = m.Material->GetEmissiveMap();
+			if (emissive)
+			{
+				UploadMaterialTexture(emissive->GetTexture(), m_EmissiveTextures, 4);
+			}
 		});
 
-	return result;
+	m_AlbedoTextures[nullptr] = MAX_TEXTURES + 1;
+	m_NormalTextures[nullptr] = MAX_TEXTURES + 1;
+	m_ORMTextures[nullptr] = MAX_TEXTURES + 1;
+	m_EmissiveTextures[nullptr] = MAX_TEXTURES + 1;
+}
+
+void DeferredRenderer::UploadMaterialTexture(const std::shared_ptr<Texture>& texture, std::unordered_map<Texture*, uint32_t>& textureMap, uint32_t descriptorIndex)
+{
+	if (textureMap.size() >= MAX_TEXTURES)
+	{
+		HY_ENGINE_ERROR("Exceeded maximum texture limit of {}", MAX_TEXTURES);
+		textureMap[texture.get()] = MAX_TEXTURES + 1; // no texture
+		return;
+	}
+
+	m_GBufferPipeline->UploadTextureSampler(descriptorIndex, textureMap.size(), texture);
+	textureMap[texture.get()] = textureMap.size();
 }
 
 void DeferredRenderer::RenderPointLights(const std::shared_ptr<Scene>& scene)
