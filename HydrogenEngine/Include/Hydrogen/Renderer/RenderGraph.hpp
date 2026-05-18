@@ -22,6 +22,7 @@ namespace Hydrogen
 		bool Sampled = false;
 		bool Clear = true;
 		bool IsSwapChainAttachment = false;
+		std::shared_ptr<Texture> Texture;
 	};
 
 	struct RenderGraphSpec
@@ -46,6 +47,8 @@ namespace Hydrogen
 		virtual std::shared_ptr<Texture> GetColorTexture(uint32_t index) const = 0;
 		virtual std::shared_ptr<Texture> GetDepthTexture() const = 0;
 		virtual std::shared_ptr<Texture> GetResolveTexture(uint32_t index) const = 0;
+
+		virtual void SetTexture(uint32_t index, const std::shared_ptr<Texture>& texture) = 0;
 
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<RenderGraph>& target)

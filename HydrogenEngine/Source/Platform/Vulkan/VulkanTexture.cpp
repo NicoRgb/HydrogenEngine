@@ -60,6 +60,7 @@ VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext
 {
 	m_Width = width;
 	m_Height = height;
+	m_TextureFormat = format;
 	m_Format = TextureFormatToVkFormat(format, m_RenderContext);
 
 	CreateTexture();

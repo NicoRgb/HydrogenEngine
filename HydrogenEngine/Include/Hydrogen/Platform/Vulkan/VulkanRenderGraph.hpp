@@ -38,6 +38,8 @@ namespace Hydrogen
 		void OnResize(uint32_t width, uint32_t height) override;
 		void Invalidate() override;
 
+		void SetTexture(uint32_t index, const std::shared_ptr<Texture>& texture) override { m_Spec.Attachments[index].Texture = texture; }
+
 		VkRenderPass GetRenderPass() const { return m_RenderPass; }
 		VkFramebuffer GetFramebuffer(uint32_t index = 0) const { return m_Framebuffers[index]; }
 		const std::vector<VkFramebuffer>& GetFramebuffers() const { return m_Framebuffers; }

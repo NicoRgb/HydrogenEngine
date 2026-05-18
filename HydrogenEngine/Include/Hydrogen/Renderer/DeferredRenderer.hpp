@@ -10,6 +10,13 @@
 
 namespace Hydrogen
 {
+	struct Gizmo
+	{
+		std::shared_ptr<Texture> BillboardTexture;
+		glm::vec3 Position;
+		glm::vec2 Scale;
+	};
+
 	class DeferredRenderer
 	{
 	public:
@@ -18,6 +25,7 @@ namespace Hydrogen
 
 		void Resize(uint32_t width, uint32_t height);
 		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		void RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
 		uint32_t GetWidth() const { return m_GBufferRenderGraph->GetWidth(); }
 		uint32_t GetHeight() const { return m_GBufferRenderGraph->GetHeight(); }
@@ -51,6 +59,9 @@ namespace Hydrogen
 		std::shared_ptr<RenderGraph> m_LightingRenderGraph;
 		std::shared_ptr<Pipeline> m_DirectionalLightsPipeline;
 		std::shared_ptr<Pipeline> m_PointLightPipeline;
+
+		std::shared_ptr<RenderGraph> m_GizmoRenderGraph;
+		std::shared_ptr<Pipeline> m_BillboardPipeline;
 
 		// per frame info
 		std::unordered_map<Texture*, uint32_t> m_AlbedoTextures;
@@ -106,6 +117,15 @@ namespace Hydrogen
 			float Intensity;
 			glm::vec3 Direction;
 			float Padding;
+		};
+
+		struct BillboardPushConstants
+		{
+			glm::vec3 Position;
+			int TextureIndex;
+			glm::vec2 Scale;
+			float Padding0;
+			float Padding1;
 		};
 	};
 

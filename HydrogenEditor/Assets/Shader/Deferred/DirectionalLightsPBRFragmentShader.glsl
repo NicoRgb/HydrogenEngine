@@ -32,31 +32,91 @@ layout(location = 0) in vec2 fragUV;
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outBright;
 
-vec3 CalculateDirectionalLight(vec3 normal, vec3 viewDir, int lightIndex, vec3 albedo)
+vec3 FresnelSchlick(float cosTheta, vec3 F0)
 {
-    vec3 lightDir = normalize(-lightInfo.lights[lightIndex].direction.xyz);
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
 
-    float diff = max(dot(normal, lightDir), 0.0);
+float DistributionGGX(vec3 N, vec3 H, float roughness)
+{
+    const float PI = 3.14159265359;
 
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), 64.0);
+    float a = roughness*roughness;
+    float a2 = a*a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+	
+    float num = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+	
+    return num / denom;
+}
 
-    vec3 lightCol = lightInfo.lights[lightIndex].color.rgb;
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
 
-    vec3 diffuse = diff * albedo * lightCol;
-    vec3 specular = spec * lightCol;
+    float num = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+	
+    return num / denom;
+}
 
-    return diffuse + specular;
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+{
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+	
+    return ggx1 * ggx2;
+}
+
+vec3 CalculateDirectionalLight(vec3 N, vec3 V, int lightIndex, vec3 albedo, float roughness, float metallic)
+{
+    vec3 L = normalize(-lightInfo.lights[lightIndex].direction.xyz);
+    vec3 H = normalize(V + L);
+
+    vec3 radiance = lightInfo.lights[lightIndex].color.rgb * lightInfo.lights[lightIndex].color.a;
+
+    vec3 F0 = vec3(0.04); 
+    F0 = mix(F0, albedo, metallic);
+    vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
+
+    float NDF = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // Prevent divide by zero
+    vec3 specular = numerator / denominator;
+    
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+    
+    const float PI = 3.14159265359;
+    vec3 diffuse = kD * albedo / PI;
+
+    float NdotL = max(dot(N, L), 0.0);        
+    return (diffuse + specular) * radiance * NdotL;
 }
 
 void main()
 {
     vec3 fragPos = texture(gPosition, fragUV).rgb;
     vec3 normal = texture(gNormal, fragUV).rgb;
-    vec3 albedo = texture(gAlbedoRough, fragUV).rgb;
-    vec4 material = texture(gMaterial, fragUV);
-    float ao = material.g;
+    vec3 N = normalize(normal);
+    
+    vec4 albedoRough = texture(gAlbedoRough, fragUV);
+    vec3 albedo = albedoRough.rgb;
+    float roughness = albedoRough.a;
 
+    vec4 material = texture(gMaterial, fragUV);
+    float metallic = material.r;
+    float ao = material.g;
+    
     vec4 emissiveSample = texture(gEmissive, fragUV);
     vec3 emissive = emissiveSample.rgb * emissiveSample.a;
 
@@ -65,10 +125,10 @@ void main()
     vec3 lighting = vec3(0.0);
     for (uint i = 0; i < lightInfo.lightCount; ++i)
     {
-        lighting += CalculateDirectionalLight(normal, viewDir, int(i), albedo) * lightInfo.lights[i].color.a;
+        lighting += CalculateDirectionalLight(N, viewDir, int(i), albedo, roughness, metallic);
     }
 
-    vec3 ambient = vec3(0.03) * albedo * ao;    
+    vec3 ambient = vec3(0.03) * albedo * ao;
     vec3 finalColor = lighting + ambient + emissive;
 
     outColor = vec4(finalColor, 1.0);

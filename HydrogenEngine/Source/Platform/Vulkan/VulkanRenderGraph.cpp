@@ -50,7 +50,7 @@ void VulkanRenderGraph::CreateAttachments()
 		if (attachmentSpec.Type == AttachmentType::Color)
 		{
 			m_SampleCount = attachmentSpec.SampleCount;
-			if (attachmentSpec.IsSwapChainAttachment)
+			if (attachmentSpec.IsSwapChainAttachment || attachmentSpec.Texture)
 			{
 				continue;
 			}
@@ -77,6 +77,10 @@ void VulkanRenderGraph::CreateAttachments()
 		else if (attachmentSpec.Type == AttachmentType::Depth)
 		{
 			HY_ASSERT(attachmentSpec.IsSwapChainAttachment == false, "Depth attachments cannot be swap chain attachments");
+			if (attachmentSpec.Texture)
+			{
+				continue;
+			}
 
 			VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -98,6 +102,10 @@ void VulkanRenderGraph::CreateAttachments()
 		else if (attachmentSpec.Type == AttachmentType::DepthStencil)
 		{
 			HY_ASSERT(attachmentSpec.IsSwapChainAttachment == false, "Depth-stencil attachments cannot be swap chain attachments");
+			if (attachmentSpec.Texture)
+			{
+				continue;
+			}
 
 			VkImageUsageFlags usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -116,7 +124,7 @@ void VulkanRenderGraph::CreateAttachments()
 				usage,
 				GetVulkanSampleCount(attachmentSpec.SampleCount));
 		}
-		else if (attachmentSpec.Type == AttachmentType::Resolve && !attachmentSpec.IsSwapChainAttachment)
+		else if (attachmentSpec.Type == AttachmentType::Resolve && !attachmentSpec.IsSwapChainAttachment && !attachmentSpec.Texture)
 		{
 			VkImageUsageFlags usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			VkImageLayout finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -179,9 +187,10 @@ void VulkanRenderGraph::CreateRenderPass()
 				: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 			if (spec.IsSwapChainAttachment)
-			{
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-			}
+
+			if (spec.Texture)
+				desc.initialLayout = desc.finalLayout;
 
 			attachments.push_back(desc);
 
@@ -198,6 +207,9 @@ void VulkanRenderGraph::CreateRenderPass()
 				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+			if (spec.Texture)
+				desc.initialLayout = desc.finalLayout;
+
 			attachments.push_back(desc);
 
 			depthRef.attachment = attachmentIndex;
@@ -210,6 +222,9 @@ void VulkanRenderGraph::CreateRenderPass()
 			desc.finalLayout = spec.Sampled
 				? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
 				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+			if (spec.Texture)
+				desc.initialLayout = desc.finalLayout;
 
 			attachments.push_back(desc);
 
@@ -226,9 +241,10 @@ void VulkanRenderGraph::CreateRenderPass()
 				: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 			if (spec.IsSwapChainAttachment)
-			{
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-			}
+
+			if (spec.Texture)
+				desc.initialLayout = desc.finalLayout;
 
 			attachments.push_back(desc);
 			resolveAttachmentIndices.push_back(attachmentIndex);
@@ -331,14 +347,29 @@ void VulkanRenderGraph::CreateSwapChainFramebuffers()
 			}
 			else if (spec.Type == AttachmentType::Color)
 			{
+				if (spec.Texture)
+				{
+					attachments.push_back(Texture::Get<VulkanTexture>(spec.Texture)->GetImageView());
+					continue;
+				}
 				attachments.push_back(m_ColorImages[colorImageIdx++]->GetImageView());
 			}
 			else if (spec.Type == AttachmentType::Depth || spec.Type == AttachmentType::DepthStencil)
 			{
+				if (spec.Texture)
+				{
+					attachments.push_back(Texture::Get<VulkanTexture>(spec.Texture)->GetImageView());
+					continue;
+				}
 				attachments.push_back(m_DepthImage->GetImageView());
 			}
 			else if (spec.Type == AttachmentType::Resolve)
 			{
+				if (spec.Texture)
+				{
+					attachments.push_back(Texture::Get<VulkanTexture>(spec.Texture)->GetImageView());
+					continue;
+				}
 				attachments.push_back(m_ResolveImages[resolveImageIdx++]->GetImageView());
 			}
 		}
@@ -371,11 +402,32 @@ void VulkanRenderGraph::CreateTextureFramebuffers()
 		for (const auto& spec : m_Spec.Attachments)
 		{
 			if (spec.Type == AttachmentType::Color)
+			{
+				if (spec.Texture)
+				{
+					attachmentViews.push_back(Texture::Get<VulkanTexture>(spec.Texture)->GetImageView());
+					continue;
+				}
 				attachmentViews.push_back(m_ColorImages[colorImageIdx++]->GetImageView());
+			}
 			if (spec.Type == AttachmentType::Depth || spec.Type == AttachmentType::DepthStencil)
+			{
+				if (spec.Texture)
+				{
+					attachmentViews.push_back(Texture::Get<VulkanTexture>(spec.Texture)->GetImageView());
+					continue;
+				}
 				attachmentViews.push_back(m_DepthImage->GetImageView());
+			}
 			if (spec.Type == AttachmentType::Resolve)
+			{
+				if (spec.Texture)
+				{
+					attachmentViews.push_back(Texture::Get<VulkanTexture>(spec.Texture)->GetImageView());
+					continue;
+				}
 				attachmentViews.push_back(m_ResolveImages[resolveImageIdx++]->GetImageView());
+			}
 		}
 
 		framebufferInfo.attachmentCount = attachmentViews.size();

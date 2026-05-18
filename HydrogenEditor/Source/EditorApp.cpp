@@ -460,7 +460,9 @@ public:
 		Entity cameraEntity;
 		if (UpdateCamera(CurrentScene->GetScene(), cameraEntity, ViewportSize.x, ViewportSize.y))
 		{
-			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
+			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
+			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos);
+			ViewportRenderer->RenderGizmos({ { MainAssetManager.GetAsset<TextureAsset>("statue.jpg")->GetTexture(), {0, 0, 0}, {1, 1}} }, cameraEntity.GetComponent<CameraComponent>(), camPos);
 			ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
 		}
 

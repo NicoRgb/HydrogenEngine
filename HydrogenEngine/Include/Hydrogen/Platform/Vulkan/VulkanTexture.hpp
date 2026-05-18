@@ -24,16 +24,19 @@ namespace Hydrogen
 		void Resize(size_t width, size_t height) override;
 		void UploadData(void* data) override;
 
+		TextureFormat GetFormat() const override { return m_TextureFormat; }
+
 		VkImage GetImage() const { return m_Image; }
 		VkImageView GetImageView() const { return m_ImageView; }
 		VkSampler GetSampler() const { return m_Sampler; }
-		VkFormat GetFormat() const { return m_Format; }
+		VkFormat GetVkFormat() const { return m_Format; }
 
 	private:
 		void TransitionImageLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout);
 		void CreateTexture();
 
 		const std::shared_ptr<VulkanRenderContext> m_RenderContext;
+		TextureFormat m_TextureFormat;
 
 		size_t m_Width, m_Height;
 		VkFormat m_Format;

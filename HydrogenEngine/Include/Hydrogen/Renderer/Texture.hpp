@@ -32,6 +32,8 @@ namespace Hydrogen
 		virtual void Resize(size_t width, size_t height) = 0;
 		virtual void UploadData(void* data) = 0;
 
+		virtual TextureFormat GetFormat() const = 0;
+
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<Texture>& texture)
 		{

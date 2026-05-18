@@ -50,7 +50,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, g = ao
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // emissive
 
-				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, false, true, false },
+				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, true, true, false },
 			}
 		});
 
@@ -106,6 +106,29 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
 		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive, { true, false });
+
+	m_GizmoRenderGraph = RenderGraph::Create(renderContext,
+		{
+			.Width = width,
+			.Height = height,
+			.Attachments = {
+				{ AttachmentType::Color, 1, GetSceneColorTexture()->GetFormat() , true, false, false, GetSceneColorTexture() },
+				{ AttachmentType::Depth, 1, m_GBufferRenderGraph->GetDepthTexture()->GetFormat(), true, false, false, m_GBufferRenderGraph->GetDepthTexture() }
+			},
+		});
+
+	const auto& billboardVertexShader = assetManager.GetAsset<ShaderAsset>("BillboardVertexShader.glsl");
+	const auto& billboardFragmentShader = assetManager.GetAsset<ShaderAsset>("BillboardFragmentShader.glsl");
+	m_BillboardPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, billboardVertexShader, billboardFragmentShader,
+		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
+		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		{ { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { false, false });
+
+	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
+	{
+		m_BillboardPipeline->UploadTextureSampler(0, i, m_DefaultTexture);
+	}
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -116,12 +139,53 @@ void DeferredRenderer::Resize(uint32_t width, uint32_t height)
 {
 	m_GBufferRenderGraph->OnResize(width, height);
 	m_LightingRenderGraph->OnResize(width, height);
+	m_GizmoRenderGraph->SetTexture(0, GetSceneColorTexture());
+	m_GizmoRenderGraph->SetTexture(1, m_GBufferRenderGraph->GetDepthTexture());
+	m_GizmoRenderGraph->OnResize(width, height);
 }
 
 void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
 	RenderGeometryPass(scene, cameraComponent, cameraPos);
 	RenderLightingPass(scene, cameraComponent, cameraPos);
+}
+
+void DeferredRenderer::RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos)
+{
+	for (size_t i = 0; i < gizmos.size(); i++)
+	{
+		m_BillboardPipeline->UploadTextureSampler(0, i, gizmos[i].BillboardTexture);
+	}
+
+	CameraInfoUniformBuffer uniformBuffer{};
+	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
+	uniformBuffer.CameraPos = cameraPos;
+
+	m_BillboardPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+
+	m_CommandBuffer->BeginFrame(m_GizmoRenderGraph);
+	m_CommandBuffer->StartRecording(m_GizmoRenderGraph);
+
+	m_CommandBuffer->SetViewport(m_GizmoRenderGraph);
+	m_CommandBuffer->SetScissor(m_GizmoRenderGraph);
+
+	for (size_t i = 0; i < gizmos.size(); i++)
+	{
+		BillboardPushConstants pushConstants{};
+		pushConstants.Position = gizmos[i].Position;
+		pushConstants.Scale = gizmos[i].Scale;
+		pushConstants.TextureIndex = i;
+
+		m_CommandBuffer->BindPipeline(m_BillboardPipeline);
+		m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+		m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+
+		m_CommandBuffer->UploadPushConstants(m_BillboardPipeline, 0, (void*)&pushConstants);
+		m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+	}
+
+	m_CommandBuffer->EndRecording();
+	m_CommandBuffer->EndFrame();
 }
 
 void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos)
