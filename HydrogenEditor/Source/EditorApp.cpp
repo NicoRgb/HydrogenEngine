@@ -30,10 +30,11 @@ private:
 	float m_FPS = 0.0f;
 	bool  m_IsSimulating = false;
 
-	std::shared_ptr<Renderer> SceneViewportRenderer;
+	std::shared_ptr<DeferredRenderer> SceneViewportRenderer;
 	std::shared_ptr<DeferredRenderer> ViewportRenderer;
 	std::shared_ptr<DebugGUIRenderer> ImGuiRenderer;
 
+	PostProcessing SceneViewportPostProcessing;
 	PostProcessing ViewportPostProcessing;
 
 	std::shared_ptr<DeferredRenderer> MaterialPreviewRenderer;
@@ -217,7 +218,7 @@ private:
 				contentRegion.y);
 		}
 
-		ImGui::Image(SceneViewportRenderer->GetSampledTexture()->GetImGuiImage(), contentRegion);
+		ImGui::Image(SceneViewportPostProcessing.GetFinalImage()->GetImGuiImage(), contentRegion);
 
 		DrawGizmo();
 
@@ -430,7 +431,7 @@ public:
 				ImGuiRenderer->Resize(width, height);
 			});
 
-		SceneViewportRenderer = std::make_shared<Renderer>(_RenderContext, (uint32_t)SceneViewportSize.x, (uint32_t)SceneViewportSize.y);
+		SceneViewportRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)SceneViewportSize.x, (uint32_t)SceneViewportSize.y);
 		ViewportRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)ViewportSize.x, (uint32_t)ViewportSize.y);
 		ImGuiRenderer = std::make_shared<DebugGUIRenderer>(_RenderContext, MainViewport);
 		MaterialPreviewRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)MaterialPreviewSize.x, (uint32_t)MaterialPreviewSize.y);
@@ -462,7 +463,6 @@ public:
 		{
 			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
 			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos);
-			ViewportRenderer->RenderGizmos({ { MainAssetManager.GetAsset<TextureAsset>("statue.jpg")->GetTexture(), {0, 0, 0}, {1, 1}} }, cameraEntity.GetComponent<CameraComponent>(), camPos);
 			ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
 		}
 
@@ -487,6 +487,12 @@ public:
 			});
 
 		SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition());
+		if (cameraEntity.IsValid())
+		{
+			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
+			SceneViewportRenderer->RenderGizmos({ { MainAssetManager.GetAsset<TextureAsset>("statue.jpg")->GetTexture(), camPos, {1, 1}} }, FreeCam, FreeCam.GetPosition());
+		}
+		SceneViewportPostProcessing.PostProcessOffscreen(SceneViewportRenderer, SceneViewportSize.x, SceneViewportSize.y);
 
 		if (UpdateCamera(MaterialPreviewScene, cameraEntity, MaterialPreviewSize.x, MaterialPreviewSize.y))
 		{

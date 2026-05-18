@@ -6,7 +6,7 @@
 #include "Hydrogen/Viewport.hpp"
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Scene.hpp"
-#include "Hydrogen/Renderer/Renderer.hpp"
+#include "Hydrogen/Renderer/DebugGUIRenderer.hpp"
 #include "Hydrogen/AssetManager.hpp"
 
 #include "imgui.h"

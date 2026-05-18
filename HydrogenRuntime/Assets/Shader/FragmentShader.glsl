@@ -16,6 +16,7 @@ layout(binding = 0) uniform CameraInfo
 layout(push_constant) uniform constants
 {
     mat4 model;
+    vec4 color;
     int texIndex;
 } PushConstants;
 
@@ -36,9 +37,9 @@ layout(std430, binding = 2) readonly buffer SceneLights
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragTexCoord;
-layout(location = 3) in vec3 fragColor;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outBright;
 
 float DirectionalShadow(vec3 normal, vec3 lightDir, int lightIndex)
 {
@@ -122,7 +123,7 @@ void main()
     vec3 normal = normalize(fragNormal);
     vec3 viewDir = normalize(camInfo.viewPos - fragPos);
 
-    vec3 color = texture(texSampler[PushConstants.texIndex], fragTexCoord).xyz * fragColor;
+    vec3 color = texture(texSampler[PushConstants.texIndex], fragTexCoord).xyz * PushConstants.color.xyz;
     vec3 lighting = vec3(0.0);
 
     for (uint i = 0; i < lightInfo.lightCount; ++i)
@@ -140,4 +141,10 @@ void main()
     }
     
     outColor = vec4(lighting * color, 1.0);
+
+    float brightness = dot(outColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    if(brightness > 1.0)
+        outBright = vec4(outColor.rgb, 1.0);
+    else
+        outBright = vec4(0.0, 0.0, 0.0, 1.0);
 }

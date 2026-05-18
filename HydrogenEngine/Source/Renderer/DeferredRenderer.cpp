@@ -4,7 +4,7 @@
 using namespace Hydrogen;
 
 #define MAX_TEXTURES 128
-#define MAX_SPOTLIGHTS 16
+#define MAX_DIRECTIONAL_LIGHTS 16
 
 struct ScreenVertex
 {
@@ -92,7 +92,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 5, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_LIGHTS * sizeof(DirectionalLight), 1 },
+		  { 5, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_DIRECTIONAL_LIGHTS * sizeof(DirectionalLight), 1 },
 		  { 6, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
 		{ }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
 

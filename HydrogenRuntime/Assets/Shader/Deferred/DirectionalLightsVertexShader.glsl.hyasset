@@ -1,0 +1,5 @@
+{
+  "name": "DirectionalLightsFragmentShader.glsl",
+  "preferences": { "stage": "vertex" },
+  "type": "Shader"
+}

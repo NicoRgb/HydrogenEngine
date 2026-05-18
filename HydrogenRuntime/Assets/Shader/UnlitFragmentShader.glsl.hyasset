@@ -1,0 +1,7 @@
+{
+    "name": "UnlitFragmentShader.glsl",
+    "preferences": {
+        "stage": "fragment"
+    },
+    "type": "Shader"
+}
