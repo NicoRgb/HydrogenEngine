@@ -261,6 +261,7 @@ namespace Hydrogen
 		~MaterialAsset() = default;
 
 		void Parse();
+		void Save() const;
 
 		void LoadCache(std::string cachePath) override
 		{

@@ -1,39 +1,56 @@
 #include <imgui.h>
 #include "InspectorPanel.hpp"
 
+using namespace Hydrogen;
+
 template<typename T>
-static void DrawComponent(Hydrogen::Entity entity)
+const char* GetComponentName()
+{
+    if constexpr (std::is_same_v<T, MeshRendererComponent>) return "Mesh Renderer";
+    else if constexpr (std::is_same_v<T, DirectionalLightComponent>) return "Directional Light";
+    else if constexpr (std::is_same_v<T, PointLightComponent>) return "Point Light";
+    else if constexpr (std::is_same_v<T, RigidbodyComponent>) return "Rigidbody";
+    else if constexpr (std::is_same_v<T, ColliderComponent>) return "Collider";
+    else if constexpr (std::is_same_v<T, CameraComponent>) return "Camera";
+    else if constexpr (std::is_same_v<T, ScriptComponent>) return "Script";
+    else return "Unknown Component";
+}
+
+template<typename T>
+static void DrawComponent(Entity entity)
 {
     if (!entity.HasComponent<T>())
     {
         return;
     }
 
+    if constexpr (!std::is_same_v<T, TagComponent> && !std::is_same_v<T, TransformComponent>)
+    {
+        std::stringstream sstream;
+        sstream << "X###Remove_";
+        sstream << GetComponentName<T>();
+
+        if (ImGui::Button(sstream.str().c_str()))
+        {
+            entity.RemoveComponent<T>();
+            return;
+        }
+
+        ImGui::SameLine();
+    }
+    
     T& component = entity.GetComponent<T>();
     T::OnImGuiRender(component);
 }
 
-template<typename T>
-const char* GetComponentName()
-{
-    if constexpr (std::is_same_v<T, Hydrogen::MeshRendererComponent>) return "Mesh Renderer";
-    else if constexpr (std::is_same_v<T, Hydrogen::DirectionalLightComponent>) return "Directional Light";
-    else if constexpr (std::is_same_v<T, Hydrogen::PointLightComponent>) return "Point Light";
-    else if constexpr (std::is_same_v<T, Hydrogen::RigidbodyComponent>) return "Rigidbody";
-    else if constexpr (std::is_same_v<T, Hydrogen::ColliderComponent>) return "Collider";
-    else if constexpr (std::is_same_v<T, Hydrogen::CameraComponent>) return "Camera";
-    else if constexpr (std::is_same_v<T, Hydrogen::ScriptComponent>) return "Script";
-    else return "Unknown Component";
-}
-
 template<typename... Ts>
-static void DrawAllComponents(Hydrogen::Entity entity)
+static void DrawAllComponents(Entity entity)
 {
     (DrawComponent<Ts>(entity), ...);
 }
 
 template<typename... Ts>
-void DrawAddComponentMenu(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity entity)
+void DrawAddComponentMenu(const std::shared_ptr<Scene>& scene, Entity entity)
 {
     if (ImGui::Button("Add Component"))
     {
@@ -58,7 +75,7 @@ void DrawAddComponentMenu(const std::shared_ptr<Hydrogen::Scene>& scene, Hydroge
     }
 }
 
-void InspectorPanel::SetContext(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity selected)
+void InspectorPanel::SetContext(const std::shared_ptr<Scene>& scene, Entity selected)
 {
     m_Scene = scene;
     m_SelectedEntity = selected;
@@ -72,16 +89,17 @@ void InspectorPanel::OnImGuiRender()
         if (ImGui::Button("Remove"))
         {
             auto e = m_SelectedEntity;
-            m_SelectedEntity = Hydrogen::Entity();
+            m_SelectedEntity = Entity();
             e.Delete();
+            ImGui::End();
             return;
         }
 
         ImGui::Separator();
-        DrawAllComponents<Hydrogen::TagComponent, Hydrogen::TransformComponent, Hydrogen::MeshRendererComponent, Hydrogen::DirectionalLightComponent, Hydrogen::PointLightComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
+        DrawAllComponents<TagComponent, TransformComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
             (m_SelectedEntity);
         ImGui::Separator();
-        DrawAddComponentMenu<Hydrogen::MeshRendererComponent, Hydrogen::DirectionalLightComponent, Hydrogen::PointLightComponent, Hydrogen::RigidbodyComponent, Hydrogen::ColliderComponent, Hydrogen::CameraComponent, Hydrogen::ScriptComponent>
+        DrawAddComponentMenu<MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
             (m_Scene, m_SelectedEntity);
     }
     else

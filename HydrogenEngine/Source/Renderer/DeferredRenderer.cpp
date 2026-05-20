@@ -129,6 +129,14 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 	{
 		m_BillboardPipeline->UploadTextureSampler(0, i, m_DefaultTexture);
 	}
+
+	const auto& gridVertexShader = assetManager.GetAsset<ShaderAsset>("GridVertexShader.glsl");
+	const auto& gridFragmentShader = assetManager.GetAsset<ShaderAsset>("GridFragmentShader.glsl");
+	m_GridPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, gridVertexShader, gridFragmentShader,
+		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
+		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		{ }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { false, false });
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -162,12 +170,21 @@ void DeferredRenderer::RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComp
 	uniformBuffer.CameraPos = cameraPos;
 
 	m_BillboardPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	m_GridPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+
+	m_GridPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetDepthTexture());
 
 	m_CommandBuffer->BeginFrame(m_GizmoRenderGraph);
 	m_CommandBuffer->StartRecording(m_GizmoRenderGraph);
 
 	m_CommandBuffer->SetViewport(m_GizmoRenderGraph);
 	m_CommandBuffer->SetScissor(m_GizmoRenderGraph);
+
+	m_CommandBuffer->BindPipeline(m_GridPipeline);
+	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+
+	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
 
 	for (size_t i = 0; i < gizmos.size(); i++)
 	{
@@ -207,6 +224,9 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 	scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
+			if (!m.Mesh)
+				return;
+
 			auto albedo = m.Material->GetAlbedoMap();
 			auto normal = m.Material->GetNormalMap();
 			auto orm = m.Material->GetORMMap();
@@ -307,6 +327,9 @@ void DeferredRenderer::UploadMaterialTextures(const std::shared_ptr<Scene>& scen
 	scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
+			if (!m.Mesh)
+				return;
+
 			auto albedo = m.Material->GetAlbedoMap();
 			if (albedo)
 			{

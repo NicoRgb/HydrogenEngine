@@ -90,6 +90,11 @@ void Entity::Delete()
 	m_Scene->m_Registry.destroy(m_Entity);
 }
 
+MeshRendererComponent::MeshRendererComponent(Entity entity)
+{
+	Material = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>("DefaultMaterial.hymat");
+}
+
 void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 {
 	if (ImGui::TreeNode("Mesh Renderer"))

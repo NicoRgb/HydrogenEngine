@@ -15,10 +15,10 @@ static InspectorPanel        _Inspector;
 
 static ImVec2 SceneViewportSize = { 500, 500 };
 static ImVec2 SceneViewportPos = { 0, 0 };
+static bool SceneViewportVisible = false;
 static ImVec2 ViewportSize = { 500, 500 };
 static ImVec2 ViewportPos = { 0, 0 };
-static ImVec2 MaterialPreviewSize = { 500, 500 };
-static ImVec2 MaterialPreviewPos = { 0, 0 };
+static bool ViewportVisible = false;
 static ImGuizmo::OPERATION GuizmoTool = ImGuizmo::TRANSLATE;
 
 std::shared_ptr<Scene> SavedScene;
@@ -37,8 +37,6 @@ private:
 	PostProcessing SceneViewportPostProcessing;
 	PostProcessing ViewportPostProcessing;
 
-	std::shared_ptr<DeferredRenderer> MaterialPreviewRenderer;
-	std::shared_ptr<Scene> MaterialPreviewScene;
 	std::shared_ptr<MaterialAsset> PreviewMaterial;
 	PostProcessing MaterialPreviewPP;
 
@@ -197,184 +195,69 @@ private:
 
 	void DrawViewports()
 	{
-		ImGui::Begin("Scene Viewport");
+		SceneViewportVisible = ImGui::Begin("Scene Viewport");
 
-		ImVec2 contentRegion = ImGui::GetContentRegionAvail();
-		SceneViewportPos = ImGui::GetWindowPos();
-
-		if (contentRegion.x != SceneViewportSize.x ||
-			contentRegion.y != SceneViewportSize.y)
+		if (SceneViewportVisible)
 		{
-			SceneViewportSize = contentRegion;
+			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
+			SceneViewportPos = ImGui::GetWindowPos();
 
-			SceneViewportRenderer->Resize(
-				(size_t)contentRegion.x,
-				(size_t)contentRegion.y);
+			if (contentRegion.x != SceneViewportSize.x ||
+				contentRegion.y != SceneViewportSize.y)
+			{
+				SceneViewportSize = contentRegion;
 
-			ImGuizmo::SetRect(
-				SceneViewportPos.x,
-				SceneViewportPos.y,
-				contentRegion.x,
-				contentRegion.y);
+				SceneViewportRenderer->Resize(
+					(size_t)contentRegion.x,
+					(size_t)contentRegion.y);
+
+				ImGuizmo::SetRect(
+					SceneViewportPos.x,
+					SceneViewportPos.y,
+					contentRegion.x,
+					contentRegion.y);
+			}
+
+			const auto& image = SceneViewportPostProcessing.GetFinalImage();
+			if (image)
+			{
+				ImGui::Image(image->GetImGuiImage(), contentRegion);
+			}
+
+			DrawGizmo();
 		}
-
-		ImGui::Image(SceneViewportPostProcessing.GetFinalImage()->GetImGuiImage(), contentRegion);
-
-		DrawGizmo();
 
 		ImGui::End();
 
-		ImGui::Begin("Game Viewport");
+		ViewportVisible = ImGui::Begin("Game Viewport");
 
-		ViewportPos = ImGui::GetWindowPos();
-
-		if (contentRegion.x != ViewportSize.x ||
-			contentRegion.y != ViewportSize.y)
+		if (ViewportVisible)
 		{
-			ViewportSize = contentRegion;
+			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
+			ViewportPos = ImGui::GetWindowPos();
 
-			ViewportRenderer->Resize(
-				(size_t)contentRegion.x,
-				(size_t)contentRegion.y);
-
-			ImGuizmo::SetRect(
-				ViewportPos.x,
-				ViewportPos.y,
-				contentRegion.x,
-				contentRegion.y);
-		}
-
-		ImGui::Image(ViewportPostProcessing.GetFinalImage()->GetImGuiImage(), contentRegion);
-
-		ImGui::End();
-
-		ImGui::Begin("Material Preview");
-
-		MaterialPreviewPos = ImGui::GetWindowPos();
-
-		if (contentRegion.x != MaterialPreviewSize.x ||
-			contentRegion.y != MaterialPreviewSize.y)
-		{
-			MaterialPreviewSize = contentRegion;
-
-			MaterialPreviewRenderer->Resize(
-				(size_t)contentRegion.x,
-				(size_t)contentRegion.y);
-
-			ImGuizmo::SetRect(
-				MaterialPreviewPos.x,
-				MaterialPreviewPos.y,
-				contentRegion.x,
-				contentRegion.y);
-		}
-
-		ImGui::Image(MaterialPreviewPP.GetFinalImage()->GetImGuiImage(), contentRegion);
-
-		ImGui::End();
-
-		ImGui::Begin("Material Settings");
-
-		float metallic = PreviewMaterial->GetMetallicFactor();
-		if (ImGui::SliderFloat("Metallic", &metallic, 0.0f, 1.0f))
-			PreviewMaterial->SetMetallicFactor(metallic);
-
-		float roughness = PreviewMaterial->GetRoughnessFactor();
-		if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
-			PreviewMaterial->SetRoughnessFactor(roughness);
-
-		glm::vec3 tint = PreviewMaterial->GetTint();
-		if (ImGui::ColorPicker3("Tint", glm::value_ptr(tint)))
-			PreviewMaterial->SetTint(tint);
-
-		glm::vec3 emissive = PreviewMaterial->GetEmissive();
-		float emissiveStrength = PreviewMaterial->GetEmissive().a;
-		if (ImGui::ColorPicker3("Emissive", glm::value_ptr(emissive)) || ImGui::SliderFloat("Emissive Strength", &emissiveStrength, 0.0f, 10.0f))
-			PreviewMaterial->SetEmissive(glm::vec4(emissive, emissiveStrength));
-
-		auto albedo = PreviewMaterial->GetAlbedoMap();
-		auto normal = PreviewMaterial->GetNormalMap();
-		auto orm = PreviewMaterial->GetORMMap();
-
-		ImGui::Separator();
-
-		ImGui::Text("Albedo Map");
-		if (albedo)
-		{
-			ImGui::Text(albedo->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			if (contentRegion.x != ViewportSize.x ||
+				contentRegion.y != ViewportSize.y)
 			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
-				if (asset)
-				{
-					PreviewMaterial->SetAlbedoMap(asset);
-				}
+				ViewportSize = contentRegion;
+
+				ViewportRenderer->Resize(
+					(size_t)contentRegion.x,
+					(size_t)contentRegion.y);
+
+				ImGuizmo::SetRect(
+					ViewportPos.x,
+					ViewportPos.y,
+					contentRegion.x,
+					contentRegion.y);
 			}
-			ImGui::EndDragDropTarget();
-		}
 
-		ImGui::Text("Normal Map");
-		if (normal)
-		{
-			ImGui::Text(normal->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			const auto& image = ViewportPostProcessing.GetFinalImage();
+			if (image)
 			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
-				if (asset)
-				{
-					PreviewMaterial->SetNormalMap(asset);
-				}
+				ImGui::Image(image->GetImGuiImage(), contentRegion);
 			}
-			ImGui::EndDragDropTarget();
 		}
-
-		ImGui::Text("ORM Map");
-		if (orm)
-		{
-			ImGui::Text(orm->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
-				if (asset)
-				{
-					PreviewMaterial->SetORMMap(asset);
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		ImGui::Separator();
-		ImGui::Text("Light Settings");
-
-		MaterialPreviewScene->IterateComponents<PointLightComponent>(
-			[&](Entity entity, PointLightComponent& l)
-			{
-				TransformComponent::OnImGuiRender(entity.GetComponent<TransformComponent>());
-				PointLightComponent::OnImGuiRender(l);
-			});
 
 		ImGui::End();
 	}
@@ -421,6 +304,7 @@ public:
 
 		FreeCam.ViewportWidth = MainViewport->GetWidth();
 		FreeCam.ViewportHeight = MainViewport->GetHeight();
+		FreeCam.SetPosition(glm::vec3(0.0f, 1.0f, 5.0f));
 		FreeCam.CalculateProj();
 		FreeCam.Active = true;
 
@@ -434,17 +318,8 @@ public:
 		SceneViewportRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)SceneViewportSize.x, (uint32_t)SceneViewportSize.y);
 		ViewportRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)ViewportSize.x, (uint32_t)ViewportSize.y);
 		ImGuiRenderer = std::make_shared<DebugGUIRenderer>(_RenderContext, MainViewport);
-		MaterialPreviewRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)MaterialPreviewSize.x, (uint32_t)MaterialPreviewSize.y);
 
-		auto s = MainAssetManager.GetAsset<SceneAsset>("MaterialPreview.hyscene");
-		s->Load(&MainAssetManager);
-		MaterialPreviewScene = s->GetScene();
-
-		MaterialPreviewScene->IterateComponents<MeshRendererComponent>(
-			[&](Entity entity, MeshRendererComponent& r)
-			{
-				PreviewMaterial = r.Material;
-			});
+		_BrowserPanel.Setup();
 	}
 
 	virtual void OnShutdown() override {}
@@ -459,7 +334,7 @@ public:
 			PhysicsUpdate(deltaTime);
 
 		Entity cameraEntity;
-		if (UpdateCamera(CurrentScene->GetScene(), cameraEntity, ViewportSize.x, ViewportSize.y))
+		if (ViewportVisible && UpdateCamera(CurrentScene->GetScene(), cameraEntity, ViewportSize.x, ViewportSize.y))
 		{
 			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
 			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos);
@@ -480,24 +355,36 @@ public:
 			Viewport::ReleaseCursor();
 		}
 
-		FreeCam.CalculateView();
-		UpdateCameraViewportSize(FreeCam, {
-				(int)SceneViewportRenderer->GetWidth(),
-				(int)SceneViewportRenderer->GetHeight()
-			});
-
-		SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition());
-		if (cameraEntity.IsValid())
+		if (SceneViewportVisible)
 		{
-			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
-			SceneViewportRenderer->RenderGizmos({ { MainAssetManager.GetAsset<TextureAsset>("statue.jpg")->GetTexture(), camPos, {1, 1}} }, FreeCam, FreeCam.GetPosition());
-		}
-		SceneViewportPostProcessing.PostProcessOffscreen(SceneViewportRenderer, SceneViewportSize.x, SceneViewportSize.y);
+			FreeCam.CalculateView();
+			UpdateCameraViewportSize(FreeCam, {
+					(int)SceneViewportRenderer->GetWidth(),
+					(int)SceneViewportRenderer->GetHeight()
+				});
 
-		if (UpdateCamera(MaterialPreviewScene, cameraEntity, MaterialPreviewSize.x, MaterialPreviewSize.y))
-		{
-			MaterialPreviewRenderer->Render(MaterialPreviewScene, cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
-			MaterialPreviewPP.PostProcessOffscreen(MaterialPreviewRenderer, MaterialPreviewSize.x, MaterialPreviewSize.y);
+			SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition());
+
+			std::vector<Gizmo> gizmos;
+			CurrentScene->GetScene()->IterateComponents(
+				[&](Entity entity)
+				{
+					if (entity.HasComponent<CameraComponent>())
+					{
+						gizmos.push_back({ MainAssetManager.GetAsset<TextureAsset>("camera.png")->GetTexture(), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1}});
+					}
+					else if (entity.HasComponent<PointLightComponent>())
+					{
+						gizmos.push_back({ MainAssetManager.GetAsset<TextureAsset>("point_light.png")->GetTexture(), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1} });
+					}
+					else if (entity.HasComponent<DirectionalLightComponent>())
+					{
+						gizmos.push_back({ MainAssetManager.GetAsset<TextureAsset>("directional_light.png")->GetTexture(), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1} });
+					}
+				});
+
+			SceneViewportRenderer->RenderGizmos(gizmos, FreeCam, FreeCam.GetPosition());
+			SceneViewportPostProcessing.PostProcessOffscreen(SceneViewportRenderer, SceneViewportSize.x, SceneViewportSize.y);
 		}
 
 		RenderImGui(ImGuiRenderer);

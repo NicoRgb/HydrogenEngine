@@ -158,6 +158,7 @@ namespace Hydrogen
 		}
 
 		glm::vec3 GetPosition() const { return m_CameraPos; }
+		void SetPosition(glm::vec3 position) { m_CameraPos = position; }
 
 	private:
 		glm::vec3 m_CameraPos;

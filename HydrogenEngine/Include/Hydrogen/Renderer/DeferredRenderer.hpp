@@ -25,6 +25,7 @@ namespace Hydrogen
 
 		void Resize(uint32_t width, uint32_t height);
 		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos);
+
 		void RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
 		uint32_t GetWidth() const { return m_GBufferRenderGraph->GetWidth(); }
@@ -62,6 +63,7 @@ namespace Hydrogen
 
 		std::shared_ptr<RenderGraph> m_GizmoRenderGraph;
 		std::shared_ptr<Pipeline> m_BillboardPipeline;
+		std::shared_ptr<Pipeline> m_GridPipeline;
 
 		// per frame info
 		std::unordered_map<Texture*, uint32_t> m_AlbedoTextures;
@@ -135,7 +137,7 @@ namespace Hydrogen
 		void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
 		const std::shared_ptr<Texture>& PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
 
-		const std::shared_ptr<Texture>& GetFinalImage() { return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0); }
+		const std::shared_ptr<Texture>& GetFinalImage() { if (!m_PostProcessingOffscreenRenderGraph) return nullptr; return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0); }
 
 	private:
 		void InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
@@ -156,6 +158,13 @@ namespace Hydrogen
 		struct BlurPushConstants
 		{
 			int horizontal;
+		};
+
+		struct PostProcessingPushConstants
+		{
+			glm::mat4 ViewProj;
+			glm::vec3 ViewPos;
+			float Padding;
 		};
 	};
 }

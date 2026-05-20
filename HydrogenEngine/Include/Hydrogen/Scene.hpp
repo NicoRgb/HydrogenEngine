@@ -61,18 +61,37 @@ namespace Hydrogen
 		Scene();
 		~Scene() = default;
 
-		template <typename... Ts>
-		void IterateComponents(auto func)
+		template<typename... Ts, typename Func>
+		void IterateComponents(Func&& func)
 		{
-			auto view = m_Registry.view<Ts...>();
-
-			for (auto entityHandle : view)
+			if constexpr (sizeof...(Ts) == 0)
 			{
-				Entity entity;
-				entity.m_Entity = entityHandle;
-				entity.m_Scene = shared_from_this();
+				auto view = m_Registry.view<entt::entity>();
 
-				func(entity, view.get<Ts>(entityHandle)...);
+				for (auto entityHandle : view)
+				{
+					Entity entity;
+					entity.m_Entity = entityHandle;
+					entity.m_Scene = shared_from_this();
+
+					std::forward<Func>(func)(entity);
+				}
+			}
+			else
+			{
+				auto view = m_Registry.view<Ts...>();
+
+				for (auto entityHandle : view)
+				{
+					Entity entity;
+					entity.m_Entity = entityHandle;
+					entity.m_Scene = shared_from_this();
+
+					std::forward<Func>(func)(
+						entity,
+						view.template get<Ts>(entityHandle)...
+						);
+				}
 			}
 		}
 
@@ -354,10 +373,7 @@ namespace Hydrogen
 
 	struct MeshRendererComponent
 	{
-		MeshRendererComponent(Entity entity)
-		{
-			(void)entity;
-		}
+		MeshRendererComponent(Entity entity);
 
 		std::shared_ptr<MeshAsset> Mesh;
 		std::shared_ptr<MaterialAsset> Material;

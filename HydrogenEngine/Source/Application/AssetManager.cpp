@@ -338,6 +338,26 @@ void MaterialAsset::Parse()
 	m_Tint = glm::vec3(r, g, b);
 }
 
+void MaterialAsset::Save() const
+{
+	auto material = json();
+
+	material["Albedo"] = m_AlbedoMapFilename;
+	material["Normal"] = m_NormalMapFilename;
+	material["ORM"] = m_ORMMapFilename;
+	material["EmissiveMap"] = m_EmissiveMapFilename;
+
+	material["Roughness"] = m_RoughnessFactor;
+	material["Metallic"] = m_MetallicFactor;
+
+	material["Emissive"] = { { "r", m_Emissive.r }, { "g", m_Emissive.g }, { "b", m_Emissive.b }, { "intensity", m_Emissive.a }};
+	material["Tint"] = { { "r", m_Tint.r }, { "g", m_Tint.g }, { "b", m_Tint.b } };
+
+	std::ofstream fout(m_Filepath);
+	fout << material;
+	fout.close();
+}
+
 std::shared_ptr<TextureAsset> MaterialAsset::GetAlbedoMap()
 {
 	if (m_AlbedoMapFilename == "")
