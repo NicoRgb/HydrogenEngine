@@ -49,6 +49,8 @@ VkFormat Hydrogen::TextureFormatToVkFormat(TextureFormat format, std::shared_ptr
 		return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	case TextureFormat::FormatD24UnormS8Uint:
 		return VK_FORMAT_D24_UNORM_S8_UINT;
+	case TextureFormat::FormatR32Uint:
+		return VK_FORMAT_R32_UINT;
 	default:
 		HY_ASSERT(false, "Invalid TextureFormat");
 		return VK_FORMAT_UNDEFINED;
@@ -179,6 +181,89 @@ void VulkanTexture::UploadData(void* data)
 	vkQueueWaitIdle(m_RenderContext->GetGraphicsQueue());
 
 	vkFreeCommandBuffers(m_RenderContext->GetDevice(), m_RenderContext->GetCommandPool(), 1, &commandBuffer);
+}
+
+uint32_t VulkanTexture::ReadPixel(uint32_t x, uint32_t y)
+{
+	VulkanBuffer stagingBuffer(m_RenderContext, 4, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	stagingBuffer.AllocateMemory();
+
+	VkCommandBufferAllocateInfo cmdAllocInfo{};
+	cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmdAllocInfo.commandPool = m_RenderContext->GetCommandPool();
+	cmdAllocInfo.commandBufferCount = 1;
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(m_RenderContext->GetDevice(), &cmdAllocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	VkImageMemoryBarrier barrierToSrc{};
+	barrierToSrc.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrierToSrc.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrierToSrc.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	barrierToSrc.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	barrierToSrc.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	barrierToSrc.image = m_Image;
+	barrierToSrc.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrierToSrc.subresourceRange.levelCount = 1;
+	barrierToSrc.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(commandBuffer,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		0, 0, nullptr, 0, nullptr, 1, &barrierToSrc);
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = { (int32_t)x, (int32_t)y, 0 };
+	region.imageExtent = { 1, 1, 1 };
+
+	vkCmdCopyImageToBuffer(commandBuffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, stagingBuffer.GetBuffer(), 1, &region);
+
+	VkImageMemoryBarrier barrierBack{};
+	barrierBack.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrierBack.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	barrierBack.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	barrierBack.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	barrierBack.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+	barrierBack.image = m_Image;
+	barrierBack.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrierBack.subresourceRange.levelCount = 1;
+	barrierBack.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		0, 0, nullptr, 0, nullptr, 1, &barrierBack);
+
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(m_RenderContext->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(m_RenderContext->GetGraphicsQueue());
+
+	vkFreeCommandBuffers(m_RenderContext->GetDevice(), m_RenderContext->GetCommandPool(), 1, &commandBuffer);
+
+	uint32_t* mappedData;
+	vkMapMemory(m_RenderContext->GetDevice(), stagingBuffer.GetBufferMemory(), 0, 4, 0, (void**)&mappedData);
+	uint32_t pixel = *mappedData;
+	vkUnmapMemory(m_RenderContext->GetDevice(), stagingBuffer.GetBufferMemory());
+
+	return pixel;
 }
 
 void VulkanTexture::TransitionImageLayout(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout)

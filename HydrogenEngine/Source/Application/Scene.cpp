@@ -196,6 +196,18 @@ Scene::Scene()
 {
 }
 
+Entity Hydrogen::Scene::GetEntityByEntityID(uint32_t id)
+{
+	Entity e;
+	e.m_Entity = entt::entity(id);
+	e.m_Scene = shared_from_this();
+
+	if (e.IsValid())
+		return e;
+	else
+		return Entity();
+}
+
 void Scene::CreateScripts()
 {
 	m_ScriptSystem.OnCreate();

@@ -28,6 +28,8 @@ namespace Hydrogen
 
 		void RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
+		uint32_t ReadEntityIDFromGPU(uint32_t x, uint32_t y);
+
 		uint32_t GetWidth() const { return m_GBufferRenderGraph->GetWidth(); }
 		uint32_t GetHeight() const { return m_GBufferRenderGraph->GetHeight(); }
 
@@ -92,8 +94,8 @@ namespace Hydrogen
 
 			float Roughness;
 			float Metallic;
+			uint32_t ObjectID;
 			float Padding0;
-			float Padding1;
 			
 			glm::vec4 Emissive;
 		};

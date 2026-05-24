@@ -13,6 +13,8 @@ public:
     void OnImGuiRender() override;
     const char* GetName() const override { return "Inspector"; }
 
+	void SetSelectedEntity(Hydrogen::Entity entity) { m_SelectedEntity = entity; }
+
 private:
     std::shared_ptr<Hydrogen::Scene> m_Scene;
     Hydrogen::Entity m_SelectedEntity;

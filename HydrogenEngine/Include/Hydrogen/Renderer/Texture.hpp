@@ -16,7 +16,8 @@ namespace Hydrogen
 		FormatR16G16B16A16,
 		FormatD32Float,
 		FormatD32Sfloat,
-		FormatD24UnormS8Uint
+		FormatD24UnormS8Uint,
+		FormatR32Uint
 	};
 
 	class Texture
@@ -31,6 +32,8 @@ namespace Hydrogen
 
 		virtual void Resize(size_t width, size_t height) = 0;
 		virtual void UploadData(void* data) = 0;
+
+		virtual uint32_t ReadPixel(uint32_t x, uint32_t y) = 0;
 
 		virtual TextureFormat GetFormat() const = 0;
 

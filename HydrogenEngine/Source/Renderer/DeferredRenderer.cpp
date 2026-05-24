@@ -49,6 +49,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // rgb = albedo, a = roughness
 				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, g = ao
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // emissive
+				{ AttachmentType::Color, 1, TextureFormat::FormatR32Uint, true, true, false }, // object id
 
 				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, true, true, false },
 			}
@@ -205,6 +206,11 @@ void DeferredRenderer::RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComp
 	m_CommandBuffer->EndFrame();
 }
 
+uint32_t DeferredRenderer::ReadEntityIDFromGPU(uint32_t x, uint32_t y)
+{
+	return m_GBufferRenderGraph->GetColorTexture(5)->ReadPixel(x, y);
+}
+
 void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
 	UploadMaterialTextures(scene);
@@ -246,6 +252,7 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 			pushConstants.Roughness = m.Material->GetRoughnessFactor();
 			pushConstants.Metallic = m.Material->GetMetallicFactor();
 			pushConstants.Emissive = m.Material->GetEmissive();
+			pushConstants.ObjectID = e.GetID();
 
 			m_CommandBuffer->BindPipeline(m_GBufferPipeline);
 			m_CommandBuffer->BindVertexBuffer(m.Mesh->GetVertexBuffer());

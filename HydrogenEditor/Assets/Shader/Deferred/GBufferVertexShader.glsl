@@ -18,8 +18,8 @@ layout(push_constant) uniform constants
     vec4 tint;
     float roughness;
     float metallic;
+    uint objectID;
     float padding0;
-    float padding1;
     vec4 emissive;
 } PushConstants;
 

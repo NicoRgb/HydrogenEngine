@@ -24,6 +24,8 @@ namespace Hydrogen
 		void Resize(size_t width, size_t height) override;
 		void UploadData(void* data) override;
 
+		uint32_t ReadPixel(uint32_t x, uint32_t y) override;
+
 		TextureFormat GetFormat() const override { return m_TextureFormat; }
 
 		VkImage GetImage() const { return m_Image; }

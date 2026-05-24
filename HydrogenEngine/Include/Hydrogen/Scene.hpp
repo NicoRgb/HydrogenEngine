@@ -95,6 +95,8 @@ namespace Hydrogen
 			}
 		}
 
+		Entity GetEntityByEntityID(uint32_t id);
+
 		void CreateScripts();
 
 		void UpdatePhysics(float timestep);
@@ -143,6 +145,8 @@ namespace Hydrogen
 
 		uint64_t GetUUID();
 		void SetUUID(uint64_t uuid);
+
+		uint32_t GetID() const { return (uint32_t)m_Entity; }
 
 		void Delete();
 

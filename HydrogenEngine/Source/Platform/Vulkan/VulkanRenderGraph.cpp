@@ -190,7 +190,7 @@ void VulkanRenderGraph::CreateRenderPass()
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 			if (spec.Texture)
-				desc.initialLayout = desc.finalLayout;
+				desc.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 			attachments.push_back(desc);
 
@@ -208,7 +208,7 @@ void VulkanRenderGraph::CreateRenderPass()
 				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 			if (spec.Texture)
-				desc.initialLayout = desc.finalLayout;
+				desc.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 			attachments.push_back(desc);
 
@@ -224,7 +224,7 @@ void VulkanRenderGraph::CreateRenderPass()
 				: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 			if (spec.Texture)
-				desc.initialLayout = desc.finalLayout;
+				desc.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 			attachments.push_back(desc);
 
@@ -244,7 +244,7 @@ void VulkanRenderGraph::CreateRenderPass()
 				desc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
 			if (spec.Texture)
-				desc.initialLayout = desc.finalLayout;
+				desc.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 			attachments.push_back(desc);
 			resolveAttachmentIndices.push_back(attachmentIndex);

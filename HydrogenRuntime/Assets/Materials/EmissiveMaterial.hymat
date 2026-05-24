@@ -1,8 +1,1 @@
-{
-  "Emissive": {
-    "r": 255.0,
-    "g": 0.0,
-    "b": 0.0,
-    "intensity": 1.0
-  }
-}
+{"Albedo":"","Emissive":{"b":0.0,"g":0.0,"intensity":5.15500020980835,"r":1.0},"EmissiveMap":"","Metallic":0.0729999989271164,"Normal":"","ORM":"","Roughness":0.5,"Tint":{"b":1.0,"g":1.0,"r":1.0}}

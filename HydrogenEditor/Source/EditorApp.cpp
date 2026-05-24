@@ -222,6 +222,37 @@ private:
 			if (image)
 			{
 				ImGui::Image(image->GetImGuiImage(), contentRegion);
+				if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+				{
+					float held = ImGui::GetIO().MouseDownDurationPrev[ImGuiMouseButton_Left];
+
+					if (held < 0.2f)
+					{
+						ImVec2 mousePos = ImGui::GetMousePos();
+
+						float texX = (mousePos.x - SceneViewportPos.x) / SceneViewportSize.x;
+						float texY = (mousePos.y - SceneViewportPos.y) / SceneViewportSize.y;
+
+						uint32_t pixelX = static_cast<uint32_t>(texX * image->GetWidth());
+						uint32_t pixelY = static_cast<uint32_t>(texY * image->GetHeight());
+
+						if (pixelX < image->GetWidth() && pixelY < image->GetHeight())
+						{
+							uint32_t selectedEntityID = SceneViewportRenderer->ReadEntityIDFromGPU(pixelX, pixelY);
+							Entity e = CurrentScene->GetScene()->GetEntityByEntityID(selectedEntityID);
+							if (e.IsValid())
+							{
+								_SceneHierarchy.SetSelectedEntity(e.GetUUID());
+								_Inspector.SetSelectedEntity(e);
+							}
+							else
+							{
+								_SceneHierarchy.SetSelectedEntity(0);
+								_Inspector.SetSelectedEntity(Entity());
+							}
+						}
+					}
+				}
 			}
 
 			DrawGizmo();
@@ -322,7 +353,12 @@ public:
 		_BrowserPanel.Setup();
 	}
 
-	virtual void OnShutdown() override {}
+	virtual void OnShutdown() override
+	{
+		SceneViewportRenderer = nullptr;
+		ViewportRenderer = nullptr;
+		ImGuiRenderer = nullptr;
+	}
 
 	virtual void OnUpdate(float deltaTime) override
 	{
