@@ -42,6 +42,7 @@ private:
 
 	std::shared_ptr<DebugGUI> DebugGUI;
 	FreeCamera FreeCam;
+	std::shared_ptr<CubeMap> Skybox;
 
 private:
 
@@ -350,6 +351,10 @@ public:
 		ViewportRenderer = std::make_shared<DeferredRenderer>(_RenderContext, (uint32_t)ViewportSize.x, (uint32_t)ViewportSize.y);
 		ImGuiRenderer = std::make_shared<DebugGUIRenderer>(_RenderContext, MainViewport);
 
+		const auto& cubeMapAsset = MainAssetManager.GetAsset<CubeMapAsset>("sky.hycube");
+		cubeMapAsset->Parse(cubeMapAsset->GetPath());
+		Skybox = cubeMapAsset->GetCubeMap();
+
 		_BrowserPanel.Setup();
 	}
 
@@ -373,7 +378,7 @@ public:
 		if (ViewportVisible && UpdateCamera(CurrentScene->GetScene(), cameraEntity, ViewportSize.x, ViewportSize.y))
 		{
 			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
-			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos);
+			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos, Skybox);
 			ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
 		}
 
@@ -399,7 +404,7 @@ public:
 					(int)SceneViewportRenderer->GetHeight()
 				});
 
-			SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition());
+			SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition(), Skybox);
 
 			std::vector<Gizmo> gizmos;
 			CurrentScene->GetScene()->IterateComponents(

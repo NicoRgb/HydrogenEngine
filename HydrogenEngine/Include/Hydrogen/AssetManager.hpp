@@ -119,6 +119,7 @@ namespace Hydrogen
 		const uint32_t GetWidth() const { return m_Width; }
 		const uint32_t GetHeight() const { return m_Height; }
 		const uint8_t GetChannels() const { return m_Channels; }
+		const std::vector<uint32_t>& GetImageData() const { return m_Image; }
 
 		const std::shared_ptr<Texture>& GetTexture() const { return m_Texture; }
 
@@ -133,6 +134,33 @@ namespace Hydrogen
 		std::vector<uint32_t> m_Image;
 
 		std::shared_ptr<Texture> m_Texture;
+	};
+
+	class CubeMapAsset : public Asset
+	{
+	public:
+		CubeMapAsset(std::string path, json config, const std::shared_ptr<RenderContext>& renderContext)
+			: Asset(path, config), m_RenderContext(renderContext)
+		{
+		}
+
+		~CubeMapAsset() = default;
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		const std::shared_ptr<CubeMap>& GetCubeMap() const { return m_CubeMap; }
+
+		void Parse(std::string path);
+
+	private:
+		const std::shared_ptr<RenderContext> m_RenderContext;
+		std::shared_ptr<CubeMap> m_CubeMap;
 	};
 
 	class MeshAsset : public Asset

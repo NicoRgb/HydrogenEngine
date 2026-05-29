@@ -105,6 +105,10 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 			{
 				assetType = "Material";
 			}
+			else if (ext == ".hycube")
+			{
+				assetType = "CubeMap";
+			}
 			else
 			{
 				HY_ENGINE_WARN("Ignoring file '{}'", filePath);
@@ -160,6 +164,11 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 			auto material = std::make_shared<MaterialAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(material);
 		}
+		else if (assetConfig["type"] == "CubeMap")
+		{
+			auto cubeMap = std::make_shared<CubeMapAsset>(filePath, assetConfig, renderContext);
+			m_Assets[entry.path().filename().string()] = std::move(cubeMap);
+		}
 		else
 		{
 			HY_ENGINE_ERROR("Unknown asset type for file '{}'", filePath);
@@ -181,9 +190,9 @@ void TextureAsset::Parse(std::string path)
 
 	m_Channels = 4;
 
-	m_Image.resize(m_Width * m_Height * 4);
+	m_Image.resize(m_Width * m_Height);
 
-	memcpy(m_Image.data(), data, m_Image.size());
+	memcpy(m_Image.data(), data, m_Width * m_Height * 4);
 	stbi_image_free(data);
 
 	m_Texture = Texture::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, m_Width, m_Height);
@@ -404,4 +413,62 @@ std::shared_ptr<TextureAsset> MaterialAsset::GetEmissiveMap()
 
 	m_EmissiveMap = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(m_EmissiveMapFilename);
 	return m_EmissiveMap;
+}
+
+void CubeMapAsset::Parse(std::string path)
+{
+	std::ifstream fin(path);
+	std::stringstream buffer;
+	buffer << fin.rdbuf();
+	std::string content = std::move(buffer.str());
+	fin.close();
+
+	auto map = json::parse(content);
+
+	auto& faces = map.at("faces");
+	std::vector<std::string> faceAssets(6);
+	for (size_t i = 0; i < 6; i++)
+	{
+		if (i < faces.size())
+		{
+			faceAssets[i] = faces[i].get<std::string>();
+		}
+		else
+		{
+			HY_ENGINE_WARN("Not enough faces specified for cubemap '{}'", path);
+			faceAssets[i] = "";
+			return;
+		}
+	}
+
+	std::vector<std::shared_ptr<TextureAsset>> textures(6);
+	for (size_t i = 0; i < 6; i++)
+	{
+		if (faceAssets[i] != "")
+		{
+			textures[i] = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(faceAssets[i]);
+		}
+		else
+		{
+			HY_ENGINE_WARN("Face {} of cubemap '{}' is not specified", i, path);
+			return;
+		}
+
+		if (textures[i]->GetWidth() != textures[0]->GetWidth() ||
+			textures[i]->GetHeight() != textures[0]->GetHeight())
+		{
+			HY_ENGINE_ERROR("All cubemap faces must have the same dimensions");
+			return;
+		}
+	}
+
+	std::vector<uint32_t> cubeData;
+	for (size_t i = 0; i < 6; i++)
+	{
+		const auto& imageData = textures[i]->GetImageData();
+		cubeData.insert(cubeData.end(), imageData.begin(), imageData.end());
+	}
+
+	m_CubeMap = CubeMap::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, textures[0]->GetWidth(), textures[0]->GetHeight());
+	m_CubeMap->UploadData(cubeData.data());
 }

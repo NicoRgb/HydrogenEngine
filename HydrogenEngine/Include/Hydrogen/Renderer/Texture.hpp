@@ -47,4 +47,26 @@ namespace Hydrogen
 
 		static std::shared_ptr<Texture> Create(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height);
 	};
+
+	class CubeMap
+	{
+	public:
+		virtual ~CubeMap() = default;
+
+		virtual size_t GetWidth() const = 0;
+		virtual size_t GetHeight() const = 0;
+		virtual TextureFormat GetFormat() const = 0;
+
+		virtual void Resize(size_t width, size_t height) = 0;
+		virtual void UploadData(void* data) = 0;
+
+		template<typename T>
+		static std::shared_ptr<T> Get(const std::shared_ptr<CubeMap>& cubeMap)
+		{
+			static_assert(std::is_base_of_v<CubeMap, T>);
+			return std::dynamic_pointer_cast<T>(cubeMap);
+		}
+
+		static std::shared_ptr<CubeMap> Create(const std::shared_ptr<RenderContext>& renderContext, TextureFormat format, size_t width, size_t height);
+	};
 }

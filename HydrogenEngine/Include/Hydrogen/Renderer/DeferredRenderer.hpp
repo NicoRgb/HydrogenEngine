@@ -24,7 +24,7 @@ namespace Hydrogen
 		~DeferredRenderer();
 
 		void Resize(uint32_t width, uint32_t height);
-		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox = nullptr);
 
 		void RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos);
 
@@ -41,7 +41,7 @@ namespace Hydrogen
 
 	private:
 		void RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
-		void RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		void RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox);
 
 		void UploadMaterialTextures(const std::shared_ptr<Scene>& scene);
 		void UploadMaterialTexture(const std::shared_ptr<Texture>& texture, std::unordered_map<Texture*, uint32_t>& textureMap, uint32_t descriptorIndex);
@@ -55,6 +55,7 @@ namespace Hydrogen
 		std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
 		std::shared_ptr<VertexBuffer> m_SphereVertexBuffer;
 		std::shared_ptr<IndexBuffer> m_SphereIndexBuffer;
+		std::shared_ptr<VertexBuffer> m_SkyboxVertexBuffer;
 
 		std::shared_ptr<RenderGraph> m_GBufferRenderGraph;
 		std::shared_ptr<Pipeline> m_GBufferPipeline;
@@ -62,6 +63,7 @@ namespace Hydrogen
 		std::shared_ptr<RenderGraph> m_LightingRenderGraph;
 		std::shared_ptr<Pipeline> m_DirectionalLightsPipeline;
 		std::shared_ptr<Pipeline> m_PointLightPipeline;
+		std::shared_ptr<Pipeline> m_SkyboxPipeline;
 
 		std::shared_ptr<RenderGraph> m_GizmoRenderGraph;
 		std::shared_ptr<Pipeline> m_BillboardPipeline;
@@ -76,6 +78,14 @@ namespace Hydrogen
 		struct CameraInfoUniformBuffer
 		{
 			glm::mat4 ViewProj;
+			glm::vec3 CameraPos;
+			float _Padding;
+		};
+
+		struct CameraInfoUniformBufferSplit
+		{
+			glm::mat4 View;
+			glm::mat4 Proj;
 			glm::vec3 CameraPos;
 			float _Padding;
 		};

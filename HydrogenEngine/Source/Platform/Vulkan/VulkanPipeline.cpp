@@ -286,7 +286,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depthStencil.depthTestEnable = depthSpec.DepthTest ? VK_TRUE : VK_FALSE;
 	depthStencil.depthWriteEnable = depthSpec.DepthWrite ? VK_TRUE : VK_FALSE;
-	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f;
 	depthStencil.maxDepthBounds = 1.0f;
@@ -490,12 +490,24 @@ void VulkanPipeline::UploadStorageBufferData(uint32_t binding, void* data, size_
 	memcpy(m_StorageBuffersMapped[binding][m_RenderContext->GetCurrentFrame()], data, size);
 }
 
-void VulkanPipeline::UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture)
+VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<uint32_t>& code) const
+{
+	VkShaderModuleCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size() * 4;
+	createInfo.pCode = code.data();
+
+	VkShaderModule shaderModule = VK_NULL_HANDLE;
+	HY_ASSERT(vkCreateShaderModule(m_RenderContext->GetDevice(), &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "Failed to create vulkan shader module");
+	return shaderModule;
+}
+
+void VulkanPipeline::UploadTextureSampler(uint32_t binding, uint32_t index, VkImageView imageView, VkSampler sampler)
 {
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	imageInfo.imageView = Texture::Get<VulkanTexture>(texture)->GetImageView();
-	imageInfo.sampler = Texture::Get<VulkanTexture>(texture)->GetSampler();
+	imageInfo.imageView = imageView;
+	imageInfo.sampler = sampler;
 
 	vkDeviceWaitIdle(m_RenderContext->GetDevice()); // TODO: Remove this and properly synchronize texture uploads with rendering
 
@@ -512,16 +524,4 @@ void VulkanPipeline::UploadTextureSampler(uint32_t binding, uint32_t index, cons
 
 		vkUpdateDescriptorSets(m_RenderContext->GetDevice(), 1, &descriptorWrite, 0, nullptr);
 	}
-}
-
-VkShaderModule VulkanPipeline::CreateShaderModule(const std::vector<uint32_t>& code) const
-{
-	VkShaderModuleCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size() * 4;
-	createInfo.pCode = code.data();
-
-	VkShaderModule shaderModule = VK_NULL_HANDLE;
-	HY_ASSERT(vkCreateShaderModule(m_RenderContext->GetDevice(), &createInfo, nullptr, &shaderModule) == VK_SUCCESS, "Failed to create vulkan shader module");
-	return shaderModule;
 }

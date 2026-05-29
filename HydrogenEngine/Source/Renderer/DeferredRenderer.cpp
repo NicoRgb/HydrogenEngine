@@ -21,6 +21,50 @@ static ScreenVertex vertices[] = {
 
 static std::vector<uint32_t> indices = { 0, 1, 2, 2, 3, 0 };
 
+static float skyboxVertices[] = {
+	-1.0f,  1.0f, -1.0f,
+	-1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+
+	-1.0f, -1.0f,  1.0f,
+	-1.0f, -1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f, -1.0f,
+	-1.0f,  1.0f,  1.0f,
+	-1.0f, -1.0f,  1.0f,
+
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+
+	-1.0f, -1.0f,  1.0f,
+	-1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f, -1.0f,  1.0f,
+	-1.0f, -1.0f,  1.0f,
+
+	-1.0f,  1.0f, -1.0f,
+	 1.0f,  1.0f, -1.0f,
+	 1.0f,  1.0f,  1.0f,
+	 1.0f,  1.0f,  1.0f,
+	-1.0f,  1.0f,  1.0f,
+	-1.0f,  1.0f, -1.0f,
+
+	-1.0f, -1.0f, -1.0f,
+	-1.0f, -1.0f,  1.0f,
+	 1.0f, -1.0f, -1.0f,
+	 1.0f, -1.0f, -1.0f,
+	-1.0f, -1.0f,  1.0f,
+	 1.0f, -1.0f,  1.0f
+};
+
 DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height)
 	: m_RenderContext(renderContext)
 {
@@ -36,6 +80,8 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 	auto sphereData = GenerateUVSphere(16, 16);
 	m_SphereVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 } }, (void*)sphereData.Vertices.data(), sphereData.Vertices.size() / 8);
 	m_SphereIndexBuffer = IndexBuffer::Create(m_RenderContext, sphereData.Indices);
+
+	m_SkyboxVertexBuffer = VertexBuffer::Create(m_RenderContext, { { VertexElementType::Float3 } }, (void*)skyboxVertices, sizeof(skyboxVertices) / (3 * sizeof(float)));
 
 	m_CommandBuffer = CommandBuffer::Create(renderContext);
 
@@ -80,7 +126,8 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 			.Height = height,
 			.Attachments = {
 				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }
+				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
+				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, true, false, false, m_GBufferRenderGraph->GetDepthTexture() }
 			}
 		});
 
@@ -108,6 +155,14 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		  { 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
 		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive, { true, false });
 
+	const auto& skyboxVertexShader = assetManager.GetAsset<ShaderAsset>("SkyboxVertexShader.glsl");
+	const auto& skyboxFragmentShader = assetManager.GetAsset<ShaderAsset>("SkyboxFragmentShader.glsl");
+	m_SkyboxPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, skyboxVertexShader, skyboxFragmentShader,
+		{ {VertexElementType::Float3} },
+		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBufferSplit), 1 } },
+		{ }, Primitive::Triangles, CullMode::Back, BlendMode::Alpha, { true, false });
+
 	m_GizmoRenderGraph = RenderGraph::Create(renderContext,
 		{
 			.Width = width,
@@ -124,7 +179,7 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
 		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { false, false });
+		{ { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { true, false });
 
 	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 	{
@@ -147,16 +202,17 @@ DeferredRenderer::~DeferredRenderer()
 void DeferredRenderer::Resize(uint32_t width, uint32_t height)
 {
 	m_GBufferRenderGraph->OnResize(width, height);
+	m_LightingRenderGraph->SetTexture(2, m_GBufferRenderGraph->GetDepthTexture());
 	m_LightingRenderGraph->OnResize(width, height);
 	m_GizmoRenderGraph->SetTexture(0, GetSceneColorTexture());
 	m_GizmoRenderGraph->SetTexture(1, m_GBufferRenderGraph->GetDepthTexture());
 	m_GizmoRenderGraph->OnResize(width, height);
 }
 
-void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos)
+void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox)
 {
 	RenderGeometryPass(scene, cameraComponent, cameraPos);
-	RenderLightingPass(scene, cameraComponent, cameraPos);
+	RenderLightingPass(scene, cameraComponent, cameraPos, skybox);
 }
 
 void DeferredRenderer::RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos)
@@ -266,11 +322,16 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 	m_CommandBuffer->EndFrame();
 }
 
-void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos)
+void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox)
 {
 	CameraInfoUniformBuffer uniformBuffer{};
 	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
 	uniformBuffer.CameraPos = cameraPos;
+
+	CameraInfoUniformBufferSplit uniformBufferSplit{};
+	uniformBufferSplit.View = cameraComponent.View;
+	uniformBufferSplit.Proj = cameraComponent.Proj;
+	uniformBufferSplit.CameraPos = cameraPos;
 
 	m_DirectionalLightsPipeline->UploadUniformBufferData(6, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
 	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
@@ -284,6 +345,12 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	m_PointLightPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
 	m_PointLightPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
 	m_PointLightPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
+
+	if (skybox)
+	{
+		m_SkyboxPipeline->UploadTextureSampler(0, 0, skybox);
+		m_SkyboxPipeline->UploadUniformBufferData(1, & uniformBufferSplit, sizeof(CameraInfoUniformBufferSplit));
+	}
 
 	std::vector<DirectionalLight> directionalLights;
 	scene->IterateComponents<DirectionalLightComponent>(
@@ -317,6 +384,13 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
 
 	RenderPointLights(scene);
+
+	if (skybox)
+	{
+		m_CommandBuffer->BindPipeline(m_SkyboxPipeline);
+		m_CommandBuffer->BindVertexBuffer(m_SkyboxVertexBuffer);
+		m_CommandBuffer->Draw(sizeof(skyboxVertices) / (3 * sizeof(float)));
+	}
 
 	m_CommandBuffer->EndRecording();
 	m_CommandBuffer->EndFrame();

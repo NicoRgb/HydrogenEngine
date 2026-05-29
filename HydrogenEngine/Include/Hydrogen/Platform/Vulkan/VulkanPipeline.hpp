@@ -3,6 +3,7 @@
 #include "Hydrogen/Renderer/Pipeline.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanRenderContext.hpp"
 #include "Hydrogen/Platform/Vulkan/VulkanVertexBuffer.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanTexture.hpp"
 
 namespace Hydrogen
 {
@@ -14,7 +15,8 @@ namespace Hydrogen
 
 		void UploadUniformBufferData(uint32_t binding, void* data, size_t size) override;
 		void UploadStorageBufferData(uint32_t binding, void* data, size_t size) override;
-		void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture) override;
+		void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture) override { UploadTextureSampler(binding, index, Texture::Get<VulkanTexture>(texture)->GetImageView(), Texture::Get<VulkanTexture>(texture)->GetSampler()); }
+		void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<CubeMap>& cubeMap) override { UploadTextureSampler(binding, index, CubeMap::Get<VulkanCubeMap>(cubeMap)->GetImageView(), CubeMap::Get<VulkanCubeMap>(cubeMap)->GetSampler()); }
 
 		const VkPipelineLayout GetPipelineLayout() const { return m_PipelineLayout; }
 		const VkPipeline GetPipeline() const { return m_Pipeline; }
@@ -30,6 +32,7 @@ namespace Hydrogen
 		VkPipeline m_Pipeline;
 
 		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& code) const;
+		void UploadTextureSampler(uint32_t binding, uint32_t index, VkImageView imageView, VkSampler sampler);
 
 		std::map<uint32_t, std::vector<VulkanBuffer>> m_UniformBuffers;
 		std::map<uint32_t, std::vector<void*>> m_UniformBuffersMapped;

@@ -83,7 +83,8 @@ namespace Hydrogen
 
 		virtual void UploadUniformBufferData(uint32_t binding, void* data, size_t size) = 0;
 		virtual void UploadStorageBufferData(uint32_t binding, void* data, size_t size) = 0;
-		virtual void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture> &texture) = 0;
+		virtual void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<Texture>& texture) = 0;
+		virtual void UploadTextureSampler(uint32_t binding, uint32_t index, const std::shared_ptr<CubeMap>& cubeMap) = 0;
 
 		template<typename T>
 		static std::shared_ptr<T> Get(const std::shared_ptr<Pipeline>& pipeline)
