@@ -34,11 +34,8 @@ private:
 	std::shared_ptr<DeferredRenderer> ViewportRenderer;
 	std::shared_ptr<DebugGUIRenderer> ImGuiRenderer;
 
-	PostProcessing SceneViewportPostProcessing;
-	PostProcessing ViewportPostProcessing;
-
-	std::shared_ptr<MaterialAsset> PreviewMaterial;
-	PostProcessing MaterialPreviewPP;
+	//PostProcessing SceneViewportPostProcessing;
+	//PostProcessing ViewportPostProcessing;
 
 	std::shared_ptr<DebugGUI> DebugGUI;
 	FreeCamera FreeCam;
@@ -206,6 +203,7 @@ private:
 			if (contentRegion.x != SceneViewportSize.x ||
 				contentRegion.y != SceneViewportSize.y)
 			{
+				HY_APP_WARN("Resized Scene Viewport: {0}x{1}", (int)contentRegion.x, (int)contentRegion.y);
 				SceneViewportSize = contentRegion;
 
 				SceneViewportRenderer->Resize(
@@ -219,7 +217,8 @@ private:
 					contentRegion.y);
 			}
 
-			const auto& image = SceneViewportPostProcessing.GetFinalImage();
+			//const auto& image = SceneViewportPostProcessing.GetFinalImage();
+			const auto& image = SceneViewportRenderer->GetSceneColorTexture();
 			if (image)
 			{
 				ImGui::Image(image->GetImGuiImage(), contentRegion);
@@ -284,7 +283,8 @@ private:
 					contentRegion.y);
 			}
 
-			const auto& image = ViewportPostProcessing.GetFinalImage();
+			//const auto& image = ViewportPostProcessing.GetFinalImage();
+			const auto& image = ViewportRenderer->GetSceneColorTexture();
 			if (image)
 			{
 				ImGui::Image(image->GetImGuiImage(), contentRegion);
@@ -379,7 +379,7 @@ public:
 		{
 			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
 			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos, Skybox);
-			ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
+			//ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
 		}
 
 		if (Input::IsMouseButtonDown(KeyCode::MouseRight) && IsHoveringSceneViewport())
@@ -425,7 +425,7 @@ public:
 				});
 
 			SceneViewportRenderer->RenderGizmos(gizmos, FreeCam, FreeCam.GetPosition());
-			SceneViewportPostProcessing.PostProcessOffscreen(SceneViewportRenderer, SceneViewportSize.x, SceneViewportSize.y);
+			//SceneViewportPostProcessing.PostProcessOffscreen(SceneViewportRenderer, SceneViewportSize.x, SceneViewportSize.y);
 		}
 
 		RenderImGui(ImGuiRenderer);

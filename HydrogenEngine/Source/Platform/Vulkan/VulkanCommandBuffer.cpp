@@ -98,18 +98,20 @@ const VulkanCommandBuffer::FrameData& VulkanCommandBuffer::GetCurrentFrameData()
 	return m_Frames[m_RenderContext->GetCurrentFrame()];
 }
 
-void VulkanCommandBuffer::BeginFrame(const std::shared_ptr<RenderGraph>& renderGraph)
+void VulkanCommandBuffer::BeginFrame(const std::shared_ptr<FrameGraph>& frameGraph, const std::string& framePass)
 {
-	auto vkGraph = RenderGraph::Get<VulkanRenderGraph>(renderGraph);
+	const VulkanFramePass& vkFramePass = FrameGraph::Get<VulkanFrameGraph>(frameGraph)->GetVulkanFramePass(framePass);
 
 	m_IsFrameFinished = false;
-	m_CurrentFrameContext.renderGraph = renderGraph;
+	m_CurrentFrameContext.framePass = vkFramePass;
+	m_CurrentFrameContext.width = frameGraph->GetWidth();
+	m_CurrentFrameContext.height = frameGraph->GetHeight();
 
 	const auto& frameData = GetCurrentFrameData();
 
 	vkWaitForFences(m_RenderContext->GetDevice(), 1, &frameData.inFlightFence, VK_TRUE, UINT64_MAX);
 
-	if (vkGraph->IsSwapChainBacked())
+	if (vkFramePass.IsSwapchainBacked)
 	{
 		VkResult result = vkAcquireNextImageKHR(
 			m_RenderContext->GetDevice(),
@@ -156,10 +158,8 @@ void VulkanCommandBuffer::EndFrame()
 
 void VulkanCommandBuffer::SubmitFrame()
 {
-	auto vkGraph = RenderGraph::Get<VulkanRenderGraph>(m_CurrentFrameContext.renderGraph);
-
 	const auto& frameData = GetCurrentFrameData();
-	const bool isSwapChainGraph = vkGraph->IsSwapChainBacked();
+	const bool isSwapChainGraph = m_CurrentFrameContext.framePass.IsSwapchainBacked;
 
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -196,7 +196,7 @@ void VulkanCommandBuffer::SubmitFrame()
 	}
 }
 
-void VulkanCommandBuffer::StartRecording(const std::shared_ptr<RenderGraph>& renderGraph)
+void VulkanCommandBuffer::StartRecording()
 {
 	HY_ASSERT(!m_IsRecording, "Already recording");
 
@@ -209,7 +209,7 @@ void VulkanCommandBuffer::StartRecording(const std::shared_ptr<RenderGraph>& ren
 
 	m_IsRecording = true;
 
-	BeginRenderPass(renderGraph);
+	BeginRenderPass();
 }
 
 void VulkanCommandBuffer::EndRecording()
@@ -252,24 +252,24 @@ void VulkanCommandBuffer::BindIndexBuffer(const std::shared_ptr<IndexBuffer>& in
 	vkCmdBindIndexBuffer(GetCurrentVkCommandBuffer(), buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-void VulkanCommandBuffer::SetViewport(const std::shared_ptr<RenderGraph>& renderGraph)
+void VulkanCommandBuffer::SetViewport(uint32_t width, uint32_t height)
 {
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)renderGraph->GetWidth();
-	viewport.height = (float)renderGraph->GetHeight();
+	viewport.width = (float)width;
+	viewport.height = (float)height;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
 	vkCmdSetViewport(GetCurrentVkCommandBuffer(), 0, 1, &viewport);
 }
 
-void VulkanCommandBuffer::SetScissor(const std::shared_ptr<RenderGraph>& renderGraph)
+void VulkanCommandBuffer::SetScissor(uint32_t width, uint32_t height)
 {
 	VkRect2D scissor{};
 	scissor.offset = { 0, 0 };
-	scissor.extent = { renderGraph->GetWidth(), renderGraph->GetHeight() };
+	scissor.extent = { width, height };
 
 	vkCmdSetScissor(GetCurrentVkCommandBuffer(), 0, 1, &scissor);
 }
@@ -291,31 +291,33 @@ void VulkanCommandBuffer::DrawIndexed(const std::shared_ptr<IndexBuffer>& indexB
 	vkCmdDrawIndexed(GetCurrentVkCommandBuffer(), (uint32_t)indexBuffer->GetNumIndices(), 1, 0, 0, 0);
 }
 
-void VulkanCommandBuffer::BeginRenderPass(const std::shared_ptr<RenderGraph>& renderGraph)
+void VulkanCommandBuffer::BeginRenderPass()
 {
-	auto vkGraph = RenderGraph::Get<VulkanRenderGraph>(renderGraph);
+	const VulkanFramePass& vkFramePass = m_CurrentFrameContext.framePass;
 
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = vkGraph->GetRenderPass();
+	renderPassInfo.renderPass = vkFramePass.RenderPass;
 
 	uint32_t framebufferIndex = m_RenderContext->GetCurrentFrame();
-	if (vkGraph->IsSwapChainBacked())
+	if (vkFramePass.IsSwapchainBacked)
 	{
 		framebufferIndex = m_CurrentFrameContext.swapChainImageIndex;
 	}
 
-	renderPassInfo.framebuffer = vkGraph->GetFramebuffer(framebufferIndex);
+	renderPassInfo.framebuffer = vkFramePass.Framebuffers[framebufferIndex];
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = { vkGraph->GetWidth(), vkGraph->GetHeight() };
+	renderPassInfo.renderArea.extent = { m_CurrentFrameContext.width, m_CurrentFrameContext.height };
 
 	std::vector<VkClearValue> clearValues;
-	for (uint32_t i = 0; i < vkGraph->GetNumColorAttachments(); i++)
+	for (uint32_t i = 0; i < vkFramePass.NumClearedColorAttachments; i++)
+	{
 		clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
-	if (vkGraph->GetDepthImage() != VK_NULL_HANDLE)
+	}
+	if (vkFramePass.DepthCleared)
 		clearValues.push_back({ .depthStencil = { 1.0f, 0 } });
-	if (vkGraph->IsMultisampled())
-		for (uint32_t i = 0; i < vkGraph->GetNumColorAttachments(); i++)
+	if (vkFramePass.SampleCount > 1)
+		for (uint32_t i = 0; i < vkFramePass.NumClearedColorAttachments; i++)
 			clearValues.push_back({ .color = { {0.0f, 0.0f, 0.0f, 1.0f} } });
 
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());

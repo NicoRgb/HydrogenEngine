@@ -18,10 +18,10 @@ namespace Hydrogen
 	public:
 		virtual ~CommandBuffer() = default;
 
-		virtual void BeginFrame(const std::shared_ptr<RenderGraph>& renderGraph) = 0;
+		virtual void BeginFrame(const std::shared_ptr<FrameGraph>& frameGraph, const std::string& framePass) = 0;
 		virtual void EndFrame() = 0;
 
-		virtual void StartRecording(const std::shared_ptr<RenderGraph>& renderGraph) = 0;
+		virtual void StartRecording() = 0;
 		virtual void EndRecording() = 0;
 
 		virtual void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) = 0;
@@ -29,8 +29,8 @@ namespace Hydrogen
 		virtual void BindDynamicVertexBuffer(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer) = 0;
 		virtual void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) = 0;
 
-		virtual void SetViewport(const std::shared_ptr<RenderGraph>& renderGraph) = 0;
-		virtual void SetScissor(const std::shared_ptr<RenderGraph>& renderGraph) = 0;
+		virtual void SetViewport(uint32_t width, uint32_t height) = 0;
+		virtual void SetScissor(uint32_t width, uint32_t height) = 0;
 
 		virtual void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data) = 0;
 

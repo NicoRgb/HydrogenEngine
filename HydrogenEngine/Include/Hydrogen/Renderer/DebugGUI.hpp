@@ -26,6 +26,6 @@ namespace Hydrogen
 		virtual void EndFrame() = 0;
 		virtual void Render(const std::shared_ptr<CommandBuffer>& commandBuffer) = 0;
 
-		static std::shared_ptr<DebugGUI> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph);
+		static std::shared_ptr<DebugGUI> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<FrameGraph>& frameGraph, std::string framePass);
 	};
 }

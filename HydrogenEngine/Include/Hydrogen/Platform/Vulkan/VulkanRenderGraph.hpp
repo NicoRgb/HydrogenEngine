@@ -9,65 +9,54 @@ namespace Hydrogen
 {
 	VkSampleCountFlagBits GetVulkanSampleCount(uint32_t sampleCount);
 
-	class VulkanRenderGraph : public RenderGraph
+	struct FrameAttachment
+	{
+		std::shared_ptr<VulkanTexture> Texture;
+		VkImageLayout CurrentLayout;
+		bool Cleared = false;
+	};
+
+	struct VulkanFramePass
+	{
+		VkRenderPass RenderPass;
+		std::vector<VkFramebuffer> Framebuffers;
+		
+		uint32_t NumColorAttachments = 0;
+		uint32_t NumClearedColorAttachments = 0;
+		bool HasDepthAttachment = false;
+		bool DepthCleared = false;
+
+		uint32_t SampleCount = 1;
+		bool IsSwapchainBacked = false;
+	};
+
+	class VulkanFrameGraph : public FrameGraph
 	{
 	public:
-		VulkanRenderGraph(const std::shared_ptr<RenderContext>& renderContext,
-		                   const RenderGraphSpec& spec);
-		~VulkanRenderGraph();
+		VulkanFrameGraph(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height);
+		~VulkanFrameGraph();
 
-		uint32_t GetWidth() const override { return m_Spec.Width; }
-		uint32_t GetHeight() const override { return m_Spec.Height; }
-		const RenderGraphSpec& GetSpec() const override { return m_Spec; }
+		void Compose() override;
+		void Resize(uint32_t width, uint32_t height) override;
+		uint32_t GetWidth() const override { return m_Width; }
+		uint32_t GetHeight() const override { return m_Height; }
 
-		VkImage GetColorImage(uint32_t index) const { return m_ColorImages[index] ? m_ColorImages[index]->GetImage() : VK_NULL_HANDLE; }
-		VkImageView GetColorImageView(uint32_t index) const { return m_ColorImages[index] ? m_ColorImages[index]->GetImageView() : VK_NULL_HANDLE; }
-		
-		VkImage GetResolveImage(uint32_t index) const { return m_ResolveImages[index] ? m_ResolveImages[index]->GetImage() : VK_NULL_HANDLE; }
-		VkImageView GetResolveImageView(uint32_t index) const { return m_ResolveImages[index] ? m_ResolveImages[index]->GetImageView() : VK_NULL_HANDLE; }
-		
-		VkImage GetDepthImage() const { return m_DepthImage ? m_DepthImage->GetImage() : VK_NULL_HANDLE; }
-		VkImageView GetDepthImageView() const { return m_DepthImage ? m_DepthImage->GetImageView() : VK_NULL_HANDLE; }
+		std::shared_ptr<Texture> GetTexture(const std::string& resourceName) const override { return m_Attachments.at(resourceName).Texture; }
 
-		uint32_t GetNumColorAttachments() const { return m_NumColorAttachments; }
-
-		std::shared_ptr<Texture> GetColorTexture(uint32_t index) const override { return m_ColorImages[index]; }
-		std::shared_ptr<Texture> GetDepthTexture() const override { return m_DepthImage; }
-		std::shared_ptr<Texture> GetResolveTexture(uint32_t index) const override { return m_ResolveImages[index]; }
-
-		void OnResize(uint32_t width, uint32_t height) override;
-		void Invalidate() override;
-
-		void SetTexture(uint32_t index, const std::shared_ptr<Texture>& texture) override { m_Spec.Attachments[index].Texture = texture; }
-
-		VkRenderPass GetRenderPass() const { return m_RenderPass; }
-		VkFramebuffer GetFramebuffer(uint32_t index = 0) const { return m_Framebuffers[index]; }
-		const std::vector<VkFramebuffer>& GetFramebuffers() const { return m_Framebuffers; }
-
-		uint32_t GetSampleCount() const { return m_SampleCount; }
-		bool IsMultisampled() const { return m_SampleCount > 1; }
-		bool IsSwapChainBacked() const { return m_IsSwapChainBacked; }
+		const VulkanFramePass& GetVulkanFramePass(const std::string& name) const { return m_VkFramePasses.at(name); }
 
 	private:
-		void CreateAttachments();
-		void CreateRenderPass();
-		void CreateFramebuffers();
-		void CreateSwapChainFramebuffers();
-		void CreateTextureFramebuffers();
-		void DestroyAttachments();
+		void CreatePass(FramePass* pass, std::string name);
+		void CreateAttachment(std::string name, const FrameAttachmentHandle& handle);
+		void CreateRenderPass(std::string name, FramePass* pass);
+		void CreateFramebuffers(std::string name, FramePass* pass);
+		void CreateFramebuffersSwapchainBacked(std::string name, FramePass* pass);
+		void CreatePipelines(std::string name, FramePass* pass);
 
 		std::shared_ptr<VulkanRenderContext> m_RenderContext;
-		RenderGraphSpec m_Spec;
+		uint32_t m_Width, m_Height;
 
-		std::vector<std::shared_ptr<VulkanTexture>> m_ColorImages;
-		std::vector<std::shared_ptr<VulkanTexture>> m_ResolveImages;
-		std::shared_ptr<VulkanTexture> m_DepthImage;
-
-		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
-		std::vector<VkFramebuffer> m_Framebuffers;
-
-		uint32_t m_SampleCount = false;
-		bool m_IsSwapChainBacked = false;
-		uint32_t m_NumColorAttachments = 0;
+		std::unordered_map<std::string, FrameAttachment> m_Attachments;
+		std::unordered_map<std::string, VulkanFramePass> m_VkFramePasses;
 	};
 }

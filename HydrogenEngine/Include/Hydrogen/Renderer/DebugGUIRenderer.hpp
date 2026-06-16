@@ -23,7 +23,7 @@ namespace Hydrogen
 	private:
 		std::shared_ptr<RenderContext> m_RenderContext;
 		std::shared_ptr<CommandBuffer> m_CommandBuffer;
-		std::shared_ptr<RenderGraph> m_RenderGraph;
+		std::shared_ptr<FrameGraph> m_FrameGraph;
 		std::shared_ptr<DebugGUI> m_DebugGUI;
 	};
 }

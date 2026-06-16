@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Hydrogen/Renderer/CommandBuffer.hpp"
+#include "Hydrogen/Platform/Vulkan/VulkanRenderGraph.hpp"
 #include <vulkan/vulkan.h>
 
 namespace Hydrogen
@@ -13,10 +14,10 @@ namespace Hydrogen
 		VulkanCommandBuffer(const std::shared_ptr<RenderContext>& renderContext);
 		~VulkanCommandBuffer();
 
-		void BeginFrame(const std::shared_ptr<RenderGraph>& renderGraph) override;
+		void BeginFrame(const std::shared_ptr<FrameGraph>& frameGraph, const std::string& framePass) override;
 		void EndFrame() override;
 
-		void StartRecording(const std::shared_ptr<RenderGraph>& renderGraph) override;
+		void StartRecording() override;
 		void EndRecording() override;
 
 		void BindPipeline(const std::shared_ptr<Pipeline>& pipeline) override;
@@ -24,8 +25,8 @@ namespace Hydrogen
 		void BindDynamicVertexBuffer(const std::shared_ptr<DynamicVertexBuffer>& vertexBuffer) override;
 		void BindIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer) override;
 
-		void SetViewport(const std::shared_ptr<RenderGraph>& renderGraph) override;
-		void SetScissor(const std::shared_ptr<RenderGraph>& renderGraph) override;
+		void SetViewport(uint32_t width, uint32_t height) override;
+		void SetScissor(uint32_t width, uint32_t height) override;
 
 		void UploadPushConstants(const std::shared_ptr<Pipeline>& pipeline, uint32_t index, void* data) override;
 
@@ -48,8 +49,10 @@ namespace Hydrogen
 
 		struct FrameContext
 		{
-			std::shared_ptr<RenderGraph> renderGraph;
+			VulkanFramePass framePass;
 			uint32_t swapChainImageIndex;
+			uint32_t width;
+			uint32_t height;
 		};
 
 		void SubmitFrame();
@@ -58,7 +61,7 @@ namespace Hydrogen
 		void CreateCommandBuffers();
 		void DestroyCommandBuffers();
 
-		void BeginRenderPass(const std::shared_ptr<RenderGraph>& renderGraph);
+		void BeginRenderPass();
 		void EndRenderPass();
 
 		const FrameData& GetCurrentFrameData() const;

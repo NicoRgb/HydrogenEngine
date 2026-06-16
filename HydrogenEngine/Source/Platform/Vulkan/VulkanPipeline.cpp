@@ -5,10 +5,10 @@
 
 using namespace Hydrogen;
 
-VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode, DepthSpec depthSpec)
+VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<FrameGraph>& frameGraph, std::string framePass, PipelineSpec spec)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(vertexLayout.size());
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(spec.vertexLayout.size());
 
 	uint32_t currentOffset = 0;
 	for (size_t i = 0; i < attributeDescriptions.size(); i++)
@@ -17,7 +17,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		attributeDescriptions[i].location = (uint32_t)i;
 		attributeDescriptions[i].offset = currentOffset;
 
-		switch (vertexLayout[i].type)
+		switch (spec.vertexLayout[i].type)
 		{
 		case VertexElementType::Float:
 			attributeDescriptions[i].format = VK_FORMAT_R32_SFLOAT;
@@ -61,11 +61,11 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	bindingDescription.stride = currentOffset;
 	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	std::vector<VkDescriptorSetLayoutBinding> layoutBindings(descriptorBindings.size());
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings(spec.descriptorBindings.size());
 	for (size_t i = 0; i < layoutBindings.size(); i++)
 	{
-		layoutBindings[i].binding = descriptorBindings[i].binding;
-		switch (descriptorBindings[i].type)
+		layoutBindings[i].binding = spec.descriptorBindings[i].binding;
+		switch (spec.descriptorBindings[i].type)
 		{
 		case DescriptorType::UniformBuffer:
 			layoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -79,55 +79,55 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		default:
 			HY_ASSERT(false, "Unsupported descriptor type");
 		}
-		layoutBindings[i].descriptorCount = (uint32_t)descriptorBindings[i].numElements;
+		layoutBindings[i].descriptorCount = (uint32_t)spec.descriptorBindings[i].numElements;
 		layoutBindings[i].stageFlags = 0;
 
-		if ((descriptorBindings[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
+		if ((spec.descriptorBindings[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
 		{
 			layoutBindings[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if ((descriptorBindings[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
+		if ((spec.descriptorBindings[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
 		{
 			layoutBindings[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
-		if (descriptorBindings[i].type == DescriptorType::UniformBuffer)
+		if (spec.descriptorBindings[i].type == DescriptorType::UniformBuffer)
 		{
-			VkDeviceSize bufferSize = (VkDeviceSize)descriptorBindings[i].size;
+			VkDeviceSize bufferSize = (VkDeviceSize)spec.descriptorBindings[i].size;
 
-			m_UniformBuffersMapped[descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
+			m_UniformBuffersMapped[spec.descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
 
 			for (size_t j = 0; j < m_RenderContext->GetMaxFramesInFlight(); j++)
 			{
-				m_UniformBuffers[descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
+				m_UniformBuffers[spec.descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
 					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-				m_UniformBuffers[descriptorBindings[i].binding][j].AllocateMemory();
+				m_UniformBuffers[spec.descriptorBindings[i].binding][j].AllocateMemory();
 
-				vkMapMemory(m_RenderContext->GetDevice(), m_UniformBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_UniformBuffersMapped[descriptorBindings[i].binding][j]);
+				vkMapMemory(m_RenderContext->GetDevice(), m_UniformBuffers[spec.descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_UniformBuffersMapped[spec.descriptorBindings[i].binding][j]);
 			}
 		}
 
-		if (descriptorBindings[i].type == DescriptorType::StorageBuffer)
+		if (spec.descriptorBindings[i].type == DescriptorType::StorageBuffer)
 		{
-			VkDeviceSize bufferSize = (VkDeviceSize)descriptorBindings[i].size;
+			VkDeviceSize bufferSize = (VkDeviceSize)spec.descriptorBindings[i].size;
 
-			m_StorageBuffersMapped[descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
+			m_StorageBuffersMapped[spec.descriptorBindings[i].binding].resize(m_RenderContext->GetMaxFramesInFlight());
 
 			for (size_t j = 0; j < m_RenderContext->GetMaxFramesInFlight(); j++)
 			{
-				m_StorageBuffers[descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
+				m_StorageBuffers[spec.descriptorBindings[i].binding].emplace_back(m_RenderContext, bufferSize,
 					VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-				m_StorageBuffers[descriptorBindings[i].binding][j].AllocateMemory();
+				m_StorageBuffers[spec.descriptorBindings[i].binding][j].AllocateMemory();
 
-				vkMapMemory(m_RenderContext->GetDevice(), m_StorageBuffers[descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_StorageBuffersMapped[descriptorBindings[i].binding][j]);
+				vkMapMemory(m_RenderContext->GetDevice(), m_StorageBuffers[spec.descriptorBindings[i].binding][j].GetBufferMemory(), 0, bufferSize, 0, &m_StorageBuffersMapped[spec.descriptorBindings[i].binding][j]);
 			}
 		}
 	}
 
-	VkShaderModule vertexShaderModule = CreateShaderModule(vertexShaderAsset->GetByteCode());
-	VkShaderModule fragmentShaderModule = CreateShaderModule(fragmentShaderAsset->GetByteCode());
+	VkShaderModule vertexShaderModule = CreateShaderModule(spec.vertexShaderAsset->GetByteCode());
+	VkShaderModule fragmentShaderModule = CreateShaderModule(spec.fragmentShaderAsset->GetByteCode());
 
 	VkPipelineShaderStageCreateInfo vertexShaderStageInfo{};
 	vertexShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -164,7 +164,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-	switch (primitive)
+	switch (spec.primitive)
 	{
 	case Primitive::Lines:
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
@@ -204,7 +204,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
 
-	switch (cullMode)
+	switch (spec.cullMode)
 	{
 	case CullMode::None:
 		rasterizer.cullMode = VK_CULL_MODE_NONE;
@@ -226,8 +226,8 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	rasterizer.depthBiasClamp = 0.0f;
 	rasterizer.depthBiasSlopeFactor = 0.0f;
 
-	auto vulkanRenderGraph = RenderGraph::Get<VulkanRenderGraph>(renderGraph);
-	VkSampleCountFlagBits sampleCount = GetVulkanSampleCount(vulkanRenderGraph->GetSampleCount());
+	auto vulkanFramePass = FrameGraph::Get<VulkanFrameGraph>(frameGraph)->GetVulkanFramePass(framePass);
+	VkSampleCountFlagBits sampleCount = GetVulkanSampleCount(vulkanFramePass.SampleCount);
 
 	VkPipelineMultisampleStateCreateInfo multisampling{};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -236,14 +236,14 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	multisampling.minSampleShading = 1.0f;
 	multisampling.pSampleMask = nullptr;
 
-	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(vulkanRenderGraph->GetNumColorAttachments());
+	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(vulkanFramePass.NumColorAttachments);
 	for (size_t i = 0; i < colorBlendAttachments.size(); i++)
 	{
 		VkPipelineColorBlendAttachmentState blendState{};
 		blendState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
 			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-		if (blendMode == BlendMode::Additive)
+		if (spec.blendMode == BlendMode::Additive)
 		{
 			blendState.blendEnable = VK_TRUE;
 			blendState.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
@@ -253,7 +253,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 			blendState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 			blendState.alphaBlendOp = VK_BLEND_OP_ADD;
 		}
-		else if (blendMode == BlendMode::Alpha)
+		else if (spec.blendMode == BlendMode::Alpha)
 		{
 			blendState.blendEnable = VK_TRUE;
 			blendState.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
@@ -284,8 +284,8 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 
 	VkPipelineDepthStencilStateCreateInfo depthStencil{};
 	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depthStencil.depthTestEnable = depthSpec.DepthTest ? VK_TRUE : VK_FALSE;
-	depthStencil.depthWriteEnable = depthSpec.DepthWrite ? VK_TRUE : VK_FALSE;
+	depthStencil.depthTestEnable = spec.depthSpec.DepthTest ? VK_TRUE : VK_FALSE;
+	depthStencil.depthWriteEnable = spec.depthSpec.DepthWrite ? VK_TRUE : VK_FALSE;
 	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	depthStencil.depthBoundsTestEnable = VK_FALSE;
 	depthStencil.minDepthBounds = 0.0f;
@@ -304,7 +304,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	uint32_t uniformBufferCount = 0;
 	uint32_t storageBufferCount = 0;
 	uint32_t combinedImageSamplerCount = 0;
-	for (const auto& binding : descriptorBindings)
+	for (const auto& binding : spec.descriptorBindings)
 	{
 		switch (binding.type)
 		{
@@ -369,7 +369,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		size_t ssboOffset = 0;
 		for (size_t j = 0; j < layoutBindings.size(); j++)
 		{
-			switch (descriptorBindings[j].type)
+			switch (spec.descriptorBindings[j].type)
 			{
 			case DescriptorType::UniformBuffer:
 			{
@@ -418,31 +418,31 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 		}
 	}
 
-	m_VkPushConstantsRanges.resize(pushConstantsRanges.size());
+	m_VkPushConstantsRanges.resize(spec.pushConstantsRanges.size());
 	uint32_t pushConstantRangeOffset = 0;
-	for (size_t i = 0; i < pushConstantsRanges.size(); i++)
+	for (size_t i = 0; i < spec.pushConstantsRanges.size(); i++)
 	{
 		m_VkPushConstantsRanges[i].offset = pushConstantRangeOffset;
-		m_VkPushConstantsRanges[i].size = (uint32_t)pushConstantsRanges[i].size;
+		m_VkPushConstantsRanges[i].size = (uint32_t)spec.pushConstantsRanges[i].size;
 		m_VkPushConstantsRanges[i].stageFlags = 0;
 
-		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
+		if ((spec.pushConstantsRanges[i].stageFlags & ShaderStage::Vertex) == ShaderStage::Vertex)
 		{
 			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if ((pushConstantsRanges[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
+		if ((spec.pushConstantsRanges[i].stageFlags & ShaderStage::Fragment) == ShaderStage::Fragment)
 		{
 			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
-		pushConstantRangeOffset += (uint32_t)pushConstantsRanges[i].size;
+		pushConstantRangeOffset += (uint32_t)spec.pushConstantsRanges[i].size;
 	}
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = 1;
 	pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
-	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConstantsRanges.size());
+	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(spec.pushConstantsRanges.size());
 	pipelineLayoutInfo.pPushConstantRanges = m_VkPushConstantsRanges.data();
 
 	HY_ASSERT(vkCreatePipelineLayout(m_RenderContext->GetDevice(), &pipelineLayoutInfo, nullptr, &m_PipelineLayout) == VK_SUCCESS, "Failed to create vulkan pipeline layout");
@@ -460,7 +460,7 @@ VulkanPipeline::VulkanPipeline(const std::shared_ptr<RenderContext>& renderConte
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = m_PipelineLayout;
-	pipelineInfo.renderPass = vulkanRenderGraph->GetRenderPass();
+	pipelineInfo.renderPass = vulkanFramePass.RenderPass;
 	pipelineInfo.subpass = 0;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 	pipelineInfo.basePipelineIndex = -1;

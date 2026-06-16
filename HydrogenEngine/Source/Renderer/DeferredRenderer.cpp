@@ -65,6 +65,8 @@ static float skyboxVertices[] = {
 	 1.0f, -1.0f,  1.0f
 };
 
+#define SHADER_ASSETS(name) Application::Get()->MainAssetManager.GetAsset<ShaderAsset>(name ".glsl")
+
 DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height)
 	: m_RenderContext(renderContext)
 {
@@ -85,76 +87,192 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 
 	m_CommandBuffer = CommandBuffer::Create(renderContext);
 
-	m_GBufferRenderGraph = RenderGraph::Create(renderContext,
-		{
-			.Width = width,
-			.Height = height,
-			.Attachments = {
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // position
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // normal
-				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // rgb = albedo, a = roughness
-				{ AttachmentType::Color, 1, TextureFormat::FormatR8G8B8A8, true, true, false }, // r = metallic, g = ao
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false }, // emissive
-				{ AttachmentType::Color, 1, TextureFormat::FormatR32Uint, true, true, false }, // object id
+	//
+	//m_GizmoRenderGraph = RenderGraph::Create(renderContext,
+	//	{
+	//		.Width = width,
+	//		.Height = height,
+	//		.Attachments = {
+	//			{ AttachmentType::Color, 1, GetSceneColorTexture()->GetFormat() , true, false, false, GetSceneColorTexture() },
+	//			{ AttachmentType::Depth, 1, m_GBufferRenderGraph->GetDepthTexture()->GetFormat(), true, false, false, m_GBufferRenderGraph->GetDepthTexture() }
+	//		},
+	//	});
+	//
+	//const auto& billboardVertexShader = assetManager.GetAsset<ShaderAsset>("BillboardVertexShader.glsl");
+	//const auto& billboardFragmentShader = assetManager.GetAsset<ShaderAsset>("BillboardFragmentShader.glsl");
+	//m_BillboardPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, billboardVertexShader, billboardFragmentShader,
+	//	{ {VertexElementType::Float2}, {VertexElementType::Float2} },
+	//	{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+	//	  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+	//	{ { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { true, false });
+	//
+	//for (uint32_t i = 0; i < MAX_TEXTURES; i++)
+	//{
+	//	m_BillboardPipeline->UploadTextureSampler(0, i, m_DefaultTexture);
+	//}
+	//
+	//const auto& gridVertexShader = assetManager.GetAsset<ShaderAsset>("GridVertexShader.glsl");
+	//const auto& gridFragmentShader = assetManager.GetAsset<ShaderAsset>("GridFragmentShader.glsl");
+	//m_GridPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, gridVertexShader, gridFragmentShader,
+	//	{ {VertexElementType::Float2}, {VertexElementType::Float2} },
+	//	{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+	//	  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+	//	{ }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { false, false });
 
-				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, true, true, false },
-			}
+	m_FrameGraph = FrameGraph::Create(renderContext, width, height);
+
+	FramePass GBufferPass;
+	GBufferPass.AddResource("GBufferPosition",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR16G16B16A16,
+			.Sampled = true,
+			.Cleared = true
+		});
+	GBufferPass.AddResource("GBufferNormal",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR16G16B16A16,
+			.Sampled = true,
+			.Cleared = true
+		});
+	GBufferPass.AddResource("GBufferAlbedoRoughness",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR8G8B8A8,
+			.Sampled = true,
+			.Cleared = true
+		});
+	GBufferPass.AddResource("GBufferMetallicAO",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR8G8B8A8,
+			.Sampled = true,
+			.Cleared = true
+		});
+	GBufferPass.AddResource("GBufferEmissive",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR16G16B16A16,
+			.Sampled = true,
+			.Cleared = true
+		});
+	GBufferPass.AddResource("GBufferObjectID",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR32Uint,
+			.Sampled = true,
+			.Cleared = true
+		});
+	GBufferPass.AddResource("GBufferDepth",
+		{
+			.Type = FrameAttachmentType::Depth,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatD32Float,
+			.Sampled = true,
+			.Cleared = true
 		});
 
-	const auto& gBufferVertexShader = assetManager.GetAsset<ShaderAsset>("GBufferVertexShader.glsl");
-	const auto& gBufferFragmentShader = assetManager.GetAsset<ShaderAsset>("GBufferFragmentShader.glsl");
-	m_GBufferPipeline = Pipeline::Create(renderContext, m_GBufferRenderGraph, gBufferVertexShader, gBufferFragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} },
-		{ { 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBuffer), 1 },
-		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
-		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
-		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
-		  { 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
-		{ { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Back, BlendMode::None, { true, true });
-
-	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
-	{
-		m_GBufferPipeline->UploadTextureSampler(1, i, m_DefaultTexture);
-		m_GBufferPipeline->UploadTextureSampler(2, i, m_DefaultTexture);
-		m_GBufferPipeline->UploadTextureSampler(3, i, m_DefaultTexture);
-		m_GBufferPipeline->UploadTextureSampler(4, i, m_DefaultTexture);
-	}
-
-	m_LightingRenderGraph = RenderGraph::Create(renderContext,
-		{
-			.Width = width,
-			.Height = height,
-			.Attachments = {
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
-				{ AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false },
-				{ AttachmentType::Depth, 1, TextureFormat::FormatD32Float, true, false, false, m_GBufferRenderGraph->GetDepthTexture() }
-			}
+	GBufferPass.AddPipeline("GBuffer", {
+			.vertexShaderAsset = SHADER_ASSETS("GBufferVertexShader"),
+			.fragmentShaderAsset = SHADER_ASSETS("GBufferFragmentShader"),
+			.vertexLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} },
+			.descriptorBindings = {
+				{ 0, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBuffer), 1 },
+				{ 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+				{ 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+				{ 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+				{ 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES } },
+			.pushConstantsRanges = { { sizeof(GeometryPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } },
+			.primitive = Primitive::Triangles,
+			.cullMode = CullMode::Back,
+			.blendMode = BlendMode::None,
+			.depthSpec = {.DepthTest = true, .DepthWrite = true }
 		});
 
-	const auto& directionalLightsVertexShader = assetManager.GetAsset<ShaderAsset>("DirectionalLightsVertexShader.glsl");
-	const auto& directionalLightsFragmentShader = assetManager.GetAsset<ShaderAsset>("DirectionalLightsPBRFragmentShader.glsl");
-	m_DirectionalLightsPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, directionalLightsVertexShader, directionalLightsFragmentShader,
-		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 5, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_DIRECTIONAL_LIGHTS * sizeof(DirectionalLight), 1 },
-		  { 6, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
+	GBufferPass.SetRender([this](const std::shared_ptr<FrameGraph>& graph)
+		{
+			RenderGeometryPass(graph);
+		});
 
-	const auto& pointLightVertexShader = assetManager.GetAsset<ShaderAsset>("PointLightVertexShader.glsl");
-	const auto& pointLightFragmentShader = assetManager.GetAsset<ShaderAsset>("PointLightPBRFragmentShader.glsl");
-	m_PointLightPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, pointLightVertexShader, pointLightFragmentShader,
-		{ {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::Front, BlendMode::Additive, { true, false });
+	m_FrameGraph->AddPass("GBufferPass", std::make_unique<FramePass>(GBufferPass));
 
+	FramePass LightingPass;
+	LightingPass.AddResource("SceneColor",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR16G16B16A16,
+			.Sampled = true,
+			.Cleared = true
+		});
+	LightingPass.AddResource("SceneBright",
+		{
+			.Type = FrameAttachmentType::Color,
+			.SampleCount = 1,
+			.Format = TextureFormat::FormatR16G16B16A16,
+			.Sampled = true,
+			.Cleared = true
+		});
+	LightingPass.AddResource("GBufferDepth", GBufferPass.GetResource("GBufferDepth"));
+
+	LightingPass.AddPipeline("DirectionalLights", {
+			.vertexShaderAsset = SHADER_ASSETS("DirectionalLightsVertexShader"),
+			.fragmentShaderAsset = SHADER_ASSETS("DirectionalLightsPBRFragmentShader"),
+			.vertexLayout = { {VertexElementType::Float2}, {VertexElementType::Float2} },
+			.descriptorBindings = {
+				{ 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+				{ 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+				{ 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+				{ 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+				{ 4, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+				{ 5, DescriptorType::StorageBuffer, ShaderStage::Fragment, sizeof(DirectionalLightsBuffer) + MAX_DIRECTIONAL_LIGHTS * sizeof(DirectionalLight), 1 },
+				{ 6, DescriptorType::UniformBuffer, ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+			.pushConstantsRanges = { },
+			.primitive = Primitive::Triangles,
+			.cullMode = CullMode::None,
+			.blendMode = BlendMode::None,
+			.depthSpec = {.DepthTest = false, .DepthWrite = false }
+		});
+
+	LightingPass.AddPipeline("PointLight", {
+		.vertexShaderAsset = SHADER_ASSETS("PointLightVertexShader"),
+		.fragmentShaderAsset = SHADER_ASSETS("PointLightPBRFragmentShader"),
+		.vertexLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} },
+		.descriptorBindings = {
+			{ 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+			{ 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+			{ 2, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+			{ 3, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+			{ 4, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		.pushConstantsRanges = { { sizeof(LightingPassPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } },
+		.primitive = Primitive::Triangles,
+		.cullMode = CullMode::Front,
+		.blendMode = BlendMode::Additive,
+		.depthSpec = {.DepthTest = false, .DepthWrite = false }
+		});
+
+	LightingPass.AddPipeline("Skybox", {
+		.vertexShaderAsset = SHADER_ASSETS("SkyboxVertexShader"),
+		.fragmentShaderAsset = SHADER_ASSETS("SkyboxFragmentShader"),
+		.vertexLayout = { {VertexElementType::Float3} },
+		.descriptorBindings = {
+			{ 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+			{ 1, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBufferSplit), 1 } },
+		.pushConstantsRanges = { },
+		.primitive = Primitive::Triangles,
+		.cullMode = CullMode::Back,
+		.blendMode = BlendMode::Alpha,
+		.depthSpec = {.DepthTest = true, .DepthWrite = false }
+		});
+
+	/*
 	const auto& skyboxVertexShader = assetManager.GetAsset<ShaderAsset>("SkyboxVertexShader.glsl");
 	const auto& skyboxFragmentShader = assetManager.GetAsset<ShaderAsset>("SkyboxFragmentShader.glsl");
 	m_SkyboxPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, skyboxVertexShader, skyboxFragmentShader,
@@ -162,37 +280,25 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
 		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBufferSplit), 1 } },
 		{ }, Primitive::Triangles, CullMode::Back, BlendMode::Alpha, { true, false });
+	*/
 
-	m_GizmoRenderGraph = RenderGraph::Create(renderContext,
+	LightingPass.SetRender([this](const std::shared_ptr<FrameGraph>& graph)
 		{
-			.Width = width,
-			.Height = height,
-			.Attachments = {
-				{ AttachmentType::Color, 1, GetSceneColorTexture()->GetFormat() , true, false, false, GetSceneColorTexture() },
-				{ AttachmentType::Depth, 1, m_GBufferRenderGraph->GetDepthTexture()->GetFormat(), true, false, false, m_GBufferRenderGraph->GetDepthTexture() }
-			},
+			RenderLightingPass(graph);
 		});
 
-	const auto& billboardVertexShader = assetManager.GetAsset<ShaderAsset>("BillboardVertexShader.glsl");
-	const auto& billboardFragmentShader = assetManager.GetAsset<ShaderAsset>("BillboardFragmentShader.glsl");
-	m_BillboardPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, billboardVertexShader, billboardFragmentShader,
-		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
-		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { true, false });
+	m_FrameGraph->AddPass("LightingPass", std::make_unique<FramePass>(LightingPass));
 
+	m_FrameGraph->Compose();
+
+	auto gBufferPipeline = m_FrameGraph->GetPass("GBufferPass")->GetPipeline("GBuffer");
 	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
 	{
-		m_BillboardPipeline->UploadTextureSampler(0, i, m_DefaultTexture);
+		gBufferPipeline->UploadTextureSampler(1, i, m_DefaultTexture);
+		gBufferPipeline->UploadTextureSampler(2, i, m_DefaultTexture);
+		gBufferPipeline->UploadTextureSampler(3, i, m_DefaultTexture);
+		gBufferPipeline->UploadTextureSampler(4, i, m_DefaultTexture);
 	}
-
-	const auto& gridVertexShader = assetManager.GetAsset<ShaderAsset>("GridVertexShader.glsl");
-	const auto& gridFragmentShader = assetManager.GetAsset<ShaderAsset>("GridFragmentShader.glsl");
-	m_GridPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, gridVertexShader, gridFragmentShader,
-		{ {VertexElementType::Float2}, {VertexElementType::Float2} },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-		{ }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { false, false });
 }
 
 DeferredRenderer::~DeferredRenderer()
@@ -201,89 +307,90 @@ DeferredRenderer::~DeferredRenderer()
 
 void DeferredRenderer::Resize(uint32_t width, uint32_t height)
 {
-	m_GBufferRenderGraph->OnResize(width, height);
-	m_LightingRenderGraph->SetTexture(2, m_GBufferRenderGraph->GetDepthTexture());
-	m_LightingRenderGraph->OnResize(width, height);
-	m_GizmoRenderGraph->SetTexture(0, GetSceneColorTexture());
-	m_GizmoRenderGraph->SetTexture(1, m_GBufferRenderGraph->GetDepthTexture());
-	m_GizmoRenderGraph->OnResize(width, height);
+	m_FrameGraph->Resize(width, height);
 }
 
 void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox)
 {
-	RenderGeometryPass(scene, cameraComponent, cameraPos);
-	RenderLightingPass(scene, cameraComponent, cameraPos, skybox);
+	m_Scene = scene;
+	m_CameraComponent = cameraComponent;
+	m_CameraPos = cameraPos;
+	m_Skybox = skybox;
+
+	m_FrameGraph->Render();
 }
 
 void DeferredRenderer::RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos)
 {
-	for (size_t i = 0; i < gizmos.size(); i++)
-	{
-		m_BillboardPipeline->UploadTextureSampler(0, i, gizmos[i].BillboardTexture);
-	}
-
-	CameraInfoUniformBuffer uniformBuffer{};
-	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
-	uniformBuffer.CameraPos = cameraPos;
-
-	m_BillboardPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	m_GridPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-
-	m_GridPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetDepthTexture());
-
-	m_CommandBuffer->BeginFrame(m_GizmoRenderGraph);
-	m_CommandBuffer->StartRecording(m_GizmoRenderGraph);
-
-	m_CommandBuffer->SetViewport(m_GizmoRenderGraph);
-	m_CommandBuffer->SetScissor(m_GizmoRenderGraph);
-
-	m_CommandBuffer->BindPipeline(m_GridPipeline);
-	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
-	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
-
-	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
-
-	for (size_t i = 0; i < gizmos.size(); i++)
-	{
-		BillboardPushConstants pushConstants{};
-		pushConstants.Position = gizmos[i].Position;
-		pushConstants.Scale = gizmos[i].Scale;
-		pushConstants.TextureIndex = i;
-
-		m_CommandBuffer->BindPipeline(m_BillboardPipeline);
-		m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
-		m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
-
-		m_CommandBuffer->UploadPushConstants(m_BillboardPipeline, 0, (void*)&pushConstants);
-		m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
-	}
-
-	m_CommandBuffer->EndRecording();
-	m_CommandBuffer->EndFrame();
+	//for (size_t i = 0; i < gizmos.size(); i++)
+	//{
+	//	m_BillboardPipeline->UploadTextureSampler(0, i, gizmos[i].BillboardTexture);
+	//}
+	//
+	//CameraInfoUniformBuffer uniformBuffer{};
+	//uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
+	//uniformBuffer.CameraPos = cameraPos;
+	//
+	//m_BillboardPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	//m_GridPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	//
+	//m_GridPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetDepthTexture());
+	//
+	//m_CommandBuffer->BeginFrame(m_GizmoRenderGraph);
+	//m_CommandBuffer->StartRecording(m_GizmoRenderGraph);
+	//
+	//m_CommandBuffer->SetViewport(m_GizmoRenderGraph);
+	//m_CommandBuffer->SetScissor(m_GizmoRenderGraph);
+	//
+	//m_CommandBuffer->BindPipeline(m_GridPipeline);
+	//m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+	//m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+	//
+	//m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+	//
+	//for (size_t i = 0; i < gizmos.size(); i++)
+	//{
+	//	BillboardPushConstants pushConstants{};
+	//	pushConstants.Position = gizmos[i].Position;
+	//	pushConstants.Scale = gizmos[i].Scale;
+	//	pushConstants.TextureIndex = i;
+	//
+	//	m_CommandBuffer->BindPipeline(m_BillboardPipeline);
+	//	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+	//	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+	//
+	//	m_CommandBuffer->UploadPushConstants(m_BillboardPipeline, 0, (void*)&pushConstants);
+	//	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+	//}
+	//
+	//m_CommandBuffer->EndRecording();
+	//m_CommandBuffer->EndFrame();
 }
 
 uint32_t DeferredRenderer::ReadEntityIDFromGPU(uint32_t x, uint32_t y)
 {
-	return m_GBufferRenderGraph->GetColorTexture(5)->ReadPixel(x, y);
+	return m_FrameGraph->GetTexture("GBufferObjectID")->ReadPixel(x, y);
 }
 
-void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos)
+void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<FrameGraph>& graph)
 {
-	UploadMaterialTextures(scene);
+	auto pass = graph->GetPass("GBufferPass");
+
+	UploadMaterialTextures();
 
 	CameraInfoUniformBuffer uniformBuffer{};
-	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
-	uniformBuffer.CameraPos = cameraPos;
+	uniformBuffer.ViewProj = m_CameraComponent.Proj * m_CameraComponent.View;
+	uniformBuffer.CameraPos = m_CameraPos;
 
-	m_GBufferPipeline->UploadUniformBufferData(0, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	pass->GetPipeline("GBuffer")->UploadUniformBufferData(0, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
 
-	m_CommandBuffer->BeginFrame(m_GBufferRenderGraph);
-	m_CommandBuffer->StartRecording(m_GBufferRenderGraph);
+	m_CommandBuffer->BeginFrame(graph, "GBufferPass");
+	m_CommandBuffer->StartRecording();
 
-	m_CommandBuffer->SetViewport(m_GBufferRenderGraph);
-	m_CommandBuffer->SetScissor(m_GBufferRenderGraph);
+	m_CommandBuffer->SetViewport(graph->GetWidth(), graph->GetHeight());
+	m_CommandBuffer->SetScissor(graph->GetWidth(), graph->GetHeight());
 
-	scene->IterateComponents<MeshRendererComponent>(
+	m_Scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			if (!m.Mesh)
@@ -310,11 +417,11 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 			pushConstants.Emissive = m.Material->GetEmissive();
 			pushConstants.ObjectID = e.GetID();
 
-			m_CommandBuffer->BindPipeline(m_GBufferPipeline);
+			m_CommandBuffer->BindPipeline(pass->GetPipeline("GBuffer"));
 			m_CommandBuffer->BindVertexBuffer(m.Mesh->GetVertexBuffer());
 			m_CommandBuffer->BindIndexBuffer(m.Mesh->GetIndexBuffer());
 
-			m_CommandBuffer->UploadPushConstants(m_GBufferPipeline, 0, (void*)&pushConstants);
+			m_CommandBuffer->UploadPushConstants(pass->GetPipeline("GBuffer"), 0, (void*)&pushConstants);
 			m_CommandBuffer->DrawIndexed(m.Mesh->GetIndexBuffer());
 		});
 
@@ -322,38 +429,43 @@ void DeferredRenderer::RenderGeometryPass(const std::shared_ptr<Scene>& scene, c
 	m_CommandBuffer->EndFrame();
 }
 
-void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox)
+void DeferredRenderer::RenderLightingPass(const std::shared_ptr<FrameGraph>& graph)
 {
+	auto pass = graph->GetPass("LightingPass");
+	auto directionalLightsPipeline = pass->GetPipeline("DirectionalLights");
+	auto pointLightPipeline = pass->GetPipeline("PointLight");
+	auto skyboxPipeline = pass->GetPipeline("Skybox");
+
 	CameraInfoUniformBuffer uniformBuffer{};
-	uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
-	uniformBuffer.CameraPos = cameraPos;
+	uniformBuffer.ViewProj = m_CameraComponent.Proj * m_CameraComponent.View;
+	uniformBuffer.CameraPos = m_CameraPos;
 
 	CameraInfoUniformBufferSplit uniformBufferSplit{};
-	uniformBufferSplit.View = cameraComponent.View;
-	uniformBufferSplit.Proj = cameraComponent.Proj;
-	uniformBufferSplit.CameraPos = cameraPos;
+	uniformBufferSplit.View = m_CameraComponent.View;
+	uniformBufferSplit.Proj = m_CameraComponent.Proj;
+	uniformBufferSplit.CameraPos = m_CameraPos;
 
-	m_DirectionalLightsPipeline->UploadUniformBufferData(6, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	m_DirectionalLightsPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
-	m_DirectionalLightsPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
-	m_DirectionalLightsPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
-	m_DirectionalLightsPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
-	m_DirectionalLightsPipeline->UploadTextureSampler(4, 0, m_GBufferRenderGraph->GetColorTexture(4));
+	directionalLightsPipeline->UploadUniformBufferData(6, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	directionalLightsPipeline->UploadTextureSampler(0, 0, m_FrameGraph->GetTexture("GBufferPosition"));
+	directionalLightsPipeline->UploadTextureSampler(1, 0, m_FrameGraph->GetTexture("GBufferNormal"));
+	directionalLightsPipeline->UploadTextureSampler(2, 0, m_FrameGraph->GetTexture("GBufferAlbedoRoughness"));
+	directionalLightsPipeline->UploadTextureSampler(3, 0, m_FrameGraph->GetTexture("GBufferMetallicAO"));
+	directionalLightsPipeline->UploadTextureSampler(4, 0, m_FrameGraph->GetTexture("GBufferEmissive"));
 
-	m_PointLightPipeline->UploadUniformBufferData(4, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	m_PointLightPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetColorTexture(0));
-	m_PointLightPipeline->UploadTextureSampler(1, 0, m_GBufferRenderGraph->GetColorTexture(1));
-	m_PointLightPipeline->UploadTextureSampler(2, 0, m_GBufferRenderGraph->GetColorTexture(2));
-	m_PointLightPipeline->UploadTextureSampler(3, 0, m_GBufferRenderGraph->GetColorTexture(3));
+	pointLightPipeline->UploadUniformBufferData(4, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	pointLightPipeline->UploadTextureSampler(0, 0, m_FrameGraph->GetTexture("GBufferPosition"));
+	pointLightPipeline->UploadTextureSampler(1, 0, m_FrameGraph->GetTexture("GBufferNormal"));
+	pointLightPipeline->UploadTextureSampler(2, 0, m_FrameGraph->GetTexture("GBufferAlbedoRoughness"));
+	pointLightPipeline->UploadTextureSampler(3, 0, m_FrameGraph->GetTexture("GBufferMetallicAO"));
 
-	if (skybox)
+	if (m_Skybox)
 	{
-		m_SkyboxPipeline->UploadTextureSampler(0, 0, skybox);
-		m_SkyboxPipeline->UploadUniformBufferData(1, & uniformBufferSplit, sizeof(CameraInfoUniformBufferSplit));
+		skyboxPipeline->UploadTextureSampler(0, 0, m_Skybox);
+		skyboxPipeline->UploadUniformBufferData(1, & uniformBufferSplit, sizeof(CameraInfoUniformBufferSplit));
 	}
 
 	std::vector<DirectionalLight> directionalLights;
-	scene->IterateComponents<DirectionalLightComponent>(
+	m_Scene->IterateComponents<DirectionalLightComponent>(
 		[&](Entity e, const DirectionalLightComponent& l)
 		{
 			const auto& transform = e.GetComponent<TransformComponent>().Transform;
@@ -368,26 +480,26 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	DirectionalLight* gpuLights = reinterpret_cast<DirectionalLight*>(lightData + sizeof(DirectionalLightsBuffer) / sizeof(uint32_t));
 	memcpy(gpuLights, directionalLights.data(), directionalLights.size() * sizeof(DirectionalLight));
 
-	m_DirectionalLightsPipeline->UploadStorageBufferData(5, lightData, lightDataSize);
+	directionalLightsPipeline->UploadStorageBufferData(5, lightData, lightDataSize);
 
-	m_CommandBuffer->BeginFrame(m_LightingRenderGraph);
-	m_CommandBuffer->StartRecording(m_LightingRenderGraph);
+	m_CommandBuffer->BeginFrame(graph, "LightingPass");
+	m_CommandBuffer->StartRecording();
 
-	m_CommandBuffer->SetViewport(m_LightingRenderGraph);
-	m_CommandBuffer->SetScissor(m_LightingRenderGraph);
+	m_CommandBuffer->SetViewport(graph->GetWidth(), graph->GetHeight());
+	m_CommandBuffer->SetScissor(graph->GetWidth(), graph->GetHeight());
 
-	m_CommandBuffer->BindPipeline(m_DirectionalLightsPipeline);
+	m_CommandBuffer->BindPipeline(directionalLightsPipeline);
 
 	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
 	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
 
 	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
 
-	RenderPointLights(scene);
+	RenderPointLights();
 
-	if (skybox)
+	if (m_Skybox)
 	{
-		m_CommandBuffer->BindPipeline(m_SkyboxPipeline);
+		m_CommandBuffer->BindPipeline(skyboxPipeline);
 		m_CommandBuffer->BindVertexBuffer(m_SkyboxVertexBuffer);
 		m_CommandBuffer->Draw(sizeof(skyboxVertices) / (3 * sizeof(float)));
 	}
@@ -398,14 +510,14 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<Scene>& scene, c
 	delete[] lightData;
 }
 
-void DeferredRenderer::UploadMaterialTextures(const std::shared_ptr<Scene>& scene)
+void DeferredRenderer::UploadMaterialTextures()
 {
 	m_AlbedoTextures.clear();
 	m_NormalTextures.clear();
 	m_ORMTextures.clear();
 	m_EmissiveTextures.clear();
 
-	scene->IterateComponents<MeshRendererComponent>(
+	m_Scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
 			if (!m.Mesh)
@@ -451,13 +563,15 @@ void DeferredRenderer::UploadMaterialTexture(const std::shared_ptr<Texture>& tex
 		return;
 	}
 
-	m_GBufferPipeline->UploadTextureSampler(descriptorIndex, textureMap.size(), texture);
+	m_FrameGraph->GetPass("GBufferPass")->GetPipeline("GBuffer")->UploadTextureSampler(descriptorIndex, textureMap.size(), texture);
 	textureMap[texture.get()] = textureMap.size();
 }
 
-void DeferredRenderer::RenderPointLights(const std::shared_ptr<Scene>& scene)
+void DeferredRenderer::RenderPointLights()
 {
-	scene->IterateComponents<PointLightComponent>(
+	auto pointLightPipeline = m_FrameGraph->GetPass("LightingPass")->GetPipeline("PointLight");
+
+	m_Scene->IterateComponents<PointLightComponent>(
 		[&](Entity e, const PointLightComponent& l)
 		{
 			const auto& transform = e.GetComponent<TransformComponent>().Transform;
@@ -471,147 +585,147 @@ void DeferredRenderer::RenderPointLights(const std::shared_ptr<Scene>& scene)
 			pushConstants.Position = position;
 			pushConstants.Radius = l.Radius;
 
-			m_CommandBuffer->BindPipeline(m_PointLightPipeline);
+			m_CommandBuffer->BindPipeline(pointLightPipeline);
 			m_CommandBuffer->BindVertexBuffer(m_SphereVertexBuffer);
 			m_CommandBuffer->BindIndexBuffer(m_SphereIndexBuffer);
-			m_CommandBuffer->UploadPushConstants(m_PointLightPipeline, 0, (void*)&pushConstants);
+			m_CommandBuffer->UploadPushConstants(pointLightPipeline, 0, (void*)&pushConstants);
 			m_CommandBuffer->DrawIndexed(m_SphereIndexBuffer);
 		});
 }
 
-void PostProcessing::PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height)
-{
-	PostProcess(renderer, width, height, m_PostProcessingRenderGraph);
-}
-
-const std::shared_ptr<Texture>& PostProcessing::PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height)
-{
-	PostProcess(renderer, width, height, m_PostProcessingOffscreenRenderGraph);
-
-	return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0);
-}
-
-void PostProcessing::InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height)
-{
-	const auto& renderContext = renderer->GetRenderContext();
-
-	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
-		.Width = static_cast<uint32_t>(width),
-		.Height = static_cast<uint32_t>(height),
-		.Attachments = {
-			{ AttachmentType::Color, 1, TextureFormat::ViewportDefault, false, true, true }
-		}
-		});
-
-	m_PostProcessingOffscreenRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
-		.Width = static_cast<uint32_t>(width),
-		.Height = static_cast<uint32_t>(height),
-		.Attachments = {
-			{ AttachmentType::Color, 1, TextureFormat::FormatB8G8R8A8_SRGB, true, true, false }
-		}
-		});
-
-	m_PostProcessingPipeline = Pipeline::Create(renderContext, m_PostProcessingRenderGraph,
-		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl"),
-		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl"),
-		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
-
-	m_FullscreenVertexBuffer = VertexBuffer::Create(renderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
-	m_FullscreenIndexBuffer = IndexBuffer::Create(renderContext, indices);
-
-	RenderGraphSpec blurSpec;
-	blurSpec.Width = width;
-	blurSpec.Height = height;
-	blurSpec.Attachments = { { AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false } };
-
-	m_BlurRenderGraphs[0] = RenderGraph::Create(renderContext, blurSpec); // horizontal
-	m_BlurRenderGraphs[1] = RenderGraph::Create(renderContext, blurSpec); // vertical
-
-	auto blurVS = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurVertexShader.glsl");
-	auto blurFS = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurFragmentShader.glsl");
-
-	m_BlurPipeline = Pipeline::Create(renderContext, m_BlurRenderGraphs[0], blurVS, blurFS,
-		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
-		{ { sizeof(BlurPushConstants), ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
-}
-
-void PostProcessing::PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height, const std::shared_ptr<RenderGraph>& renderGraph)
-{
-	if (!m_PostProcessingPipeline)
-	{
-		InitComponents(renderer, width, height);
-	}
-
-	if (renderGraph->GetWidth() != width || renderGraph->GetHeight() != height)
-	{
-		Resize(width, height);
-	}
-
-	const auto& commandBuffer = renderer->GetCommandBuffer();
-
-	std::shared_ptr<Texture> BlurredBrightTexture = nullptr;
-	{
-		bool horizontal = true, first_iteration = true;
-		int amount = 10;
-
-		for (int i = 0; i < amount; i++)
-		{
-			m_BlurPipeline->UploadTextureSampler(0, 0, first_iteration ? renderer->GetSceneBrightTexture() : m_BlurRenderGraphs[!horizontal]->GetColorTexture(0));
-
-			commandBuffer->BeginFrame(m_BlurRenderGraphs[horizontal]);
-			commandBuffer->StartRecording(m_BlurRenderGraphs[horizontal]);
-
-			commandBuffer->SetViewport(m_BlurRenderGraphs[horizontal]);
-			commandBuffer->SetScissor(m_BlurRenderGraphs[horizontal]);
-
-			BlurPushConstants pc{ horizontal ? 1 : 0 };
-			commandBuffer->UploadPushConstants(m_BlurPipeline, 0, &pc);
-
-			commandBuffer->BindPipeline(m_BlurPipeline);
-			commandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
-			commandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
-
-			commandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
-
-			commandBuffer->EndRecording();
-			commandBuffer->EndFrame();
-
-			horizontal = !horizontal;
-			if (first_iteration)
-				first_iteration = false;
-		}
-
-		BlurredBrightTexture = m_BlurRenderGraphs[!horizontal]->GetColorTexture(0);
-	}
-	{
-		commandBuffer->BeginFrame(renderGraph);
-		commandBuffer->StartRecording(renderGraph);
-
-		commandBuffer->SetViewport(renderGraph);
-		commandBuffer->SetScissor(renderGraph);
-
-		m_PostProcessingPipeline->UploadTextureSampler(0, 0, renderer->GetSceneColorTexture());
-		m_PostProcessingPipeline->UploadTextureSampler(1, 0, BlurredBrightTexture);
-
-		commandBuffer->BindPipeline(m_PostProcessingPipeline);
-		commandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
-		commandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
-
-		commandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
-
-		commandBuffer->EndRecording();
-		commandBuffer->EndFrame();
-	}
-}
-
-void PostProcessing::Resize(uint32_t width, uint32_t height)
-{
-	m_PostProcessingRenderGraph->OnResize(width, height);
-	m_PostProcessingOffscreenRenderGraph->OnResize(width, height);
-	m_BlurRenderGraphs[0]->OnResize(width, height);
-	m_BlurRenderGraphs[1]->OnResize(width, height);
-}
+//void PostProcessing::PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height)
+//{
+//	PostProcess(renderer, width, height, m_PostProcessingRenderGraph);
+//}
+//
+//const std::shared_ptr<Texture>& PostProcessing::PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height)
+//{
+//	PostProcess(renderer, width, height, m_PostProcessingOffscreenRenderGraph);
+//
+//	return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0);
+//}
+//
+//void PostProcessing::InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height)
+//{
+//	const auto& renderContext = renderer->GetRenderContext();
+//
+//	m_PostProcessingRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
+//		.Width = static_cast<uint32_t>(width),
+//		.Height = static_cast<uint32_t>(height),
+//		.Attachments = {
+//			{ AttachmentType::Color, 1, TextureFormat::ViewportDefault, false, true, true }
+//		}
+//		});
+//
+//	m_PostProcessingOffscreenRenderGraph = RenderGraph::Create(renderContext, RenderGraphSpec{
+//		.Width = static_cast<uint32_t>(width),
+//		.Height = static_cast<uint32_t>(height),
+//		.Attachments = {
+//			{ AttachmentType::Color, 1, TextureFormat::FormatB8G8R8A8_SRGB, true, true, false }
+//		}
+//		});
+//
+//	m_PostProcessingPipeline = Pipeline::Create(renderContext, m_PostProcessingRenderGraph,
+//		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl"),
+//		Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl"),
+//		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
+//		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+//		  { 1, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
+//		{ }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
+//
+//	m_FullscreenVertexBuffer = VertexBuffer::Create(renderContext, { { VertexElementType::Float2 }, { VertexElementType::Float2 } }, (void*)vertices, sizeof(vertices) / sizeof(ScreenVertex));
+//	m_FullscreenIndexBuffer = IndexBuffer::Create(renderContext, indices);
+//
+//	RenderGraphSpec blurSpec;
+//	blurSpec.Width = width;
+//	blurSpec.Height = height;
+//	blurSpec.Attachments = { { AttachmentType::Color, 1, TextureFormat::FormatR16G16B16A16, true, true, false } };
+//
+//	m_BlurRenderGraphs[0] = RenderGraph::Create(renderContext, blurSpec); // horizontal
+//	m_BlurRenderGraphs[1] = RenderGraph::Create(renderContext, blurSpec); // vertical
+//
+//	auto blurVS = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurVertexShader.glsl");
+//	auto blurFS = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurFragmentShader.glsl");
+//
+//	m_BlurPipeline = Pipeline::Create(renderContext, m_BlurRenderGraphs[0], blurVS, blurFS,
+//		{ { VertexElementType::Float2 }, { VertexElementType::Float2 } },
+//		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 } },
+//		{ { sizeof(BlurPushConstants), ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::None, { false, false });
+//}
+//
+//void PostProcessing::PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height, const std::shared_ptr<RenderGraph>& renderGraph)
+//{
+//	if (!m_PostProcessingPipeline)
+//	{
+//		InitComponents(renderer, width, height);
+//	}
+//
+//	if (renderGraph->GetWidth() != width || renderGraph->GetHeight() != height)
+//	{
+//		Resize(width, height);
+//	}
+//
+//	const auto& commandBuffer = renderer->GetCommandBuffer();
+//
+//	std::shared_ptr<Texture> BlurredBrightTexture = nullptr;
+//	{
+//		bool horizontal = true, first_iteration = true;
+//		int amount = 10;
+//
+//		for (int i = 0; i < amount; i++)
+//		{
+//			m_BlurPipeline->UploadTextureSampler(0, 0, first_iteration ? renderer->GetSceneBrightTexture() : m_BlurRenderGraphs[!horizontal]->GetColorTexture(0));
+//
+//			commandBuffer->BeginFrame(m_BlurRenderGraphs[horizontal]);
+//			commandBuffer->StartRecording(m_BlurRenderGraphs[horizontal]);
+//
+//			commandBuffer->SetViewport(m_BlurRenderGraphs[horizontal]);
+//			commandBuffer->SetScissor(m_BlurRenderGraphs[horizontal]);
+//
+//			BlurPushConstants pc{ horizontal ? 1 : 0 };
+//			commandBuffer->UploadPushConstants(m_BlurPipeline, 0, &pc);
+//
+//			commandBuffer->BindPipeline(m_BlurPipeline);
+//			commandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+//			commandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+//
+//			commandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+//
+//			commandBuffer->EndRecording();
+//			commandBuffer->EndFrame();
+//
+//			horizontal = !horizontal;
+//			if (first_iteration)
+//				first_iteration = false;
+//		}
+//
+//		BlurredBrightTexture = m_BlurRenderGraphs[!horizontal]->GetColorTexture(0);
+//	}
+//	{
+//		commandBuffer->BeginFrame(renderGraph);
+//		commandBuffer->StartRecording(renderGraph);
+//
+//		commandBuffer->SetViewport(renderGraph);
+//		commandBuffer->SetScissor(renderGraph);
+//
+//		m_PostProcessingPipeline->UploadTextureSampler(0, 0, renderer->GetSceneColorTexture());
+//		m_PostProcessingPipeline->UploadTextureSampler(1, 0, BlurredBrightTexture);
+//
+//		commandBuffer->BindPipeline(m_PostProcessingPipeline);
+//		commandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+//		commandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+//
+//		commandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+//
+//		commandBuffer->EndRecording();
+//		commandBuffer->EndFrame();
+//	}
+//}
+//
+//void PostProcessing::Resize(uint32_t width, uint32_t height)
+//{
+//	m_PostProcessingRenderGraph->OnResize(width, height);
+//	m_PostProcessingOffscreenRenderGraph->OnResize(width, height);
+//	m_BlurRenderGraphs[0]->OnResize(width, height);
+//	m_BlurRenderGraphs[1]->OnResize(width, height);
+//}

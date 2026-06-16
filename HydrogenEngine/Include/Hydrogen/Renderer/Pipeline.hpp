@@ -7,65 +7,6 @@
 
 namespace Hydrogen
 {
-	enum class DescriptorType
-	{
-		UniformBuffer,
-		StorageBuffer,
-		CombinedImageSampler,
-		//StorageImage,
-		//Sampler,
-		//SampledImage,
-		//InputAttachment,
-	};
-
-	enum class Primitive
-	{
-		Lines,
-		Triangles
-	};
-
-	enum class BlendMode
-	{
-		None,
-		Additive,
-		Alpha
-	};
-
-	enum class ShaderStage : uint32_t
-	{
-		Vertex = 0x1,
-		Fragment = 0x2,
-		All = 0x7
-	};
-
-	enum class CullMode
-	{
-		None,
-		Front,
-		Back
-	};
-
-	struct DepthSpec
-	{
-		bool DepthTest;
-		bool DepthWrite;
-	};
-
-	struct DescriptorBinding
-	{
-		uint32_t binding;
-		DescriptorType type;
-		ShaderStage stageFlags;
-		size_t size;
-		size_t numElements;
-	};
-
-	struct PushConstantsRange
-	{
-		size_t size;
-		ShaderStage stageFlags;
-	};
-
 	inline ShaderStage operator|(ShaderStage a, ShaderStage b)
 	{
 		return static_cast<ShaderStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
@@ -94,6 +35,6 @@ namespace Hydrogen
 			return std::dynamic_pointer_cast<T>(pipeline);
 		}
 
-		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph, const std::shared_ptr<ShaderAsset>& vertexShaderAsset, const std::shared_ptr<ShaderAsset>& fragmentShaderAsset, VertexLayout vertexLayout, const std::vector<DescriptorBinding> descriptorBindings, const std::vector<PushConstantsRange> pushConstantsRanges, Primitive primitive, CullMode cullMode, BlendMode blendMode, DepthSpec depthSpec);
+		static std::shared_ptr<Pipeline> Create(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<FrameGraph>& frameGraph, std::string framePass, PipelineSpec spec);
 	};
 }

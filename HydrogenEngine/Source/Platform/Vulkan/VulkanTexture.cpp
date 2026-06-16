@@ -143,6 +143,7 @@ VulkanTexture::VulkanTexture(const std::shared_ptr<RenderContext>& renderContext
 
 VulkanTexture::~VulkanTexture()
 {
+	vkDeviceWaitIdle(m_RenderContext->GetDevice());
 	vkFreeMemory(m_RenderContext->GetDevice(), m_ImageMemory, nullptr);
 	vkDestroySampler(m_RenderContext->GetDevice(), m_Sampler, nullptr);
 	vkDestroyImageView(m_RenderContext->GetDevice(), m_ImageView, nullptr);

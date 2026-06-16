@@ -30,22 +30,22 @@ namespace Hydrogen
 
 		uint32_t ReadEntityIDFromGPU(uint32_t x, uint32_t y);
 
-		uint32_t GetWidth() const { return m_GBufferRenderGraph->GetWidth(); }
-		uint32_t GetHeight() const { return m_GBufferRenderGraph->GetHeight(); }
+		uint32_t GetWidth() const { return m_FrameGraph->GetWidth(); }
+		uint32_t GetHeight() const { return m_FrameGraph->GetHeight(); }
 
-		std::shared_ptr<Texture> GetSceneColorTexture() const { return m_LightingRenderGraph->GetColorTexture(0); }
-		std::shared_ptr<Texture> GetSceneBrightTexture() const { return m_LightingRenderGraph->GetColorTexture(1); }
+		std::shared_ptr<Texture> GetSceneColorTexture() const { return m_FrameGraph->GetTexture("SceneColor"); }
+		std::shared_ptr<Texture> GetSceneBrightTexture() const { return m_FrameGraph->GetTexture("SceneBright"); }
 
 		const std::shared_ptr<RenderContext>& GetRenderContext() { return m_RenderContext; }
 		const std::shared_ptr<CommandBuffer>& GetCommandBuffer() { return m_CommandBuffer; }
 
 	private:
-		void RenderGeometryPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos);
-		void RenderLightingPass(const std::shared_ptr<Scene>& scene, const CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox);
+		void RenderGeometryPass(const std::shared_ptr<FrameGraph>& graph);
+		void RenderLightingPass(const std::shared_ptr<FrameGraph>& graph);
 
-		void UploadMaterialTextures(const std::shared_ptr<Scene>& scene);
+		void UploadMaterialTextures();
 		void UploadMaterialTexture(const std::shared_ptr<Texture>& texture, std::unordered_map<Texture*, uint32_t>& textureMap, uint32_t descriptorIndex);
-		void RenderPointLights(const std::shared_ptr<Scene>& scene);
+		void RenderPointLights();
 
 		const std::shared_ptr<RenderContext> m_RenderContext;
 		std::shared_ptr<CommandBuffer> m_CommandBuffer;
@@ -57,19 +57,14 @@ namespace Hydrogen
 		std::shared_ptr<IndexBuffer> m_SphereIndexBuffer;
 		std::shared_ptr<VertexBuffer> m_SkyboxVertexBuffer;
 
-		std::shared_ptr<RenderGraph> m_GBufferRenderGraph;
-		std::shared_ptr<Pipeline> m_GBufferPipeline;
-
-		std::shared_ptr<RenderGraph> m_LightingRenderGraph;
-		std::shared_ptr<Pipeline> m_DirectionalLightsPipeline;
-		std::shared_ptr<Pipeline> m_PointLightPipeline;
-		std::shared_ptr<Pipeline> m_SkyboxPipeline;
-
-		std::shared_ptr<RenderGraph> m_GizmoRenderGraph;
-		std::shared_ptr<Pipeline> m_BillboardPipeline;
-		std::shared_ptr<Pipeline> m_GridPipeline;
+		std::shared_ptr<FrameGraph> m_FrameGraph;
 
 		// per frame info
+		std::shared_ptr<Scene> m_Scene;
+		CameraComponent m_CameraComponent;
+		glm::vec3 m_CameraPos;
+		std::shared_ptr<CubeMap> m_Skybox;
+
 		std::unordered_map<Texture*, uint32_t> m_AlbedoTextures;
 		std::unordered_map<Texture*, uint32_t> m_NormalTextures;
 		std::unordered_map<Texture*, uint32_t> m_ORMTextures;
@@ -143,40 +138,40 @@ namespace Hydrogen
 		};
 	};
 
-	class PostProcessing
-	{
-	public:
-		void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
-		const std::shared_ptr<Texture>& PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
-
-		const std::shared_ptr<Texture>& GetFinalImage() { if (!m_PostProcessingOffscreenRenderGraph) return nullptr; return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0); }
-
-	private:
-		void InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
-		void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height, const std::shared_ptr<RenderGraph>& renderGraph);
-
-		void Resize(uint32_t width, uint32_t height);
-
-		std::shared_ptr<RenderGraph> m_PostProcessingRenderGraph;
-		std::shared_ptr<RenderGraph> m_PostProcessingOffscreenRenderGraph;
-
-		std::shared_ptr<Pipeline> m_PostProcessingPipeline;
-		std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
-		std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
-
-		std::shared_ptr<RenderGraph> m_BlurRenderGraphs[2];
-		std::shared_ptr<Pipeline> m_BlurPipeline;
-
-		struct BlurPushConstants
-		{
-			int horizontal;
-		};
-
-		struct PostProcessingPushConstants
-		{
-			glm::mat4 ViewProj;
-			glm::vec3 ViewPos;
-			float Padding;
-		};
-	};
+	//class PostProcessing
+	//{
+	//public:
+	//	void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
+	//	const std::shared_ptr<Texture>& PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
+	//
+	//	const std::shared_ptr<Texture>& GetFinalImage() { if (!m_PostProcessingOffscreenRenderGraph) return nullptr; return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0); }
+	//
+	//private:
+	//	void InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
+	//	void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height, const std::shared_ptr<RenderGraph>& renderGraph);
+	//
+	//	void Resize(uint32_t width, uint32_t height);
+	//
+	//	std::shared_ptr<RenderGraph> m_PostProcessingRenderGraph;
+	//	std::shared_ptr<RenderGraph> m_PostProcessingOffscreenRenderGraph;
+	//
+	//	std::shared_ptr<Pipeline> m_PostProcessingPipeline;
+	//	std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
+	//	std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
+	//
+	//	std::shared_ptr<RenderGraph> m_BlurRenderGraphs[2];
+	//	std::shared_ptr<Pipeline> m_BlurPipeline;
+	//
+	//	struct BlurPushConstants
+	//	{
+	//		int horizontal;
+	//	};
+	//
+	//	struct PostProcessingPushConstants
+	//	{
+	//		glm::mat4 ViewProj;
+	//		glm::vec3 ViewPos;
+	//		float Padding;
+	//	};
+	//};
 }

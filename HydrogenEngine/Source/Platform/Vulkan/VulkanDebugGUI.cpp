@@ -14,7 +14,7 @@ static void CheckVulkanResult(VkResult res)
 	HY_ASSERT(res == VK_SUCCESS, "ImGui Vulkan command returend an error code {}", (uint64_t)res);
 }
 
-VulkanDebugGUI::VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<RenderGraph>& renderGraph)
+VulkanDebugGUI::VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderContext, const std::shared_ptr<FrameGraph>& frameGraph, std::string framePass)
 	: m_RenderContext(RenderContext::Get<VulkanRenderContext>(renderContext))
 {
 	VkDescriptorPoolSize pool_sizes[] =
@@ -66,7 +66,7 @@ VulkanDebugGUI::VulkanDebugGUI(const std::shared_ptr<RenderContext>& renderConte
 	init_info.Queue = m_RenderContext->GetGraphicsQueue();
 	//init_info.PipelineCache = g_PipelineCache;
 	init_info.DescriptorPool = m_ImguiPool;
-	init_info.RenderPass = RenderGraph::Get<VulkanRenderGraph>(renderGraph)->GetRenderPass();
+	init_info.RenderPass = FrameGraph::Get<VulkanFrameGraph>(frameGraph)->GetVulkanFramePass(framePass).RenderPass;
 	init_info.Subpass = 0;
 	init_info.MinImageCount = 3;
 	init_info.ImageCount = 3;
