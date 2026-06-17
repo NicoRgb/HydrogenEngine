@@ -24,9 +24,7 @@ namespace Hydrogen
 		~DeferredRenderer();
 
 		void Resize(uint32_t width, uint32_t height);
-		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox = nullptr);
-
-		void RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos);
+		void Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::vector<Gizmo>& gizmos = {}, const std::shared_ptr<CubeMap>& skybox = nullptr);
 
 		uint32_t ReadEntityIDFromGPU(uint32_t x, uint32_t y);
 
@@ -42,6 +40,7 @@ namespace Hydrogen
 	private:
 		void RenderGeometryPass(const std::shared_ptr<FrameGraph>& graph);
 		void RenderLightingPass(const std::shared_ptr<FrameGraph>& graph);
+		void RenderGizmoPass(const std::shared_ptr<FrameGraph>& graph);
 
 		void UploadMaterialTextures();
 		void UploadMaterialTexture(const std::shared_ptr<Texture>& texture, std::unordered_map<Texture*, uint32_t>& textureMap, uint32_t descriptorIndex);
@@ -63,6 +62,7 @@ namespace Hydrogen
 		std::shared_ptr<Scene> m_Scene;
 		CameraComponent m_CameraComponent;
 		glm::vec3 m_CameraPos;
+		std::vector<Gizmo> m_Gizmos;
 		std::shared_ptr<CubeMap> m_Skybox;
 
 		std::unordered_map<Texture*, uint32_t> m_AlbedoTextures;

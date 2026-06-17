@@ -73,7 +73,7 @@ void main() {
 
     finalGridFormat.a *= finalFade;
 
-    if (finalGridFormat.a < 0.01) discard;
+    if (finalGridFormat.a < 0.1) discard;
 
     outColor = finalGridFormat;
 }

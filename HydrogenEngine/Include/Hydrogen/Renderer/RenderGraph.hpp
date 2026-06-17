@@ -131,13 +131,14 @@ namespace Hydrogen
 	class FrameGraph : public std::enable_shared_from_this<FrameGraph>
 	{
 	public:
-		void AddPass(std::string name, std::unique_ptr<FramePass> pass) { m_Passes[name] = std::move(pass); }
+		void AddPass(std::string name, std::unique_ptr<FramePass> pass) { m_Passes[name] = std::move(pass); m_PassExecutionOrder.push_back(name); }
 		const FramePass* GetPass(const std::string& name) const { return m_Passes.at(name).get(); }
 
 		void Render()
 		{
-			for (const auto& [_, pass] : m_Passes)
+			for (const auto& passName : m_PassExecutionOrder)
 			{
+				const auto& pass = m_Passes.at(passName);
 				pass->Render(shared_from_this());
 			}
 		}
@@ -160,6 +161,7 @@ namespace Hydrogen
 		static std::shared_ptr<FrameGraph> Create(const std::shared_ptr<RenderContext>& renderContext, uint32_t width, uint32_t height);
 
 	protected:
-		std::map<std::string, std::unique_ptr<FramePass>> m_Passes;
+		std::unordered_map<std::string, std::unique_ptr<FramePass>> m_Passes;
+		std::vector<std::string> m_PassExecutionOrder;
 	};
 }

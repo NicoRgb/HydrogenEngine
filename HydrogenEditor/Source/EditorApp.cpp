@@ -203,7 +203,6 @@ private:
 			if (contentRegion.x != SceneViewportSize.x ||
 				contentRegion.y != SceneViewportSize.y)
 			{
-				HY_APP_WARN("Resized Scene Viewport: {0}x{1}", (int)contentRegion.x, (int)contentRegion.y);
 				SceneViewportSize = contentRegion;
 
 				SceneViewportRenderer->Resize(
@@ -378,7 +377,7 @@ public:
 		if (ViewportVisible && UpdateCamera(CurrentScene->GetScene(), cameraEntity, ViewportSize.x, ViewportSize.y))
 		{
 			const auto& camPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
-			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos, Skybox);
+			ViewportRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), camPos, {}, Skybox);
 			//ViewportPostProcessing.PostProcessOffscreen(ViewportRenderer, ViewportSize.x, ViewportSize.y);
 		}
 
@@ -404,8 +403,6 @@ public:
 					(int)SceneViewportRenderer->GetHeight()
 				});
 
-			SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition(), Skybox);
-
 			std::vector<Gizmo> gizmos;
 			CurrentScene->GetScene()->IterateComponents(
 				[&](Entity entity)
@@ -424,7 +421,7 @@ public:
 					}
 				});
 
-			SceneViewportRenderer->RenderGizmos(gizmos, FreeCam, FreeCam.GetPosition());
+			SceneViewportRenderer->Render(CurrentScene->GetScene(), FreeCam, FreeCam.GetPosition(), gizmos, Skybox);
 			//SceneViewportPostProcessing.PostProcessOffscreen(SceneViewportRenderer, SceneViewportSize.x, SceneViewportSize.y);
 		}
 

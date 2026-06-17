@@ -324,14 +324,40 @@ void VulkanFrameGraph::CreateRenderPass(std::string name, FramePass* pass)
 		subpass.pResolveAttachments = resolveRefs.data();
 	}
 
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	std::vector<VkSubpassDependency> dependencies;
+
+	VkSubpassDependency inboundDep{};
+	inboundDep.srcSubpass = VK_SUBPASS_EXTERNAL;
+	inboundDep.dstSubpass = 0;
+	inboundDep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	inboundDep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	inboundDep.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	inboundDep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	inboundDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	dependencies.push_back(inboundDep);
+
+	bool outputsSampled = false;
+	for (const auto& name : pass->GetResourceOrder())
+	{
+		if (pass->GetResources().at(name).Sampled)
+		{
+			outputsSampled = true;
+			break;
+		}
+	}
+
+	if (outputsSampled)
+	{
+		VkSubpassDependency outboundDep{};
+		outboundDep.srcSubpass = 0;
+		outboundDep.dstSubpass = VK_SUBPASS_EXTERNAL;
+		outboundDep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		outboundDep.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		outboundDep.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		outboundDep.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		outboundDep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies.push_back(outboundDep);
+	}
 
 	VkRenderPassCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -339,8 +365,8 @@ void VulkanFrameGraph::CreateRenderPass(std::string name, FramePass* pass)
 	createInfo.pAttachments = attachments.data();
 	createInfo.subpassCount = 1;
 	createInfo.pSubpasses = &subpass;
-	createInfo.dependencyCount = 1;
-	createInfo.pDependencies = &dependency;
+	createInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+	createInfo.pDependencies = dependencies.data();
 
 	HY_ASSERT(vkCreateRenderPass(m_RenderContext->GetDevice(), &createInfo, nullptr, &m_VkFramePasses.at(name).RenderPass) == VK_SUCCESS,
 		"Failed to create vulkan render pass");

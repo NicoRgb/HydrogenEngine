@@ -87,38 +87,6 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 
 	m_CommandBuffer = CommandBuffer::Create(renderContext);
 
-	//
-	//m_GizmoRenderGraph = RenderGraph::Create(renderContext,
-	//	{
-	//		.Width = width,
-	//		.Height = height,
-	//		.Attachments = {
-	//			{ AttachmentType::Color, 1, GetSceneColorTexture()->GetFormat() , true, false, false, GetSceneColorTexture() },
-	//			{ AttachmentType::Depth, 1, m_GBufferRenderGraph->GetDepthTexture()->GetFormat(), true, false, false, m_GBufferRenderGraph->GetDepthTexture() }
-	//		},
-	//	});
-	//
-	//const auto& billboardVertexShader = assetManager.GetAsset<ShaderAsset>("BillboardVertexShader.glsl");
-	//const auto& billboardFragmentShader = assetManager.GetAsset<ShaderAsset>("BillboardFragmentShader.glsl");
-	//m_BillboardPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, billboardVertexShader, billboardFragmentShader,
-	//	{ {VertexElementType::Float2}, {VertexElementType::Float2} },
-	//	{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
-	//	  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-	//	{ { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { true, false });
-	//
-	//for (uint32_t i = 0; i < MAX_TEXTURES; i++)
-	//{
-	//	m_BillboardPipeline->UploadTextureSampler(0, i, m_DefaultTexture);
-	//}
-	//
-	//const auto& gridVertexShader = assetManager.GetAsset<ShaderAsset>("GridVertexShader.glsl");
-	//const auto& gridFragmentShader = assetManager.GetAsset<ShaderAsset>("GridFragmentShader.glsl");
-	//m_GridPipeline = Pipeline::Create(renderContext, m_GizmoRenderGraph, gridVertexShader, gridFragmentShader,
-	//	{ {VertexElementType::Float2}, {VertexElementType::Float2} },
-	//	{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-	//	  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
-	//	{ }, Primitive::Triangles, CullMode::None, BlendMode::Alpha, { false, false });
-
 	m_FrameGraph = FrameGraph::Create(renderContext, width, height);
 
 	FramePass GBufferPass;
@@ -272,22 +240,50 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		.depthSpec = {.DepthTest = true, .DepthWrite = false }
 		});
 
-	/*
-	const auto& skyboxVertexShader = assetManager.GetAsset<ShaderAsset>("SkyboxVertexShader.glsl");
-	const auto& skyboxFragmentShader = assetManager.GetAsset<ShaderAsset>("SkyboxFragmentShader.glsl");
-	m_SkyboxPipeline = Pipeline::Create(renderContext, m_LightingRenderGraph, skyboxVertexShader, skyboxFragmentShader,
-		{ {VertexElementType::Float3} },
-		{ { 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
-		  { 1, DescriptorType::UniformBuffer, ShaderStage::Vertex, sizeof(CameraInfoUniformBufferSplit), 1 } },
-		{ }, Primitive::Triangles, CullMode::Back, BlendMode::Alpha, { true, false });
-	*/
-
 	LightingPass.SetRender([this](const std::shared_ptr<FrameGraph>& graph)
 		{
 			RenderLightingPass(graph);
 		});
 
 	m_FrameGraph->AddPass("LightingPass", std::make_unique<FramePass>(LightingPass));
+
+	FramePass GizmoPass;
+	GizmoPass.AddResource("SceneColor", LightingPass.GetResource("SceneColor"));
+
+	GizmoPass.AddPipeline("Billboard", {
+		.vertexShaderAsset = SHADER_ASSETS("BillboardVertexShader"),
+		.fragmentShaderAsset = SHADER_ASSETS("BillboardFragmentShader"),
+		.vertexLayout = { {VertexElementType::Float2}, {VertexElementType::Float2} },
+		.descriptorBindings = {
+			{ 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, MAX_TEXTURES },
+			{ 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		.pushConstantsRanges = { { sizeof(BillboardPushConstants), ShaderStage::Vertex | ShaderStage::Fragment } },
+		.primitive = Primitive::Triangles,
+		.cullMode = CullMode::None,
+		.blendMode = BlendMode::Alpha,
+		.depthSpec = {.DepthTest = false, .DepthWrite = false }
+		});
+
+	GizmoPass.AddPipeline("Grid", {
+		.vertexShaderAsset = SHADER_ASSETS("GridVertexShader"),
+		.fragmentShaderAsset = SHADER_ASSETS("GridFragmentShader"),
+		.vertexLayout = { {VertexElementType::Float2}, {VertexElementType::Float2} },
+		.descriptorBindings = {
+			{ 0, DescriptorType::CombinedImageSampler, ShaderStage::Fragment, 0, 1 },
+			{ 1, DescriptorType::UniformBuffer, ShaderStage::Vertex | ShaderStage::Fragment, sizeof(CameraInfoUniformBuffer), 1 } },
+		.pushConstantsRanges = { },
+		.primitive = Primitive::Triangles,
+		.cullMode = CullMode::None,
+		.blendMode = BlendMode::Alpha,
+		.depthSpec = {.DepthTest = false, .DepthWrite = false }
+		});
+
+	GizmoPass.SetRender([this](const std::shared_ptr<FrameGraph>& graph)
+		{
+			RenderGizmoPass(graph);
+		});
+
+	m_FrameGraph->AddPass("GizmoPass", std::make_unique<FramePass>(GizmoPass));
 
 	m_FrameGraph->Compose();
 
@@ -298,6 +294,12 @@ DeferredRenderer::DeferredRenderer(const std::shared_ptr<RenderContext>& renderC
 		gBufferPipeline->UploadTextureSampler(2, i, m_DefaultTexture);
 		gBufferPipeline->UploadTextureSampler(3, i, m_DefaultTexture);
 		gBufferPipeline->UploadTextureSampler(4, i, m_DefaultTexture);
+	}
+
+	auto billboardPipeline = m_FrameGraph->GetPass("GizmoPass")->GetPipeline("Billboard");
+	for (uint32_t i = 0; i < MAX_TEXTURES; i++)
+	{
+		billboardPipeline->UploadTextureSampler(0, i, m_DefaultTexture);
 	}
 }
 
@@ -310,61 +312,15 @@ void DeferredRenderer::Resize(uint32_t width, uint32_t height)
 	m_FrameGraph->Resize(width, height);
 }
 
-void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::shared_ptr<CubeMap>& skybox)
+void DeferredRenderer::Render(const std::shared_ptr<Scene>& scene, CameraComponent& cameraComponent, glm::vec3 cameraPos, const std::vector<Gizmo>& gizmos, const std::shared_ptr<CubeMap>& skybox)
 {
 	m_Scene = scene;
 	m_CameraComponent = cameraComponent;
 	m_CameraPos = cameraPos;
+	m_Gizmos = gizmos;
 	m_Skybox = skybox;
 
 	m_FrameGraph->Render();
-}
-
-void DeferredRenderer::RenderGizmos(const std::vector<Gizmo>& gizmos, CameraComponent& cameraComponent, glm::vec3 cameraPos)
-{
-	//for (size_t i = 0; i < gizmos.size(); i++)
-	//{
-	//	m_BillboardPipeline->UploadTextureSampler(0, i, gizmos[i].BillboardTexture);
-	//}
-	//
-	//CameraInfoUniformBuffer uniformBuffer{};
-	//uniformBuffer.ViewProj = cameraComponent.Proj * cameraComponent.View;
-	//uniformBuffer.CameraPos = cameraPos;
-	//
-	//m_BillboardPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	//m_GridPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
-	//
-	//m_GridPipeline->UploadTextureSampler(0, 0, m_GBufferRenderGraph->GetDepthTexture());
-	//
-	//m_CommandBuffer->BeginFrame(m_GizmoRenderGraph);
-	//m_CommandBuffer->StartRecording(m_GizmoRenderGraph);
-	//
-	//m_CommandBuffer->SetViewport(m_GizmoRenderGraph);
-	//m_CommandBuffer->SetScissor(m_GizmoRenderGraph);
-	//
-	//m_CommandBuffer->BindPipeline(m_GridPipeline);
-	//m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
-	//m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
-	//
-	//m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
-	//
-	//for (size_t i = 0; i < gizmos.size(); i++)
-	//{
-	//	BillboardPushConstants pushConstants{};
-	//	pushConstants.Position = gizmos[i].Position;
-	//	pushConstants.Scale = gizmos[i].Scale;
-	//	pushConstants.TextureIndex = i;
-	//
-	//	m_CommandBuffer->BindPipeline(m_BillboardPipeline);
-	//	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
-	//	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
-	//
-	//	m_CommandBuffer->UploadPushConstants(m_BillboardPipeline, 0, (void*)&pushConstants);
-	//	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
-	//}
-	//
-	//m_CommandBuffer->EndRecording();
-	//m_CommandBuffer->EndFrame();
 }
 
 uint32_t DeferredRenderer::ReadEntityIDFromGPU(uint32_t x, uint32_t y)
@@ -508,6 +464,57 @@ void DeferredRenderer::RenderLightingPass(const std::shared_ptr<FrameGraph>& gra
 	m_CommandBuffer->EndFrame();
 
 	delete[] lightData;
+}
+
+void DeferredRenderer::RenderGizmoPass(const std::shared_ptr<FrameGraph>& graph)
+{
+	auto pass = graph->GetPass("GizmoPass");
+	auto billboardPipeline = pass->GetPipeline("Billboard");
+	auto gridPipeline = pass->GetPipeline("Grid");
+
+	for (size_t i = 0; i < m_Gizmos.size(); i++)
+	{
+		billboardPipeline->UploadTextureSampler(0, i, m_Gizmos[i].BillboardTexture);
+	}
+	
+	CameraInfoUniformBuffer uniformBuffer{};
+	uniformBuffer.ViewProj = m_CameraComponent.Proj * m_CameraComponent.View;
+	uniformBuffer.CameraPos = m_CameraPos;
+	
+	billboardPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	gridPipeline->UploadUniformBufferData(1, &uniformBuffer, sizeof(CameraInfoUniformBuffer));
+	
+	gridPipeline->UploadTextureSampler(0, 0, graph->GetTexture("GBufferDepth"));
+	
+	m_CommandBuffer->BeginFrame(graph, "GizmoPass");
+	m_CommandBuffer->StartRecording();
+	
+	m_CommandBuffer->SetViewport(graph->GetWidth(), graph->GetHeight());
+	m_CommandBuffer->SetScissor(graph->GetWidth(), graph->GetHeight());
+	
+	m_CommandBuffer->BindPipeline(gridPipeline);
+	m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+	m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+	
+	m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+	
+	for (size_t i = 0; i < m_Gizmos.size(); i++)
+	{
+		BillboardPushConstants pushConstants{};
+		pushConstants.Position = m_Gizmos[i].Position;
+		pushConstants.Scale = m_Gizmos[i].Scale;
+		pushConstants.TextureIndex = i;
+	
+		m_CommandBuffer->BindPipeline(billboardPipeline);
+		m_CommandBuffer->BindVertexBuffer(m_FullscreenVertexBuffer);
+		m_CommandBuffer->BindIndexBuffer(m_FullscreenIndexBuffer);
+	
+		m_CommandBuffer->UploadPushConstants(billboardPipeline, 0, (void*)&pushConstants);
+		m_CommandBuffer->DrawIndexed(m_FullscreenIndexBuffer);
+	}
+	
+	m_CommandBuffer->EndRecording();
+	m_CommandBuffer->EndFrame();
 }
 
 void DeferredRenderer::UploadMaterialTextures()
