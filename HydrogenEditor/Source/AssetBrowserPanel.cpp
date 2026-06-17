@@ -227,7 +227,7 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 
         ImGui::Separator();
 
-        ImGui::Image(m_MaterialPreviewRenderer->GetSceneColorTexture()->GetImGuiImage(), { 256, 256 });
+        ImGui::Image(m_MaterialPreviewRenderer->GetFinalSceneTexture()->GetImGuiImage(), { 256, 256 });
 
         ImGui::TreePop();
     }

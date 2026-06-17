@@ -17,6 +17,159 @@ namespace Hydrogen
 		glm::vec2 Scale;
 	};
 
+	enum class ShadowResolution : uint32_t
+	{
+		Low = 512,
+		Medium = 1024,
+		High = 2048,
+		Ultra = 4096
+	};
+
+	enum class AntiAliasingMode : uint8_t
+	{
+		None = 0,
+		FXAA,
+		TAA,
+		SMAA
+	};
+
+	enum class MSAASampleCount : uint8_t
+	{
+		None = 1,
+		X2 = 2,
+		X4 = 4,
+		X8 = 8
+	};
+
+	enum class TonemappingMethod : uint8_t
+	{
+		None = 0,
+		Reinhard,
+		ACES,
+		Filmic
+	};
+
+	struct DisplaySettings {
+		bool EnableVSync = true;
+		bool EnableHDR = false;
+		bool EnableWireframe = false;
+	};
+
+	struct ShadowSettings {
+		bool EnableShadows = true;
+		ShadowResolution Resolution = ShadowResolution::High;
+		bool EnableSoftShadows = true;
+	};
+
+	struct AntiAliasingSettings {
+		AntiAliasingMode Mode = AntiAliasingMode::None;
+		MSAASampleCount MSAASamples = MSAASampleCount::None;
+		bool EnableAnisotropicFiltering = true;
+	};
+
+	struct LightingSettings {
+		bool EnableSSGI = false;  // Screen-Space Global Illumination
+		bool EnableSSSR = false;  // Screen-Space Stochastic Reflections
+		bool EnableSSR = false;   // Screen-Space Reflections (Standard)
+		bool EnableSSAO = false;  // Screen-Space Ambient Occlusion
+	};
+
+	struct PostProcessSettings {
+		bool EnableBloom = false;
+		bool EnableMotionBlur = false;
+		bool EnableDepthOfField = false;
+
+		bool EnableToneMapping = true;
+		TonemappingMethod Tonemapper = TonemappingMethod::ACES;
+	};
+
+	struct CullingSettings {
+		bool EnableFrustumCulling = true;
+		bool EnableOcclusionCulling = false;
+	};
+
+	struct DebugSettings {
+		bool EnableDebugOverlays = false;
+		bool EnableEntityIDPicking = false;
+		bool EnableGizmoRendering = true;
+	};
+
+	struct RenderSettings
+	{
+		DisplaySettings Display;
+		ShadowSettings Shadows;
+		AntiAliasingSettings AA;
+		LightingSettings Lighting;
+		PostProcessSettings PostProcess;
+		CullingSettings Culling;
+		DebugSettings Debug;
+	};
+
+	enum RenderDirtyFlags : uint32_t
+	{
+		Dirty_Clean = 0,
+		Dirty_RenderPass = 1 << 0, // Requires recreating RenderPasses/Framebuffers (MSAA changes)
+		Dirty_PipelineCache = 1 << 1, // Requires rebuilding pipelines (Wireframe, Shaders)
+		Dirty_Swapchain = 1 << 2, // Requires recreating swapchain (VSync, HDR)
+		Dirty_Buffers = 1 << 3  // Requires resizing/reallocating textures (Shadow maps)
+	};
+
+	class RenderSettingsManager
+	{
+	public:
+		RenderSettingsManager() = default;
+
+		const RenderSettings& Get() const { return m_CurrentSettings; }
+
+		void SetSettings(const RenderSettings& newSettings)
+		{
+			uint32_t flags = Dirty_Clean;
+
+			if (newSettings.Display.EnableVSync != m_CurrentSettings.Display.EnableVSync ||
+				newSettings.Display.EnableHDR != m_CurrentSettings.Display.EnableHDR)
+			{
+				flags |= Dirty_Swapchain;
+			}
+
+			if (newSettings.AA.MSAASamples != m_CurrentSettings.AA.MSAASamples)
+			{
+				flags |= Dirty_RenderPass | Dirty_PipelineCache;
+			}
+
+			if (newSettings.Display.EnableWireframe != m_CurrentSettings.Display.EnableWireframe ||
+				newSettings.AA.Mode != m_CurrentSettings.AA.Mode)
+			{
+				flags |= Dirty_PipelineCache;
+			}
+
+			if (newSettings.Shadows.Resolution != m_CurrentSettings.Shadows.Resolution ||
+				newSettings.Shadows.EnableShadows != m_CurrentSettings.Shadows.EnableShadows)
+			{
+				flags |= Dirty_Buffers;
+			}
+
+			m_CurrentSettings = newSettings;
+			m_DirtyFlags |= flags;
+		}
+
+		bool IsDirty() const { return m_DirtyFlags != Dirty_Clean; }
+		uint32_t GetDirtyFlags() const { return m_DirtyFlags; }
+
+		void ClearDirtyFlags() { m_DirtyFlags = Dirty_Clean; }
+
+	private:
+		RenderSettings m_CurrentSettings;
+		uint32_t m_DirtyFlags = Dirty_Clean;
+	};
+
+	/*
+	optimization ideas:
+	- Ping Pong Bloom Passes: Dont create a pass for every pingpong
+	- Read/Write Attribute for RenderGraph resources
+	- Overlap GPU Texture memory if lifetimes dont overlap
+	- look for duplicate shaders
+	*/
+
 	class DeferredRenderer
 	{
 	public:
@@ -31,8 +184,8 @@ namespace Hydrogen
 		uint32_t GetWidth() const { return m_FrameGraph->GetWidth(); }
 		uint32_t GetHeight() const { return m_FrameGraph->GetHeight(); }
 
-		std::shared_ptr<Texture> GetSceneColorTexture() const { return m_FrameGraph->GetTexture("SceneColor"); }
-		std::shared_ptr<Texture> GetSceneBrightTexture() const { return m_FrameGraph->GetTexture("SceneBright"); }
+		std::shared_ptr<Texture> GetFinalSceneTexture() const { return m_FrameGraph->GetTexture("FinalScene"); }
+		std::shared_ptr<Texture> GetTexture(std::string name) const { return m_FrameGraph->GetTexture(name); }
 
 		const std::shared_ptr<RenderContext>& GetRenderContext() { return m_RenderContext; }
 		const std::shared_ptr<CommandBuffer>& GetCommandBuffer() { return m_CommandBuffer; }
@@ -41,6 +194,8 @@ namespace Hydrogen
 		void RenderGeometryPass(const std::shared_ptr<FrameGraph>& graph);
 		void RenderLightingPass(const std::shared_ptr<FrameGraph>& graph);
 		void RenderGizmoPass(const std::shared_ptr<FrameGraph>& graph);
+		void RenderBloomPass(const std::shared_ptr<FrameGraph>& graph, std::string passName, std::string sampledTextureName, bool horizontal);
+		void RenderCompositePass(const std::shared_ptr<FrameGraph>& graph);
 
 		void UploadMaterialTextures();
 		void UploadMaterialTexture(const std::shared_ptr<Texture>& texture, std::unordered_map<Texture*, uint32_t>& textureMap, uint32_t descriptorIndex);
@@ -136,42 +291,17 @@ namespace Hydrogen
 			float Padding0;
 			float Padding1;
 		};
-	};
 
-	//class PostProcessing
-	//{
-	//public:
-	//	void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
-	//	const std::shared_ptr<Texture>& PostProcessOffscreen(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
-	//
-	//	const std::shared_ptr<Texture>& GetFinalImage() { if (!m_PostProcessingOffscreenRenderGraph) return nullptr; return m_PostProcessingOffscreenRenderGraph->GetColorTexture(0); }
-	//
-	//private:
-	//	void InitComponents(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height);
-	//	void PostProcess(const std::shared_ptr<DeferredRenderer>& renderer, uint32_t width, uint32_t height, const std::shared_ptr<RenderGraph>& renderGraph);
-	//
-	//	void Resize(uint32_t width, uint32_t height);
-	//
-	//	std::shared_ptr<RenderGraph> m_PostProcessingRenderGraph;
-	//	std::shared_ptr<RenderGraph> m_PostProcessingOffscreenRenderGraph;
-	//
-	//	std::shared_ptr<Pipeline> m_PostProcessingPipeline;
-	//	std::shared_ptr<VertexBuffer> m_FullscreenVertexBuffer;
-	//	std::shared_ptr<IndexBuffer> m_FullscreenIndexBuffer;
-	//
-	//	std::shared_ptr<RenderGraph> m_BlurRenderGraphs[2];
-	//	std::shared_ptr<Pipeline> m_BlurPipeline;
-	//
-	//	struct BlurPushConstants
-	//	{
-	//		int horizontal;
-	//	};
-	//
-	//	struct PostProcessingPushConstants
-	//	{
-	//		glm::mat4 ViewProj;
-	//		glm::vec3 ViewPos;
-	//		float Padding;
-	//	};
-	//};
+		struct BlurPushConstants
+		{
+			int horizontal;
+		};
+
+		struct PostProcessingPushConstants
+		{
+			glm::mat4 ViewProj;
+			glm::vec3 ViewPos;
+			float Padding;
+		};
+	};
 }
