@@ -5,9 +5,6 @@ using namespace Hydrogen;
 class RuntimeApp : public Application
 {
 private:
-	std::shared_ptr<DeferredRenderer> MainRenderer;
-	PostProcessing MainPostProcessing;
-
 	template<typename TCamera>
 	void UpdateCameraViewportSize(TCamera& camera, const glm::ivec2& size)
 	{
@@ -62,7 +59,6 @@ public:
 	virtual void OnStartup() override
 	{
 		CurrentScene->GetScene()->CreateScripts();
-		MainRenderer = std::make_shared<DeferredRenderer>(_RenderContext, MainViewport->GetWidth(), MainViewport->GetHeight());
 	}
 
 	virtual void OnShutdown() override
@@ -76,8 +72,7 @@ public:
 		Entity cameraEntity;
 		if (UpdateCamera(dt, cameraEntity))
 		{
-			MainRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
-			MainPostProcessing.PostProcess(MainRenderer, MainViewport->GetWidth(), MainViewport->GetHeight());
+			//MainRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
 		}
 	}
 

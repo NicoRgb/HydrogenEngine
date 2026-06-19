@@ -6,10 +6,10 @@
 
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Core.hpp"
-#include "Hydrogen/Renderer/RenderContext.hpp"
-#include "Hydrogen/Renderer/Texture.hpp"
-#include "Hydrogen/Renderer/VertexBuffer.hpp"
-#include "Hydrogen/Renderer/IndexBuffer.hpp"
+//#include "Hydrogen/Renderer/RenderContext.hpp"
+//#include "Hydrogen/Renderer/Texture.hpp"
+//#include "Hydrogen/Renderer/VertexBuffer.hpp"
+//#include "Hydrogen/Renderer/IndexBuffer.hpp"
 
 #include <json.hpp>
 
@@ -100,8 +100,8 @@ namespace Hydrogen
 	class TextureAsset : public Asset
 	{
 	public:
-		TextureAsset(std::string path, json config, const std::shared_ptr<RenderContext>& renderContext)
-			: Asset(path, config), m_RenderContext(renderContext)
+		TextureAsset(std::string path, json config)
+			: Asset(path, config)
 		{
 			Parse(path);
 		}
@@ -121,26 +121,24 @@ namespace Hydrogen
 		const uint8_t GetChannels() const { return m_Channels; }
 		const std::vector<uint32_t>& GetImageData() const { return m_Image; }
 
-		const std::shared_ptr<Texture>& GetTexture() const { return m_Texture; }
+		//const std::shared_ptr<Texture>& GetTexture() const { return m_Texture; }
 
 	private:
 		void Parse(std::string path);
-
-		const std::shared_ptr<RenderContext> m_RenderContext;
 
 		uint32_t m_Width, m_Height;
 		uint8_t m_Channels;
 
 		std::vector<uint32_t> m_Image;
 
-		std::shared_ptr<Texture> m_Texture;
+		//std::shared_ptr<Texture> m_Texture;
 	};
 
 	class CubeMapAsset : public Asset
 	{
 	public:
-		CubeMapAsset(std::string path, json config, const std::shared_ptr<RenderContext>& renderContext)
-			: Asset(path, config), m_RenderContext(renderContext)
+		CubeMapAsset(std::string path, json config)
+			: Asset(path, config)
 		{
 		}
 
@@ -154,20 +152,19 @@ namespace Hydrogen
 		{
 		}
 
-		const std::shared_ptr<CubeMap>& GetCubeMap() const { return m_CubeMap; }
+		//const std::shared_ptr<CubeMap>& GetCubeMap() const { return m_CubeMap; }
 
 		void Parse(std::string path);
 
 	private:
-		const std::shared_ptr<RenderContext> m_RenderContext;
-		std::shared_ptr<CubeMap> m_CubeMap;
+		//std::shared_ptr<CubeMap> m_CubeMap;
 	};
 
 	class MeshAsset : public Asset
 	{
 	public:
-		MeshAsset(std::string path, json config, const std::shared_ptr<RenderContext>& renderContext)
-			: Asset(path, config), m_RenderContext(renderContext)
+		MeshAsset(std::string path, json config)
+			: Asset(path, config)
 		{
 			Parse(path);
 		}
@@ -182,19 +179,17 @@ namespace Hydrogen
 		{
 		}
 
-		const std::shared_ptr<VertexBuffer>& GetVertexBuffer() const { return m_VertexBuffer; }
-		const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const { return m_IndexBuffer; }
+		//const std::shared_ptr<VertexBuffer>& GetVertexBuffer() const { return m_VertexBuffer; }
+		//const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const { return m_IndexBuffer; }
 
 	private:
 		void Parse(std::string path);
 
-		const std::shared_ptr<RenderContext> m_RenderContext;
-
 		std::vector<float> m_Vertices;
 		std::vector<uint32_t> m_Indices;
 
-		std::shared_ptr<VertexBuffer> m_VertexBuffer;
-		std::shared_ptr<IndexBuffer> m_IndexBuffer;
+		//std::shared_ptr<VertexBuffer> m_VertexBuffer;
+		//std::shared_ptr<IndexBuffer> m_IndexBuffer;
 	};
 
 	class ScriptAsset : public Asset
@@ -342,7 +337,7 @@ namespace Hydrogen
 	class AssetManager
 	{
 	public:
-		void LoadAssets(const std::string& directory, const std::shared_ptr<RenderContext>& renderContext);
+		void LoadAssets(const std::string& directory);
 
 		std::string& GetAssetDirectory() { return m_Directory; }
 
@@ -354,7 +349,7 @@ namespace Hydrogen
 			auto res = std::dynamic_pointer_cast<T>(m_Assets[name]);
 			if (res == nullptr)
 			{
-				LoadAssets(m_Directory, m_RenderContext);
+				LoadAssets(m_Directory);
 				res = std::dynamic_pointer_cast<T>(m_Assets[name]);
 				HY_ASSERT(res, "Failed to load asset '{}'", name);
 			}
@@ -364,7 +359,6 @@ namespace Hydrogen
 
 	private:
 		std::string m_Directory;
-		std::shared_ptr<RenderContext> m_RenderContext;
 
 		std::unordered_map<std::string, std::shared_ptr<Asset>> m_Assets;
 	};

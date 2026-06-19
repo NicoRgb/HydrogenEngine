@@ -6,7 +6,6 @@
 #include "Hydrogen/Viewport.hpp"
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Scene.hpp"
-#include "Hydrogen/Renderer/DebugGUIRenderer.hpp"
 #include "Hydrogen/AssetManager.hpp"
 
 #include "imgui.h"
@@ -30,8 +29,6 @@ namespace Hydrogen
 		void OnResize(int width, int height);
 		void Run();
 		void PhysicsUpdate(float deltaTime);
-		void RenderImGui(std::shared_ptr<DebugGUIRenderer>& ImGuiRenderer);
-		void SubmitImGui(std::shared_ptr<DebugGUIRenderer>& ImGuiRenderer);
 		void ReloadShader();
 
 		virtual void OnSetup() = 0;
@@ -58,7 +55,6 @@ namespace Hydrogen
 		AssetManager MainAssetManager;
 		std::shared_ptr<Viewport> MainViewport;
 		std::shared_ptr<SceneAsset> CurrentScene;
-		std::shared_ptr<RenderContext> _RenderContext;
 
 	private:
 		const float timeStep = 1.0f / 60.0f;

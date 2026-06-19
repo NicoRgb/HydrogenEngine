@@ -48,12 +48,11 @@ void ShaderAsset::Compile()
 	m_ByteCode = CompileShader(m_Content, shaderKind);
 }
 
-void AssetManager::LoadAssets(const std::string& directory, const std::shared_ptr<RenderContext>& renderContext)
+void AssetManager::LoadAssets(const std::string& directory)
 {
 	HY_ASSERT(fs::exists(directory), "Asset directory '{}' does not exist", directory);
 
 	m_Directory = directory;
-	m_RenderContext = renderContext;
 
 	for (const auto& entry : fs::recursive_directory_iterator(directory))
 	{
@@ -141,12 +140,12 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 		}
 		else if (assetConfig["type"] == "Texture")
 		{
-			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig, renderContext);
+			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(texture);
 		}
 		else if (assetConfig["type"] == "Mesh")
 		{
-			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig, renderContext);
+			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(mesh);
 		}
 		else if (assetConfig["type"] == "Script")
@@ -166,7 +165,7 @@ void AssetManager::LoadAssets(const std::string& directory, const std::shared_pt
 		}
 		else if (assetConfig["type"] == "CubeMap")
 		{
-			auto cubeMap = std::make_shared<CubeMapAsset>(filePath, assetConfig, renderContext);
+			auto cubeMap = std::make_shared<CubeMapAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(cubeMap);
 		}
 		else
@@ -195,8 +194,8 @@ void TextureAsset::Parse(std::string path)
 	memcpy(m_Image.data(), data, m_Width * m_Height * 4);
 	stbi_image_free(data);
 
-	m_Texture = Texture::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, m_Width, m_Height);
-	m_Texture->UploadData((void*)m_Image.data());
+	//m_Texture = Texture::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, m_Width, m_Height);
+	//m_Texture->UploadData((void*)m_Image.data());
 }
 
 void MeshAsset::Parse(std::string path)
@@ -283,18 +282,18 @@ void MeshAsset::Parse(std::string path)
 		}
 	}
 
-	m_VertexBuffer = VertexBuffer::Create(m_RenderContext,
-		{
-			{VertexElementType::Float3}, // position
-			{VertexElementType::Float2}, // UV
-			{VertexElementType::Float3}, // normal
-			{VertexElementType::Float3}  // tangent
-		},
-		(void*)m_Vertices.data(),
-		m_Vertices.size() / 11
-	);
-
-	m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
+	//m_VertexBuffer = VertexBuffer::Create(m_RenderContext,
+	//	{
+	//		{VertexElementType::Float3}, // position
+	//		{VertexElementType::Float2}, // UV
+	//		{VertexElementType::Float3}, // normal
+	//		{VertexElementType::Float3}  // tangent
+	//	},
+	//	(void*)m_Vertices.data(),
+	//	m_Vertices.size() / 11
+	//);
+	
+	//m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
 }
 
 void SceneAsset::Load(AssetManager* assetManager)
@@ -469,6 +468,6 @@ void CubeMapAsset::Parse(std::string path)
 		cubeData.insert(cubeData.end(), imageData.begin(), imageData.end());
 	}
 
-	m_CubeMap = CubeMap::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, textures[0]->GetWidth(), textures[0]->GetHeight());
-	m_CubeMap->UploadData(cubeData.data());
+	//m_CubeMap = CubeMap::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, textures[0]->GetWidth(), textures[0]->GetHeight());
+	//m_CubeMap->UploadData(cubeData.data());
 }

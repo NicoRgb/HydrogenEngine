@@ -11,9 +11,9 @@
 #include <sol/sol.hpp>
 
 #include "AssetManager.hpp"
-#include "Renderer/Texture.hpp"
-#include "Renderer/VertexBuffer.hpp"
-#include "Renderer/IndexBuffer.hpp"
+//#include "Renderer/Texture.hpp"
+//#include "Renderer/VertexBuffer.hpp"
+//#include "Renderer/IndexBuffer.hpp"
 #include "Hydrogen/Physics.hpp"
 
 #include <random>
