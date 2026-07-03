@@ -6,6 +6,8 @@
 #include "Hydrogen/AssetManager.hpp"
 #include "Hydrogen/Core.hpp"
 
+#include <vma/vk_mem_alloc.h>
+
 namespace Hydrogen
 {
 	struct RgTextureHandle { size_t Id = uint64_t(-1); bool IsValid() const { return Id != uint64_t(-1); } };
@@ -166,7 +168,7 @@ namespace Hydrogen
 		VkRenderPass GetOrCreateRenderPass(const std::vector<RenderPassAttachment>& colors, std::optional<RenderPassAttachment> depth);
 		VkFramebuffer GetOrCreateFramebuffer(VkRenderPass rp, const std::vector<VkImageView>& views, VkImageView depthView, VkExtent2D extent);
 
-		VkImage CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsageFlags usage);
+		VkImage CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsageFlags usage, VmaAllocation* outAllocation);
 		VkImageView CreatePhysicalImageView(VkImage image, const RgTextureDesc& desc, VkImageUsageFlags usage);
 
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -187,9 +189,11 @@ namespace Hydrogen
 		{
 			VkImage Image = VK_NULL_HANDLE;
 			VkImageView View = VK_NULL_HANDLE;
+			VmaAllocation Allocation = VK_NULL_HANDLE;
 			size_t Hash = 0;
 			bool IsFree = true;
 		};
+
 		std::vector<PooledTexture> m_PhysicalTexturePool;
 	};
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include <vma/vk_mem_alloc.h>
 #include "Hydrogen/Renderer/RenderInstance.hpp"
 
 #include <optional>
@@ -25,6 +26,8 @@ namespace Hydrogen
 
 		VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
 		VkQueue GetPresentQueue() const { return m_PresentQueue; }
+
+		VmaAllocator GetAllocator() const { return m_Allocator; }
 
 		static bool CheckDeviceSuitability(VkPhysicalDevice device, const std::shared_ptr<Viewport>& viewport);
 
@@ -53,5 +56,7 @@ namespace Hydrogen
 
 		VkQueue m_GraphicsQueue;
 		VkQueue m_PresentQueue;
+
+		VmaAllocator m_Allocator = VK_NULL_HANDLE;
 	};
 }

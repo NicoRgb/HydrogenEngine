@@ -137,6 +137,15 @@ namespace Hydrogen
             return reinterpret_cast<ImTextureID>(descSet);
         }
 
+		void Clear()
+		{
+			for (auto& [key, value] : m_Cache)
+			{
+				ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)value.DescriptorSet);
+			}
+			m_Cache.clear();
+		}
+
     private:
         std::unordered_map<CacheKey, CacheValue, HashKey> m_Cache;
     };

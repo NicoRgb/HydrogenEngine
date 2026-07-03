@@ -21,10 +21,29 @@ RenderDevice::RenderDevice(const RenderDeviceDescriptor& deviceDesc, const std::
 
 	vkGetDeviceQueue(m_Device, m_QueueFamilyIndices.GraphicsFamily.value(), 0, &m_GraphicsQueue);
 	vkGetDeviceQueue(m_Device, m_QueueFamilyIndices.PresentFamily.value(), 0, &m_PresentQueue);
+
+	VmaVulkanFunctions vma_funcs = {};
+	vma_funcs.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+	vma_funcs.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
+	VmaAllocatorCreateInfo allocatorInfo{};
+	allocatorInfo.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
+	allocatorInfo.physicalDevice = m_PhysicalDevice;
+	allocatorInfo.device = m_Device;
+	allocatorInfo.pVulkanFunctions = &vma_funcs;
+	allocatorInfo.instance = RenderInstance::Get()->GetVulkanInstance();
+	allocatorInfo.vulkanApiVersion = RenderInstance::Get()->GetVulkanApiVersion();
+
+	VkResult result = vmaCreateAllocator(&allocatorInfo, &m_Allocator);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan memory allocator... vmaCreateAllocator returned {}", (uint16_t)result);
+	}
 }
 
 RenderDevice::~RenderDevice()
 {
+	vmaDestroyAllocator(m_Allocator);
 	vkDestroyDevice(m_Device, nullptr);
 }
 

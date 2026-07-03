@@ -50,6 +50,7 @@ Renderer::~Renderer()
 	m_Device->WaitForIdle();
 
 	vkDestroySampler(m_Device->GetVulkanDevice(), m_ImguiSampler, nullptr);
+	g_ImGuiTextureCache.Clear();
 
 	m_Viewport->ImGuiShutdown();
 	ImGui_ImplVulkan_Shutdown();

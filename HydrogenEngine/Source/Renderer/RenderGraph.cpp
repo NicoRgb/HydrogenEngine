@@ -67,14 +67,17 @@ RenderGraph::RenderGraph(RenderDevice* device)
 
 RenderGraph::~RenderGraph()
 {
-	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(m_Device->GetVulkanDevice(), rp, nullptr);
-	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(m_Device->GetVulkanDevice(), fb, nullptr);
+	VkDevice device = m_Device->GetVulkanDevice();
+
+	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
+	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
-		vkDestroyImageView(m_Device->GetVulkanDevice(), pooled.View, nullptr);
-		vkDestroyImage(m_Device->GetVulkanDevice(), pooled.Image, nullptr);
+		vkDestroyImageView(device, pooled.View, nullptr);
+		vmaDestroyImage(m_Device->GetAllocator(), pooled.Image, pooled.Allocation);
 	}
+	m_PhysicalTexturePool.clear();
 }
 
 void RenderGraph::Reset()
@@ -173,7 +176,9 @@ void RenderGraph::Compile()
 
 			if (!foundCachedResource)
 			{
-				VkImage physicalImage = CreatePhysicalImage(m_TextureDescs[i], m_PhysicalViews[i].UsageFlags);
+				VmaAllocation allocationHandle = VK_NULL_HANDLE;
+
+				VkImage physicalImage = CreatePhysicalImage(m_TextureDescs[i], m_PhysicalViews[i].UsageFlags, &allocationHandle);
 				VkImageView physicalView = CreatePhysicalImageView(physicalImage, m_TextureDescs[i], m_PhysicalViews[i].UsageFlags);
 
 				m_PhysicalViews[i].Image = physicalImage;
@@ -182,6 +187,7 @@ void RenderGraph::Compile()
 				PooledTexture newPooled{};
 				newPooled.Image = physicalImage;
 				newPooled.View = physicalView;
+				newPooled.Allocation = allocationHandle;
 				newPooled.Hash = descHash;
 				newPooled.IsFree = false;
 
@@ -233,6 +239,17 @@ void RenderGraph::Compile()
 				targetStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 				VkFormat vkFormat = VK_FORMAT_R8G8B8A8_SRGB;
+
+				switch (desc.Format)
+				{
+				case TextureFormat::RGBA8_SRGB:    vkFormat = VK_FORMAT_R8G8B8A8_SRGB; break;
+				case TextureFormat::RGBA16_SFLOAT: vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT; break;
+				case TextureFormat::BGRA8_SRGB:    vkFormat = VK_FORMAT_B8G8R8A8_SRGB; break;
+				case TextureFormat::D32_SFLOAT:
+					vkFormat = VK_FORMAT_D32_SFLOAT;
+					aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+					break;
+				}
 
 				textureWrittenThisFrame[usage.Handle.Id] = true;
 
@@ -567,7 +584,7 @@ VkFramebuffer RenderGraph::GetOrCreateFramebuffer(VkRenderPass rp, const std::ve
 	return framebuffer;
 }
 
-VkImage RenderGraph::CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsageFlags usage)
+VkImage RenderGraph::CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsageFlags usage, VmaAllocation* outAllocation)
 {
 	VkFormat vkFormat = VK_FORMAT_R8G8B8A8_SRGB;
 	switch (desc.Format)
@@ -592,28 +609,26 @@ VkImage RenderGraph::CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsage
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+	VmaAllocationCreateInfo allocInfo{};
+	allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+	allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
 	VkImage image = VK_NULL_HANDLE;
-	VkResult result = vkCreateImage(m_Device->GetVulkanDevice(), &imageInfo, nullptr, &image);
+	VkResult result = vmaCreateImage(
+		m_Device->GetAllocator(),
+		&imageInfo,
+		&allocInfo,
+		&image,
+		outAllocation,
+		nullptr
+	);
+
 	if (result != VK_SUCCESS)
 	{
-		HY_ENGINE_FATAL("RenderGraph failed to create physical VkImage structure.");
+		HY_ENGINE_FATAL("VMA failed to allocate and create transient physical VkImage.");
 	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(m_Device->GetVulkanDevice(), image, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	VkDeviceMemory imageMemory = VK_NULL_HANDLE;
-	result = vkAllocateMemory(m_Device->GetVulkanDevice(), &allocInfo, nullptr, &imageMemory);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("RenderGraph failed to allocate device memory for transient image.");
-	}
-
-	vkBindImageMemory(m_Device->GetVulkanDevice(), image, imageMemory, 0);
 
 	return image;
 }
