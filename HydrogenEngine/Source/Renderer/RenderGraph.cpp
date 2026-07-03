@@ -13,8 +13,21 @@ static size_t HashTextureDesc(const RgTextureDesc& desc, VkImageUsageFlags usage
 	return seed;
 }
 
+static size_t HashDescriptorBindings(const std::vector<DescriptorBinding>& bindings)
+{
+	size_t seed = 0;
+	for (const auto& binding : bindings)
+	{
+		HashCombine(seed, binding.Binding);
+		HashCombine(seed, static_cast<size_t>(binding.Type));
+	}
+	return seed;
+}
+
 void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec)
 {
+	spec.DescriptorSetLayouts = { m_DescriptorSetLayouts };
+
 	size_t hash = spec.Hash();
 	HashCombine(hash, std::hash<std::string>{}(vertexShader->GetContent()));
 	HashCombine(hash, std::hash<std::string>{}(fragmentShader->GetContent()));
@@ -25,6 +38,10 @@ void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShade
 		m_PipelineCache[hash] = std::make_unique<Pipeline>(m_Device, m_RenderPass, vertexShader, fragmentShader, spec);
 	}
 
+	if (m_FrameDescriptorSet != VK_NULL_HANDLE)
+	{
+		vkCmdBindDescriptorSets(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipelineLayout(), 0, 1, &m_FrameDescriptorSet, 0, nullptr);
+	}
 	vkCmdBindPipeline(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipeline());
 }
 
@@ -74,6 +91,33 @@ RenderGraph::RenderGraph(RenderDevice* device)
 	m_PhysicalViews.reserve(64);
 	m_PassNodes.reserve(32);
 	m_CompiledPasses.reserve(32);
+
+	VkDescriptorPoolSize poolSizes[] = {
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.maxSets = 1000 * IM_ARRAYSIZE(poolSizes);
+	poolInfo.poolSizeCount = (uint32_t)IM_ARRAYSIZE(poolSizes);
+	poolInfo.pPoolSizes = poolSizes;
+
+	VkResult result = vkCreateDescriptorPool(m_Device->GetVulkanDevice(), &poolInfo, nullptr, &m_DescriptorPool);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan descriptor pool... vkCreateDescriptorPool returned {}", (uint16_t)result);
+	}
 }
 
 RenderGraph::~RenderGraph()
@@ -82,6 +126,7 @@ RenderGraph::~RenderGraph()
 
 	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
 	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
+	for (auto& [hash, dsl] : m_DescriptorSetLayoutCache) vkDestroyDescriptorSetLayout(device, dsl, nullptr);
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
@@ -89,6 +134,8 @@ RenderGraph::~RenderGraph()
 		vmaDestroyImage(m_Device->GetAllocator(), pooled.Image, pooled.Allocation);
 	}
 	m_PhysicalTexturePool.clear();
+
+	vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
 }
 
 void RenderGraph::Reset()
@@ -113,6 +160,8 @@ void RenderGraph::ClearCache()
 
 	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
 	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
+	for (auto& [hash, dsl] : m_DescriptorSetLayoutCache) vkDestroyDescriptorSetLayout(device, dsl, nullptr);
+	for (auto& [hash, ds] : m_DescriptorSetCache) vkFreeDescriptorSets(device, m_DescriptorPool, 1, &ds);
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
@@ -122,6 +171,8 @@ void RenderGraph::ClearCache()
 
 	m_RenderPassCache.clear();
 	m_FramebufferCache.clear();
+	m_DescriptorSetLayoutCache.clear();
+	m_DescriptorSetCache.clear();
 	m_PhysicalTexturePool.clear();
 }
 
@@ -151,10 +202,11 @@ RgTextureHandle RenderGraph::ImportTexture(VkImage image, VkImageView imageView,
 	return RgTextureHandle{ id };
 }
 
-void RenderGraph::AddPass(const std::string& passName, std::function<void(RgPassBuilder& builder)> setupFunc, std::function<void(RgCommandList& cmd)> executeFunc)
+void RenderGraph::AddPass(const std::string& passName, const std::vector<DescriptorBinding>& bindings, std::function<void(RgPassBuilder& builder)> setupFunc, std::function<void(RgCommandList& cmd)> executeFunc)
 {
 	RgPassNode newNode{};
 	newNode.Name = passName;
+	newNode.DescriptorBindings = bindings;
 	newNode.ExecuteCallback = executeFunc;
 
 	RgPassBuilder builder(newNode);
@@ -170,8 +222,37 @@ struct TextureStateTracker
 	VkAccessFlags AccessMask = 0;
 };
 
-void RenderGraph::Compile()
+void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 {
+	m_FrameDescriptorSetLayout = VK_NULL_HANDLE;
+	m_FrameDescriptorSet = VK_NULL_HANDLE;
+	if (frameBindings.size() != 0)
+	{
+		size_t bindingHash = HashDescriptorBindings(frameBindings);
+		if (m_DescriptorSetCache.find(bindingHash) == m_DescriptorSetCache.end())
+		{
+			VkDescriptorSetLayout layout = Pipeline::CreateDescriptorSetLayout(m_Device, frameBindings);
+
+			VkDescriptorSetAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			allocInfo.descriptorPool = m_DescriptorPool;
+			allocInfo.descriptorSetCount = 1;
+			allocInfo.pSetLayouts = &layout;
+
+			VkDescriptorSet descriptorSet;
+			VkResult result = vkAllocateDescriptorSets(m_Device->GetVulkanDevice(), &allocInfo, &descriptorSet);
+			if (result != VK_SUCCESS)
+			{
+				HY_ENGINE_FATAL("Failed to allocate Vulkan descriptor set... vkAllocateDescriptorSets returned {}", (uint16_t)result);
+			}
+			m_DescriptorSetLayoutCache[bindingHash] = layout;
+			m_DescriptorSetCache[bindingHash] = descriptorSet;
+		}
+
+		m_FrameDescriptorSetLayout = m_DescriptorSetLayoutCache.at(bindingHash);
+		m_FrameDescriptorSet = m_DescriptorSetCache.at(bindingHash);
+	}
+
 	for (const auto& pass : m_PassNodes)
 	{
 		for (const auto& usage : pass.Usages)
@@ -409,9 +490,47 @@ void RenderGraph::Compile()
 	}
 }
 
-void RenderGraph::Execute(VkCommandBuffer cmdBuffer)
+void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues)
 {
-	m_CommandList.InitFrame(cmdBuffer, &m_PhysicalViews);
+	for (uint32_t i = 0; i < bindingValues.size(); i++)
+	{
+		switch (bindingValues[i].Type)
+		{
+		case DescriptorType::UniformBuffer:
+			for (uint32_t j = 0; j < bindingValues[i].RenderBuffers.size(); j++)
+			{
+				VkDescriptorBufferInfo bufferInfo{};
+				bufferInfo.buffer = bindingValues[i].RenderBuffers[j]->GetBuffer();
+				bufferInfo.offset = 0;
+				bufferInfo.range = bindingValues[i].RenderBuffers[j]->GetSize();
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = m_FrameDescriptorSet;
+				descriptorWrite.dstBinding = i;
+				descriptorWrite.dstArrayElement = j;
+
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				descriptorWrite.descriptorCount = 1;
+
+				descriptorWrite.pBufferInfo = &bufferInfo;
+				descriptorWrite.pImageInfo = nullptr;
+
+				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
+			}
+			break;
+
+		case DescriptorType::StorageBuffer:
+			HY_ASSERT(false, "Not implemented");
+			break;
+
+		case DescriptorType::CombinedImageSampler:
+			HY_ASSERT(false, "Not implemented");
+			break;
+		}
+	}
+
+	m_CommandList.InitFrame(cmdBuffer, &m_PhysicalViews, m_FrameDescriptorSet);
 
 	for (const auto& pass : m_CompiledPasses)
 	{
@@ -445,7 +564,12 @@ void RenderGraph::Execute(VkCommandBuffer cmdBuffer)
 		scissor.extent = pass.RenderExtent;
 		vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
 
-		m_CommandList.InitPass(pass.RenderPass);
+		std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+		if (m_FrameDescriptorSetLayout != VK_NULL_HANDLE)
+		{
+			descriptorSetLayouts.push_back(m_FrameDescriptorSetLayout);
+		}
+		m_CommandList.InitPass(pass.RenderPass, descriptorSetLayouts);
 
 		pass.ExecuteCallback(m_CommandList);
 

@@ -228,12 +228,10 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 		pushConstantRangeOffset += (uint32_t)spec.PushConstants[i].Size;
 	}
 
-	CreateDescriptorSetLayout();
-
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 1;
-	pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
+	pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(spec.DescriptorSetLayouts.size());
+	pipelineLayoutInfo.pSetLayouts = spec.DescriptorSetLayouts.data();
 	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(spec.PushConstants.size());
 	pipelineLayoutInfo.pPushConstantRanges = m_VkPushConstantsRanges.data();
 
@@ -275,7 +273,6 @@ Pipeline::~Pipeline()
 {
 	vkDestroyPipeline(m_Device->GetVulkanDevice(), m_Pipeline, nullptr);
 	vkDestroyPipelineLayout(m_Device->GetVulkanDevice(), m_Layout, nullptr);
-	vkDestroyDescriptorSetLayout(m_Device->GetVulkanDevice(), m_DescriptorSetLayout, nullptr);
 }
 
 VkShaderModule Pipeline::CreateShaderModule(const std::vector<uint32_t>& byteCode)
@@ -295,13 +292,13 @@ VkShaderModule Pipeline::CreateShaderModule(const std::vector<uint32_t>& byteCod
 	return shaderModule;
 }
 
-void Pipeline::CreateDescriptorSetLayout()
+VkDescriptorSetLayout Pipeline::CreateDescriptorSetLayout(RenderDevice* device, const std::vector<DescriptorBinding>& bindings)
 {
-	std::vector<VkDescriptorSetLayoutBinding> uboLayoutBindings(m_Spec.DescriptorBindings.size());
-	for (size_t i = 0; i < m_Spec.DescriptorBindings.size(); i++)
+	std::vector<VkDescriptorSetLayoutBinding> uboLayoutBindings(bindings.size());
+	for (size_t i = 0; i < bindings.size(); i++)
 	{
-		uboLayoutBindings[i].binding = m_Spec.DescriptorBindings[i].Binding;
-		switch (m_Spec.DescriptorBindings[i].Type)
+		uboLayoutBindings[i].binding = bindings[i].Binding;
+		switch (bindings[i].Type)
 		{
 		case DescriptorType::UniformBuffer:
 			uboLayoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -316,14 +313,16 @@ void Pipeline::CreateDescriptorSetLayout()
 			HY_ASSERT(false, "Invalid Descriptor Type");
 		}
 
-		if (((uint32_t)m_Spec.DescriptorBindings[i].StageFlags & (uint32_t)ShaderStage::Vertex) == (uint32_t)ShaderStage::Vertex)
+		if (((uint32_t)bindings[i].StageFlags & (uint32_t)ShaderStage::Vertex) == (uint32_t)ShaderStage::Vertex)
 		{
 			uboLayoutBindings[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if (((uint32_t)m_Spec.DescriptorBindings[i].StageFlags & (uint32_t)ShaderStage::Fragment) == (uint32_t)ShaderStage::Fragment)
+		if (((uint32_t)bindings[i].StageFlags & (uint32_t)ShaderStage::Fragment) == (uint32_t)ShaderStage::Fragment)
 		{
 			uboLayoutBindings[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
+
+		uboLayoutBindings[i].descriptorCount = bindings[i].Count;
 	}
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -331,9 +330,11 @@ void Pipeline::CreateDescriptorSetLayout()
 	layoutInfo.bindingCount = static_cast<uint32_t>(uboLayoutBindings.size());
 	layoutInfo.pBindings = uboLayoutBindings.data();
 
-	VkResult result = vkCreateDescriptorSetLayout(m_Device->GetVulkanDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayout);
+	VkDescriptorSetLayout descriptorSetLayout;
+	VkResult result = vkCreateDescriptorSetLayout(device->GetVulkanDevice(), &layoutInfo, nullptr, &descriptorSetLayout);
 	if (result != VK_SUCCESS)
 	{
 		HY_ENGINE_FATAL("Failed to create Vulkan descriptor set layout... vkCreateDescriptorSetLayout returned {}", (uint16_t)result);
 	}
+	return descriptorSetLayout;
 }

@@ -83,7 +83,7 @@ namespace Hydrogen
         ShaderCullMode CullMode = ShaderCullMode::None;
         std::vector<BlendMode> ColorBlending = {};
         std::vector<PushConstantsRange> PushConstants = {};
-		std::vector<DescriptorBinding> DescriptorBindings = {};
+		std::vector<VkDescriptorSetLayout> DescriptorSetLayouts = {};
 
         size_t Hash()
         {
@@ -110,13 +110,10 @@ namespace Hydrogen
                 HashCombine(seed, pc.Size);
                 HashCombine(seed, static_cast<size_t>(pc.StageFlags));
             }
-			HashCombine(seed, DescriptorBindings.size());
-			for (const auto& binding : DescriptorBindings)
+			HashCombine(seed, DescriptorSetLayouts.size());
+			for (const auto& layout : DescriptorSetLayouts)
 			{
-				HashCombine(seed, binding.Binding);
-				HashCombine(seed, static_cast<size_t>(binding.Type));
-				HashCombine(seed, binding.Count);
-				HashCombine(seed, static_cast<size_t>(binding.StageFlags));
+				HashCombine(seed, reinterpret_cast<size_t>(layout));
 			}
 
             return seed;
@@ -129,18 +126,18 @@ namespace Hydrogen
 		Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec);
 		~Pipeline();
 
+        VkPipelineLayout GetPipelineLayout() const { return m_Layout; }
         VkPipeline GetPipeline() const { return m_Pipeline; }
+        static VkDescriptorSetLayout CreateDescriptorSetLayout(RenderDevice* device, const std::vector<DescriptorBinding>& bindings);
 
 	private:
 		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& byteCode);
-		void CreateDescriptorSetLayout();
 
 		RenderDevice* m_Device;
         PipelineSpec m_Spec;
 
         std::vector<VkPushConstantRange> m_VkPushConstantsRanges;
         VkPipelineLayout m_Layout;
-        VkDescriptorSetLayout m_DescriptorSetLayout;
         VkPipeline m_Pipeline;
 	};
 }

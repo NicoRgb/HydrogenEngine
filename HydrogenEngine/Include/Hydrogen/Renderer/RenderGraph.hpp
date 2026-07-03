@@ -33,15 +33,17 @@ namespace Hydrogen
 		RgCommandList(RenderDevice* device)
 			: m_Device(device) {}
 
-		void InitFrame(VkCommandBuffer cmdBuf, const std::vector<RgResourceView>* physicalViews)
+		void InitFrame(VkCommandBuffer cmdBuf, const std::vector<RgResourceView>* physicalViews, VkDescriptorSet frameDescriptorSet)
 		{
 			m_CmdBuf = cmdBuf;
 			m_PhysicalViews = physicalViews;
+			m_FrameDescriptorSet = frameDescriptorSet;
 		}
 
-		void InitPass(VkRenderPass renderPass)
+		void InitPass(VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
 		{
 			m_RenderPass = renderPass;
+			m_DescriptorSetLayouts = descriptorSetLayouts;
 		}
 
 		VkCommandBuffer GetCommandBuffer() const { return m_CmdBuf; }
@@ -60,8 +62,10 @@ namespace Hydrogen
 
 		VkCommandBuffer m_CmdBuf = VK_NULL_HANDLE;
 		const std::vector<RgResourceView>* m_PhysicalViews = nullptr;
+		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
 
 		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
+		std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
 
 		std::unordered_map<size_t, std::unique_ptr<Pipeline>> m_PipelineCache;
 	};
@@ -78,6 +82,7 @@ namespace Hydrogen
 	{
 		std::string Name;
 		std::vector<RgResourceUsage> Usages;
+		std::vector<DescriptorBinding> DescriptorBindings;
 		std::function<void(RgCommandList&)> ExecuteCallback;
 	};
 
@@ -128,7 +133,18 @@ namespace Hydrogen
 		VkRenderPass RenderPass;
 		VkFramebuffer Framebuffer;
 
+		VkDescriptorSetLayout PassDescriptorSetLayout = VK_NULL_HANDLE;
+		VkDescriptorSet FrameDescriptorSet = VK_NULL_HANDLE;
+		VkDescriptorSet PassDescriptorSet = VK_NULL_HANDLE;
+
 		std::vector<VkClearValue> ClearValues;
+	};
+
+	struct DescriptorBindingValue
+	{
+		DescriptorType Type;
+		std::vector<RenderBuffer*> RenderBuffers;
+		std::vector<Texture*> Textures;
 	};
 
 	class RenderGraph
@@ -144,11 +160,12 @@ namespace Hydrogen
 		RgTextureHandle ImportTexture(VkImage image, VkImageView imageView, const RgTextureDesc& desc);
 
 		void AddPass(const std::string& name,
+			const std::vector<DescriptorBinding>& bindings, // set 1
 			std::function<void(RgPassBuilder&)> setup,
 			std::function<void(RgCommandList&)> execute);
 
-		void Compile();
-		void Execute(VkCommandBuffer cmdBuffer);
+		void Compile(const std::vector<DescriptorBinding>& frameBindings); // set 0
+		void Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues);
 
 		VkRenderPass GetRenderPass(std::string passName)
 		{
@@ -178,6 +195,10 @@ namespace Hydrogen
 		RenderDevice* m_Device;
 		RgCommandList m_CommandList;
 
+		VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
+		VkDescriptorSetLayout m_FrameDescriptorSetLayout = VK_NULL_HANDLE;
+		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
+
 		std::vector<RgTextureDesc> m_TextureDescs;
 		std::vector<RgResourceView> m_PhysicalViews;
 		std::vector<RgPassNode> m_PassNodes;
@@ -186,6 +207,8 @@ namespace Hydrogen
 
 		std::unordered_map<size_t, VkRenderPass> m_RenderPassCache;
 		std::unordered_map<size_t, VkFramebuffer> m_FramebufferCache;
+		std::unordered_map<size_t, VkDescriptorSetLayout> m_DescriptorSetLayoutCache;
+		std::unordered_map<size_t, VkDescriptorSet> m_DescriptorSetCache;
 
 		struct PooledTexture
 		{

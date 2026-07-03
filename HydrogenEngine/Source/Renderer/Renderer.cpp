@@ -9,6 +9,9 @@ ImGuiTextureCache g_ImGuiTextureCache;
 ImVec2 g_OldViewportContentRegion = ImVec2(1920, 1080);
 ImVec2 g_ViewportContentRegion = ImVec2(1920, 1080);
 
+std::unique_ptr<RenderBuffer> g_VertexBuffer;
+std::unique_ptr<RenderBuffer> g_UniformBuffer;
+
 Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain)
 	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain)
 {
@@ -45,11 +48,30 @@ Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* devi
 	{
 		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
 	}
+
+	const std::vector<float> vertices = {
+		0.0f, -0.5f, 1.0f, 1.0f, 1.0f,
+		0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+		-0.5f, 0.5f, 0.0f, 0.0f, 1.0f
+	};
+
+	BufferDescription desc = { vertices.size() * sizeof(float), BufferType::Vertex, false };
+	g_VertexBuffer = std::make_unique<RenderBuffer>(m_Device, desc);
+	g_VertexBuffer->UploadDataStaging(vertices.data(), vertices.size() * sizeof(float));
+
+	desc = { sizeof(glm::vec4), BufferType::Uniform, true, true };
+	g_UniformBuffer = std::make_unique<RenderBuffer>(m_Device, desc);
+
+	glm::vec4 color = glm::vec4(0, 255, 0, 255);
+	g_UniformBuffer->UploadData(&color, sizeof(glm::vec4), 0);
 }
 
 Renderer::~Renderer()
 {
 	m_Device->WaitForIdle();
+
+	g_VertexBuffer.reset();
+	g_UniformBuffer.reset();
 
 	vkDestroySampler(m_Device->GetVulkanDevice(), m_ImguiSampler, nullptr);
 	g_ImGuiTextureCache.Clear();
@@ -99,31 +121,23 @@ void Renderer::Render()
 
 	VkSampler viewportSampler = m_ImguiSampler;
 
-	const std::vector<float> vertices = {
-		0.0f, -0.5f, 1.0f, 1.0f, 1.0f,
-		0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-		-0.5f, 0.5f, 0.0f, 0.0f, 1.0f
-	};
-
-	RenderBuffer vertexBuffer = RenderBuffer(m_Device, { vertices.size() * sizeof(float), BufferType::Vertex, false });
-	vertexBuffer.UploadDataStaging(vertices.data(), vertices.size() * sizeof(float));
-
-	m_RenderGraph->AddPass("Triangle",
+	m_RenderGraph->AddPass("Triangle", {},
 		[finalTexture](RgPassBuilder& builder)
 		{
 			builder.WriteColor(finalTexture);
 		},
-		[&vertexBuffer, vertexShader, fragmentShader](RgCommandList& cmd)
+		[vertexShader, fragmentShader](RgCommandList& cmd)
 		{
 			PipelineSpec trianglePipeline = {};
 			trianglePipeline.VertexBufferLayout = { { VertexElementType::Float2 }, { VertexElementType::Float3 } };
+			trianglePipeline.ColorBlending = { BlendMode::None };
 
 			cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
-			cmd.BindVertexBuffer(&vertexBuffer);
+			cmd.BindVertexBuffer(g_VertexBuffer.get());
 			cmd.Draw(3);
 		});
 
-	m_RenderGraph->AddPass("ImGui",
+	m_RenderGraph->AddPass("ImGui", {},
 		[finalTexture, swapChainImage](RgPassBuilder& builder)
 		{
 			builder.WriteColor(swapChainImage);
@@ -142,7 +156,7 @@ void Renderer::Render()
 			ImGui_ImplVulkan_RenderDrawData(drawData, cmd.GetCommandBuffer());
 		});
 
-	m_RenderGraph->Compile();
+	m_RenderGraph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Fragment } });
 
 	vkResetCommandBuffer(m_CommandBuffer, 0);
 	VkCommandBufferBeginInfo beginInfo{};
@@ -156,7 +170,11 @@ void Renderer::Render()
 		HY_ENGINE_FATAL("Failed to begin Vulkan command buffer... vkBeginCommandBuffer returned {}", (uint16_t)result);
 	}
 
-	m_RenderGraph->Execute(m_CommandBuffer);
+	DescriptorBindingValue value;
+	value.Type = DescriptorType::UniformBuffer;
+	value.RenderBuffers.push_back(g_UniformBuffer.get());
+
+	m_RenderGraph->Execute(m_CommandBuffer, { value });
 
 	result = vkEndCommandBuffer(m_CommandBuffer);
 	if (result != VK_SUCCESS)

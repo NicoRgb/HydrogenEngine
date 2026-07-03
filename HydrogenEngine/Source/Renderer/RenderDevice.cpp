@@ -55,8 +55,8 @@ RenderDevice::RenderDevice(const RenderDeviceDescriptor& deviceDesc, const std::
 RenderDevice::~RenderDevice()
 {
 	vmaDestroyAllocator(m_Allocator);
-	vkDestroyDevice(m_Device, nullptr);
 	vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
+	vkDestroyDevice(m_Device, nullptr);
 }
 
 void RenderDevice::WaitForIdle() const
