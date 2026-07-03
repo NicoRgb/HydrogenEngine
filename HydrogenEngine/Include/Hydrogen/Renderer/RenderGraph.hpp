@@ -40,10 +40,11 @@ namespace Hydrogen
 			m_FrameDescriptorSet = frameDescriptorSet;
 		}
 
-		void InitPass(VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
+		void InitPass(VkRenderPass renderPass, const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts, VkDescriptorSet passDescriptorSet)
 		{
 			m_RenderPass = renderPass;
 			m_DescriptorSetLayouts = descriptorSetLayouts;
+			m_PassDescriptorSet = passDescriptorSet;
 		}
 
 		VkCommandBuffer GetCommandBuffer() const { return m_CmdBuf; }
@@ -53,6 +54,7 @@ namespace Hydrogen
 			return (*m_PhysicalViews)[handle.Id];
 		}
 
+		void UpdateDescriptorSet(const std::vector<DescriptorBindingValue>& bindingValues);
 		void BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec);
 		void BindVertexBuffer(RenderBuffer* vertexBuffer);
 		void Draw(uint32_t vertexCount);
@@ -63,6 +65,7 @@ namespace Hydrogen
 		VkCommandBuffer m_CmdBuf = VK_NULL_HANDLE;
 		const std::vector<RgResourceView>* m_PhysicalViews = nullptr;
 		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
+		VkDescriptorSet m_PassDescriptorSet = VK_NULL_HANDLE;
 
 		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
 		std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
@@ -133,18 +136,10 @@ namespace Hydrogen
 		VkRenderPass RenderPass;
 		VkFramebuffer Framebuffer;
 
-		VkDescriptorSetLayout PassDescriptorSetLayout = VK_NULL_HANDLE;
-		VkDescriptorSet FrameDescriptorSet = VK_NULL_HANDLE;
-		VkDescriptorSet PassDescriptorSet = VK_NULL_HANDLE;
+		VkDescriptorSetLayout DescriptorSetLayout = VK_NULL_HANDLE;
+		VkDescriptorSet DescriptorSet = VK_NULL_HANDLE;
 
 		std::vector<VkClearValue> ClearValues;
-	};
-
-	struct DescriptorBindingValue
-	{
-		DescriptorType Type;
-		std::vector<RenderBuffer*> RenderBuffers;
-		std::vector<Texture*> Textures;
 	};
 
 	class RenderGraph
@@ -207,8 +202,16 @@ namespace Hydrogen
 
 		std::unordered_map<size_t, VkRenderPass> m_RenderPassCache;
 		std::unordered_map<size_t, VkFramebuffer> m_FramebufferCache;
-		std::unordered_map<size_t, VkDescriptorSetLayout> m_DescriptorSetLayoutCache;
-		std::unordered_map<size_t, VkDescriptorSet> m_DescriptorSetCache;
+
+		struct PooledDescriptorSet
+		{
+			VkDescriptorSet DescriptorSet;
+			VkDescriptorSetLayout DescriptorSetLayout;
+			size_t Hash = 0;
+			bool IsFree = true;
+		};
+
+		std::vector<PooledDescriptorSet> m_DescriptorSetPool;
 
 		struct PooledTexture
 		{

@@ -24,9 +24,50 @@ static size_t HashDescriptorBindings(const std::vector<DescriptorBinding>& bindi
 	return seed;
 }
 
+void RgCommandList::UpdateDescriptorSet(const std::vector<DescriptorBindingValue>& bindingValues)
+{
+	for (uint32_t i = 0; i < bindingValues.size(); i++)
+	{
+		switch (bindingValues[i].Type)
+		{
+		case DescriptorType::UniformBuffer:
+			for (uint32_t j = 0; j < bindingValues[i].RenderBuffers.size(); j++)
+			{
+				VkDescriptorBufferInfo bufferInfo{};
+				bufferInfo.buffer = bindingValues[i].RenderBuffers[j]->GetBuffer();
+				bufferInfo.offset = 0;
+				bufferInfo.range = bindingValues[i].RenderBuffers[j]->GetSize();
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = m_PassDescriptorSet;
+				descriptorWrite.dstBinding = i;
+				descriptorWrite.dstArrayElement = j;
+
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				descriptorWrite.descriptorCount = 1;
+
+				descriptorWrite.pBufferInfo = &bufferInfo;
+				descriptorWrite.pImageInfo = nullptr;
+
+				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
+			}
+			break;
+
+		case DescriptorType::StorageBuffer:
+			HY_ASSERT(false, "Not implemented");
+			break;
+
+		case DescriptorType::CombinedImageSampler:
+			HY_ASSERT(false, "Not implemented");
+			break;
+		}
+	}
+}
+
 void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec)
 {
-	spec.DescriptorSetLayouts = { m_DescriptorSetLayouts };
+	spec.DescriptorSetLayouts = m_DescriptorSetLayouts;
 
 	size_t hash = spec.Hash();
 	HashCombine(hash, std::hash<std::string>{}(vertexShader->GetContent()));
@@ -37,11 +78,22 @@ void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShade
 	{
 		m_PipelineCache[hash] = std::make_unique<Pipeline>(m_Device, m_RenderPass, vertexShader, fragmentShader, spec);
 	}
-
+	
+	std::vector<VkDescriptorSet> sets;
 	if (m_FrameDescriptorSet != VK_NULL_HANDLE)
 	{
-		vkCmdBindDescriptorSets(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipelineLayout(), 0, 1, &m_FrameDescriptorSet, 0, nullptr);
+		sets.push_back(m_FrameDescriptorSet);
 	}
+	if (m_PassDescriptorSet != VK_NULL_HANDLE)
+	{
+		sets.push_back(m_PassDescriptorSet);
+	}
+
+	if (sets.size() > 0)
+	{
+		vkCmdBindDescriptorSets(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipelineLayout(), 0, static_cast<uint32_t>(sets.size()), sets.data(), 0, nullptr);
+	}
+	
 	vkCmdBindPipeline(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipeline());
 }
 
@@ -126,7 +178,11 @@ RenderGraph::~RenderGraph()
 
 	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
 	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
-	for (auto& [hash, dsl] : m_DescriptorSetLayoutCache) vkDestroyDescriptorSetLayout(device, dsl, nullptr);
+
+	for (auto& pooled : m_DescriptorSetPool)
+	{
+		vkDestroyDescriptorSetLayout(device, pooled.DescriptorSetLayout, nullptr);
+	}
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
@@ -146,6 +202,11 @@ void RenderGraph::Reset()
 	m_CompiledPasses.clear();
 	m_PostRenderBarriers.clear();
 
+	for (auto& pooled : m_DescriptorSetPool)
+	{
+		pooled.IsFree = true;
+	}
+
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
 		pooled.IsFree = true;
@@ -160,8 +221,12 @@ void RenderGraph::ClearCache()
 
 	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
 	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
-	for (auto& [hash, dsl] : m_DescriptorSetLayoutCache) vkDestroyDescriptorSetLayout(device, dsl, nullptr);
-	for (auto& [hash, ds] : m_DescriptorSetCache) vkFreeDescriptorSets(device, m_DescriptorPool, 1, &ds);
+
+	for (auto& pooled : m_DescriptorSetPool)
+	{
+		vkFreeDescriptorSets(device, m_DescriptorPool, 1, &pooled.DescriptorSet);
+		vkDestroyDescriptorSetLayout(device, pooled.DescriptorSetLayout, nullptr);
+	}
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
@@ -171,8 +236,7 @@ void RenderGraph::ClearCache()
 
 	m_RenderPassCache.clear();
 	m_FramebufferCache.clear();
-	m_DescriptorSetLayoutCache.clear();
-	m_DescriptorSetCache.clear();
+	m_DescriptorSetPool.clear();
 	m_PhysicalTexturePool.clear();
 }
 
@@ -229,7 +293,18 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 	if (frameBindings.size() != 0)
 	{
 		size_t bindingHash = HashDescriptorBindings(frameBindings);
-		if (m_DescriptorSetCache.find(bindingHash) == m_DescriptorSetCache.end())
+		for (auto& pooled : m_DescriptorSetPool)
+		{
+			if (pooled.Hash == bindingHash && pooled.IsFree)
+			{
+				m_FrameDescriptorSetLayout = pooled.DescriptorSetLayout;
+				m_FrameDescriptorSet = pooled.DescriptorSet;
+				pooled.IsFree = false;
+				break;
+			}
+		}
+
+		if (m_FrameDescriptorSet == VK_NULL_HANDLE)
 		{
 			VkDescriptorSetLayout layout = Pipeline::CreateDescriptorSetLayout(m_Device, frameBindings);
 
@@ -245,12 +320,18 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 			{
 				HY_ENGINE_FATAL("Failed to allocate Vulkan descriptor set... vkAllocateDescriptorSets returned {}", (uint16_t)result);
 			}
-			m_DescriptorSetLayoutCache[bindingHash] = layout;
-			m_DescriptorSetCache[bindingHash] = descriptorSet;
-		}
 
-		m_FrameDescriptorSetLayout = m_DescriptorSetLayoutCache.at(bindingHash);
-		m_FrameDescriptorSet = m_DescriptorSetCache.at(bindingHash);
+			PooledDescriptorSet pooled;
+			pooled.DescriptorSetLayout = layout;
+			pooled.DescriptorSet = descriptorSet;
+			pooled.Hash = bindingHash;
+			pooled.IsFree = false;
+
+			m_DescriptorSetPool.push_back(pooled);
+
+			m_FrameDescriptorSetLayout = pooled.DescriptorSetLayout;
+			m_FrameDescriptorSet = pooled.DescriptorSet;
+		}
 	}
 
 	for (const auto& pass : m_PassNodes)
@@ -314,10 +395,55 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 	for (const auto& recordedPass : m_PassNodes)
 	{
+		passColorAttachments.clear();
+
 		CompiledPass compiledPass{};
 		compiledPass.Name = recordedPass.Name;
 		compiledPass.ExecuteCallback = recordedPass.ExecuteCallback;
-		passColorAttachments.clear();
+
+		if (frameBindings.size() != 0)
+		{
+			size_t bindingHash = HashDescriptorBindings(recordedPass.DescriptorBindings);
+			for (auto& pooled : m_DescriptorSetPool)
+			{
+				if (pooled.Hash == bindingHash && pooled.IsFree)
+				{
+					compiledPass.DescriptorSetLayout = pooled.DescriptorSetLayout;
+					compiledPass.DescriptorSet = pooled.DescriptorSet;
+					pooled.IsFree = false;
+					break;
+				}
+			}
+
+			if (compiledPass.DescriptorSet == VK_NULL_HANDLE)
+			{
+				VkDescriptorSetLayout layout = Pipeline::CreateDescriptorSetLayout(m_Device, recordedPass.DescriptorBindings);
+
+				VkDescriptorSetAllocateInfo allocInfo{};
+				allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+				allocInfo.descriptorPool = m_DescriptorPool;
+				allocInfo.descriptorSetCount = 1;
+				allocInfo.pSetLayouts = &layout;
+
+				VkDescriptorSet descriptorSet;
+				VkResult result = vkAllocateDescriptorSets(m_Device->GetVulkanDevice(), &allocInfo, &descriptorSet);
+				if (result != VK_SUCCESS)
+				{
+					HY_ENGINE_FATAL("Failed to allocate Vulkan descriptor set... vkAllocateDescriptorSets returned {}", (uint16_t)result);
+				}
+
+				PooledDescriptorSet pooled;
+				pooled.DescriptorSetLayout = layout;
+				pooled.DescriptorSet = descriptorSet;
+				pooled.Hash = bindingHash;
+				pooled.IsFree = false;
+
+				m_DescriptorSetPool.push_back(pooled);
+
+				compiledPass.DescriptorSetLayout = pooled.DescriptorSetLayout;
+				compiledPass.DescriptorSet = pooled.DescriptorSet;
+			}
+		}
 
 		std::optional<RenderPassAttachment> passDepthAttachment = std::nullopt;
 		bool extentSet = false;
@@ -569,7 +695,12 @@ void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<Descripto
 		{
 			descriptorSetLayouts.push_back(m_FrameDescriptorSetLayout);
 		}
-		m_CommandList.InitPass(pass.RenderPass, descriptorSetLayouts);
+		if (pass.DescriptorSetLayout)
+		{
+			descriptorSetLayouts.push_back(pass.DescriptorSetLayout);
+		}
+
+		m_CommandList.InitPass(pass.RenderPass, descriptorSetLayouts, pass.DescriptorSet);
 
 		pass.ExecuteCallback(m_CommandList);
 

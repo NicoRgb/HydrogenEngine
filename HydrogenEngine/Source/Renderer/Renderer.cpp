@@ -11,6 +11,7 @@ ImVec2 g_ViewportContentRegion = ImVec2(1920, 1080);
 
 std::unique_ptr<RenderBuffer> g_VertexBuffer;
 std::unique_ptr<RenderBuffer> g_UniformBuffer;
+std::unique_ptr<RenderBuffer> g_PassUniformBuffer;
 
 Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain)
 	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain)
@@ -64,6 +65,11 @@ Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* devi
 
 	glm::vec4 color = glm::vec4(0, 255, 0, 255);
 	g_UniformBuffer->UploadData(&color, sizeof(glm::vec4), 0);
+
+	g_PassUniformBuffer = std::make_unique<RenderBuffer>(m_Device, desc);
+
+	color = glm::vec4(255, 0, 0, 255);
+	g_PassUniformBuffer->UploadData(&color, sizeof(glm::vec4), 0);
 }
 
 Renderer::~Renderer()
@@ -72,6 +78,7 @@ Renderer::~Renderer()
 
 	g_VertexBuffer.reset();
 	g_UniformBuffer.reset();
+	g_PassUniformBuffer.reset();
 
 	vkDestroySampler(m_Device->GetVulkanDevice(), m_ImguiSampler, nullptr);
 	g_ImGuiTextureCache.Clear();
@@ -121,13 +128,18 @@ void Renderer::Render()
 
 	VkSampler viewportSampler = m_ImguiSampler;
 
-	m_RenderGraph->AddPass("Triangle", {},
+	m_RenderGraph->AddPass("Triangle", { { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Fragment } },
 		[finalTexture](RgPassBuilder& builder)
 		{
 			builder.WriteColor(finalTexture);
 		},
 		[vertexShader, fragmentShader](RgCommandList& cmd)
 		{
+			DescriptorBindingValue value;
+			value.Type = DescriptorType::UniformBuffer;
+			value.RenderBuffers.push_back(g_PassUniformBuffer.get());
+			cmd.UpdateDescriptorSet({ value });
+
 			PipelineSpec trianglePipeline = {};
 			trianglePipeline.VertexBufferLayout = { { VertexElementType::Float2 }, { VertexElementType::Float3 } };
 			trianglePipeline.ColorBlending = { BlendMode::None };

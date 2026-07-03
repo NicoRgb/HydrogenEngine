@@ -73,6 +73,13 @@ namespace Hydrogen
 		ShaderStage StageFlags;
 	};
 
+    struct DescriptorBindingValue
+    {
+        DescriptorType Type;
+        std::vector<RenderBuffer*> RenderBuffers;
+        std::vector<Texture*> Textures;
+    };
+
 	struct PipelineSpec
 	{
         std::string VertexMain = "main";
