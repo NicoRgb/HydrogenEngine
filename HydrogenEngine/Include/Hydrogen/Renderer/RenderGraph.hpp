@@ -137,6 +137,7 @@ namespace Hydrogen
 		~RenderGraph();
 
 		void Reset();
+		void ClearCache();
 
 		RgTextureHandle CreateTexture(const RgTextureDesc& desc);
 		RgTextureHandle ImportTexture(VkImage image, VkImageView imageView, const RgTextureDesc& desc);

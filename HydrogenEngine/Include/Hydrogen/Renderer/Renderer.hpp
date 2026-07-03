@@ -50,7 +50,8 @@ namespace Hydrogen
 		void BeginImGuiFrame();
 		void Render();
 		
-		void ClearCache() {}
+		void UpdateSwapChain(SwapChain* swapChain);
+		void ClearCache();
 
 	private:
 		void CreateCommandBuffer();

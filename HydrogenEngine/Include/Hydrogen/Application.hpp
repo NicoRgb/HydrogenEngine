@@ -64,14 +64,14 @@ namespace Hydrogen
 		std::shared_ptr<Viewport> MainViewport;
 		std::shared_ptr<SceneAsset> CurrentScene;
 
-	private:
-		const float timeStep = 1.0f / 60.0f;
-		float accumulator = 0.0f;
-
 		std::unique_ptr<RenderInstance> m_RenderInstance;
 		std::unique_ptr<RenderDevice> m_RenderDevice;
 		std::unique_ptr<SwapChain> m_SwapChain;
 		std::unique_ptr<Renderer> m_Renderer;
+
+	private:
+		const float timeStep = 1.0f / 60.0f;
+		float accumulator = 0.0f;
 
 		SwapChainSpec m_CurrentSwapChainSpec;
 

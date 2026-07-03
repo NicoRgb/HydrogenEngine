@@ -6,6 +6,8 @@
 using namespace Hydrogen;
 
 ImGuiTextureCache g_ImGuiTextureCache;
+ImVec2 g_OldViewportContentRegion = ImVec2(1920, 1080);
+ImVec2 g_ViewportContentRegion = ImVec2(1920, 1080);
 
 Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain)
 	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain)
@@ -78,9 +80,15 @@ void Renderer::Render()
 
 	m_RenderGraph->Reset();
 
+	if (g_ViewportContentRegion.x != g_OldViewportContentRegion.x || g_ViewportContentRegion.y != g_OldViewportContentRegion.y)
+	{
+		g_OldViewportContentRegion = g_ViewportContentRegion;
+		ClearCache();
+	}
+
 	RgTextureDesc finalSceneDesc = {};
-	finalSceneDesc.Width = m_SwapChain->GetWidth();
-	finalSceneDesc.Height = m_SwapChain->GetHeight();
+	finalSceneDesc.Width = (uint32_t)g_ViewportContentRegion.x;
+	finalSceneDesc.Height = (uint32_t)g_ViewportContentRegion.y;
 	finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
 	auto finalTexture = m_RenderGraph->CreateTexture(finalSceneDesc);
 
@@ -112,7 +120,7 @@ void Renderer::Render()
 		[viewportSampler, finalSceneDesc, finalTexture, vertexShader, fragmentShader](RgCommandList& cmd)
 		{
 			ImGui::Begin("Viewport");
-
+			g_ViewportContentRegion = ImGui::GetContentRegionAvail();
 			ImGui::Image(g_ImGuiTextureCache.GetTextureID(cmd.GetTextureView(finalTexture).ImageView, viewportSampler), ImVec2((float)finalSceneDesc.Width, (float)finalSceneDesc.Height));
 			ImGui::End();
 
@@ -171,6 +179,18 @@ void Renderer::Render()
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = imageIndices;
 	vkQueuePresentKHR(m_Device->GetPresentQueue(), &presentInfo);
+}
+
+void Renderer::UpdateSwapChain(SwapChain* swapChain)
+{
+	m_SwapChain = swapChain;
+	ClearCache();
+}
+
+void Renderer::ClearCache()
+{
+	g_ImGuiTextureCache.Clear();
+	m_RenderGraph->ClearCache();
 }
 
 void Renderer::CreateCommandBuffer()

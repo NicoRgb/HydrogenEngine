@@ -94,6 +94,26 @@ void RenderGraph::Reset()
 	}
 }
 
+void RenderGraph::ClearCache()
+{
+	Reset();
+
+	VkDevice device = m_Device->GetVulkanDevice();
+
+	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
+	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
+
+	for (auto& pooled : m_PhysicalTexturePool)
+	{
+		vkDestroyImageView(device, pooled.View, nullptr);
+		vmaDestroyImage(m_Device->GetAllocator(), pooled.Image, pooled.Allocation);
+	}
+
+	m_RenderPassCache.clear();
+	m_FramebufferCache.clear();
+	m_PhysicalTexturePool.clear();
+}
+
 RgTextureHandle RenderGraph::CreateTexture(const RgTextureDesc& desc)
 {
 	uint32_t id = static_cast<uint32_t>(m_TextureDescs.size());

@@ -145,6 +145,16 @@ public:
 			ImGui::Text("Frame Time: %.2f ms", (1000.0f / m_CurrentAvgFPS));
 		}
 
+		VmaTotalStatistics stats{};
+		vmaCalculateStatistics(m_RenderDevice->GetAllocator(), &stats);
+
+		ImGui::Separator();
+
+		ImGui::Text("Memory Usage Statistics:");
+		ImGui::Text("  Total Allocations: %zu", stats.total.statistics.allocationCount);
+		ImGui::Text("  Total Allocated Memory: %.2f MB", static_cast<double>(stats.total.statistics.allocationBytes) / (1024.0 * 1024.0));
+		ImGui::Text("  Reserved Memory: %.2f MB", static_cast<double>(stats.total.statistics.blockBytes) / (1024.0 * 1024.0));
+
 		ImGui::End();
 
 		ImGui::Begin("Graphics Settings");

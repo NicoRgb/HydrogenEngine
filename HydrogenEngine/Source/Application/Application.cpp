@@ -180,9 +180,8 @@ void Application::RecreateSwapchain(SwapChainSpec swapChainSepc)
 
 	m_RenderDevice->WaitForIdle();
 
-	m_Renderer.reset();
 	m_SwapChain.reset();
-
 	m_SwapChain = std::make_unique<SwapChain>(m_RenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
-	m_Renderer = std::make_unique<Renderer>(MainViewport, m_RenderDevice.get(), m_SwapChain.get());
+
+	m_Renderer->UpdateSwapChain(m_SwapChain.get());
 }
