@@ -5,7 +5,7 @@
 using namespace Hydrogen;
 
 RenderBuffer::RenderBuffer(RenderDevice* device, const BufferDescription& desc)
-    : m_Device(device), m_Size(desc.size), m_IsCpuVisible(desc.cpuVisible)
+	: m_Device(device), m_Size(desc.size), m_IsCpuVisible(desc.cpuVisible), m_PersistantMapping(desc.persistantMapping)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -47,6 +47,13 @@ RenderBuffer::RenderBuffer(RenderDevice* device, const BufferDescription& desc)
     }
 
     vkBindBufferMemory(m_Device->GetVulkanDevice(), m_Buffer, m_Memory, 0);
+
+	HY_ASSERT(m_PersistantMapping == false || m_IsCpuVisible, "Persistant mapping is only valid for CPU visible buffers!");
+
+    if (m_PersistantMapping)
+    {
+		vkMapMemory(m_Device->GetVulkanDevice(), m_Memory, 0, m_Size, 0, &m_MappedData);
+    }
 }
 
 RenderBuffer::~RenderBuffer()
@@ -59,10 +66,55 @@ void RenderBuffer::UploadData(const void* data, uint64_t size, uint64_t offset)
 {
     HY_ASSERT(m_IsCpuVisible, "Cannot directly upload data to a non-CPU visible buffer! Use a staging buffer.");
 
+	if (m_PersistantMapping)
+	{
+		std::memcpy(static_cast<uint8_t*>(m_MappedData) + offset, data, size);
+		return;
+	}
+
     void* mappedData;
     vkMapMemory(m_Device->GetVulkanDevice(), m_Memory, offset, size, 0, &mappedData);
     std::memcpy(mappedData, data, size);
     vkUnmapMemory(m_Device->GetVulkanDevice(), m_Memory);
+}
+
+void RenderBuffer::UploadDataStaging(const void* data, uint64_t size, uint64_t offset)
+{
+    RenderBuffer stagingBuffer(m_Device, BufferDescription{ size, BufferType::Staging, true });
+    stagingBuffer.UploadData(data, size);
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = m_Device->GetCommandPool();
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(m_Device->GetVulkanDevice(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, stagingBuffer.GetBuffer(), GetBuffer(), 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(m_Device->GetGraphicsQueue());
+
+    vkFreeCommandBuffers(m_Device->GetVulkanDevice(), m_Device->GetCommandPool(), 1, &commandBuffer);
 }
 
 uint32_t RenderBuffer::FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)

@@ -6,10 +6,7 @@
 
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Core.hpp"
-//#include "Hydrogen/Renderer/RenderContext.hpp"
-//#include "Hydrogen/Renderer/Texture.hpp"
-//#include "Hydrogen/Renderer/VertexBuffer.hpp"
-//#include "Hydrogen/Renderer/IndexBuffer.hpp"
+#include "Hydrogen/Renderer/RenderBuffer.hpp"
 
 #include <json.hpp>
 
@@ -179,8 +176,8 @@ namespace Hydrogen
 		{
 		}
 
-		//const std::shared_ptr<VertexBuffer>& GetVertexBuffer() const { return m_VertexBuffer; }
-		//const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const { return m_IndexBuffer; }
+		const RenderBuffer* GetVertexBuffer(RenderDevice* device);
+		const RenderBuffer* GetIndexBuffer(RenderDevice* device);
 
 	private:
 		void Parse(std::string path);
@@ -188,8 +185,8 @@ namespace Hydrogen
 		std::vector<float> m_Vertices;
 		std::vector<uint32_t> m_Indices;
 
-		//std::shared_ptr<VertexBuffer> m_VertexBuffer;
-		//std::shared_ptr<IndexBuffer> m_IndexBuffer;
+		std::unique_ptr<RenderBuffer> m_VertexBuffer = nullptr;
+		std::unique_ptr<RenderBuffer> m_IndexBuffer = nullptr;
 	};
 
 	class ScriptAsset : public Asset

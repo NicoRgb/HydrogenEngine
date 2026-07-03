@@ -18,9 +18,11 @@ namespace Hydrogen
         uint64_t size = 0;
         BufferType type = BufferType::Uniform;
         bool cpuVisible = false;
+		bool persistantMapping = false;
     };
 
-    class RenderBuffer {
+    class RenderBuffer
+    {
     public:
         RenderBuffer(RenderDevice* device, const BufferDescription& desc);
         ~RenderBuffer();
@@ -29,8 +31,9 @@ namespace Hydrogen
         RenderBuffer& operator=(const RenderBuffer&) = delete;
 
         void UploadData(const void* data, uint64_t size, uint64_t offset = 0);
+		void UploadDataStaging(const void* data, uint64_t size, uint64_t offset = 0);
 
-        VkBuffer GetHandle() const { return m_Buffer; }
+        VkBuffer GetBuffer() const { return m_Buffer; }
         uint64_t GetSize() const { return m_Size; }
 
     private:
@@ -43,5 +46,7 @@ namespace Hydrogen
 
         uint64_t m_Size = 0;
         bool m_IsCpuVisible = false;
+		bool m_PersistantMapping = false;
+		void* m_MappedData = nullptr;
     };
 }

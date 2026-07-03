@@ -62,7 +62,6 @@ namespace Hydrogen
 		RenderDevice* m_Device;
 		SwapChain* m_SwapChain;
 
-		VkCommandPool m_CommandPool;
 		VkCommandBuffer m_CommandBuffer;
 
 		VkSemaphore m_ImageAvailableSemaphore;
@@ -77,66 +76,66 @@ namespace Hydrogen
 		VkSampler m_ImguiSampler;
 	};
 
-    class ImGuiTextureCache
-    {
-    public:
-        struct CacheKey
-        {
-            VkImageView ImageView;
-            VkSampler Sampler;
+	class ImGuiTextureCache
+	{
+	public:
+		struct CacheKey
+		{
+			VkImageView ImageView;
+			VkSampler Sampler;
 
-            bool operator==(const CacheKey& other) const
-            {
-                return ImageView == other.ImageView && Sampler == other.Sampler;
-            }
-        };
+			bool operator==(const CacheKey& other) const
+			{
+				return ImageView == other.ImageView && Sampler == other.Sampler;
+			}
+		};
 
-        struct CacheValue
-        {
-            VkDescriptorSet DescriptorSet;
-        };
+		struct CacheValue
+		{
+			VkDescriptorSet DescriptorSet;
+		};
 
-        struct HashKey
-        {
-            std::size_t operator()(const CacheKey& key) const
-            {
-                std::size_t h1 = std::hash<void*>()(reinterpret_cast<void*>(key.ImageView));
-                std::size_t h2 = std::hash<void*>()(reinterpret_cast<void*>(key.Sampler));
-                return h1 ^ (h2 << 1);
-            }
-        };
+		struct HashKey
+		{
+			std::size_t operator()(const CacheKey& key) const
+			{
+				std::size_t h1 = std::hash<void*>()(reinterpret_cast<void*>(key.ImageView));
+				std::size_t h2 = std::hash<void*>()(reinterpret_cast<void*>(key.Sampler));
+				return h1 ^ (h2 << 1);
+			}
+		};
 
-        ImGuiTextureCache() = default;
+		ImGuiTextureCache() = default;
 
-        ~ImGuiTextureCache()
-        {
-            for (auto& [key, value] : m_Cache)
-            {
-                ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)value.DescriptorSet);
-            }
-            m_Cache.clear();
-        }
+		~ImGuiTextureCache()
+		{
+			for (auto& [key, value] : m_Cache)
+			{
+				ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)value.DescriptorSet);
+			}
+			m_Cache.clear();
+		}
 
-        ImTextureID GetTextureID(VkImageView view, VkSampler sampler)
-        {
-            if (view == VK_NULL_HANDLE || sampler == VK_NULL_HANDLE)
-            {
-                return (ImTextureID)VK_NULL_HANDLE;
-            }
+		ImTextureID GetTextureID(VkImageView view, VkSampler sampler)
+		{
+			if (view == VK_NULL_HANDLE || sampler == VK_NULL_HANDLE)
+			{
+				return (ImTextureID)VK_NULL_HANDLE;
+			}
 
-            CacheKey key{ view, sampler };
-            auto it = m_Cache.find(key);
+			CacheKey key{ view, sampler };
+			auto it = m_Cache.find(key);
 
-            if (it != m_Cache.end())
-            {
-                return reinterpret_cast<ImTextureID>(it->second.DescriptorSet);
-            }
+			if (it != m_Cache.end())
+			{
+				return reinterpret_cast<ImTextureID>(it->second.DescriptorSet);
+			}
 
-            VkDescriptorSet descSet = ImGui_ImplVulkan_AddTexture(sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			VkDescriptorSet descSet = ImGui_ImplVulkan_AddTexture(sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-            m_Cache[key] = CacheValue{ descSet };
-            return reinterpret_cast<ImTextureID>(descSet);
-        }
+			m_Cache[key] = CacheValue{ descSet };
+			return reinterpret_cast<ImTextureID>(descSet);
+		}
 
 		void Clear()
 		{
@@ -147,7 +146,7 @@ namespace Hydrogen
 			m_Cache.clear();
 		}
 
-    private:
-        std::unordered_map<CacheKey, CacheValue, HashKey> m_Cache;
-    };
+	private:
+		std::unordered_map<CacheKey, CacheValue, HashKey> m_Cache;
+	};
 }

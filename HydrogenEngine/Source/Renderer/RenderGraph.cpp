@@ -16,12 +16,23 @@ static size_t HashTextureDesc(const RgTextureDesc& desc, VkImageUsageFlags usage
 void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec)
 {
 	size_t hash = spec.Hash();
+	HashCombine(hash, std::hash<std::string>{}(vertexShader->GetContent()));
+	HashCombine(hash, std::hash<std::string>{}(fragmentShader->GetContent()));
+	HashCombine(hash, reinterpret_cast<size_t>(m_RenderPass));
+
 	if (m_PipelineCache.find(hash) == m_PipelineCache.end())
 	{
 		m_PipelineCache[hash] = std::make_unique<Pipeline>(m_Device, m_RenderPass, vertexShader, fragmentShader, spec);
 	}
 
 	vkCmdBindPipeline(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipeline());
+}
+
+void RgCommandList::BindVertexBuffer(RenderBuffer* vertexBuffer)
+{
+	VkBuffer vertexBuffers[] = { vertexBuffer->GetBuffer() };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(m_CmdBuf, 0, 1, vertexBuffers, offsets);
 }
 
 void RgCommandList::Draw(uint32_t vertexCount)

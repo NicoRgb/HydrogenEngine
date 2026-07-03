@@ -39,12 +39,24 @@ RenderDevice::RenderDevice(const RenderDeviceDescriptor& deviceDesc, const std::
 	{
 		HY_ENGINE_FATAL("Failed to create Vulkan memory allocator... vmaCreateAllocator returned {}", (uint16_t)result);
 	}
+
+	VkCommandPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	poolInfo.queueFamilyIndex = m_QueueFamilyIndices.GraphicsFamily.value();
+
+	result = vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_CommandPool);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan command pool... vkCreateCommandPool returned {}", (uint16_t)result);
+	}
 }
 
 RenderDevice::~RenderDevice()
 {
 	vmaDestroyAllocator(m_Allocator);
 	vkDestroyDevice(m_Device, nullptr);
+	vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
 }
 
 void RenderDevice::WaitForIdle() const

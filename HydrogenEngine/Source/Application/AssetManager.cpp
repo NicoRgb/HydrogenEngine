@@ -198,6 +198,38 @@ void TextureAsset::Parse(std::string path)
 	//m_Texture->UploadData((void*)m_Image.data());
 }
 
+const RenderBuffer* MeshAsset::GetVertexBuffer(RenderDevice* device)
+{
+	if (!m_VertexBuffer)
+	{
+		BufferDescription vertexBufferDesc;
+		vertexBufferDesc.cpuVisible = false;
+		vertexBufferDesc.size = m_Vertices.size() * sizeof(float);
+		vertexBufferDesc.type = BufferType::Vertex;
+
+		m_VertexBuffer = std::make_unique<RenderBuffer>(device, vertexBufferDesc);
+		m_VertexBuffer->UploadDataStaging(m_Vertices.data(), vertexBufferDesc.size);
+	}
+
+	return m_VertexBuffer.get();
+}
+
+const RenderBuffer* MeshAsset::GetIndexBuffer(RenderDevice* device)
+{
+	if (!m_IndexBuffer)
+	{
+		BufferDescription indexBufferDesc;
+		indexBufferDesc.cpuVisible = false;
+		indexBufferDesc.size = m_Indices.size() * sizeof(uint32_t);
+		indexBufferDesc.type = BufferType::Index;
+
+		m_IndexBuffer = std::make_unique<RenderBuffer>(device, indexBufferDesc);
+		m_IndexBuffer->UploadDataStaging(m_Indices.data(), indexBufferDesc.size);
+	}
+
+	return m_IndexBuffer.get();
+}
+
 void MeshAsset::Parse(std::string path)
 {
 	tinyobj::attrib_t attrib;

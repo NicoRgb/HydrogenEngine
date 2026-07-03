@@ -63,7 +63,7 @@ Renderer::~Renderer()
 	vkDestroySemaphore(m_Device->GetVulkanDevice(), m_PresentFinishedSemaphore, nullptr);
 	vkDestroyFence(m_Device->GetVulkanDevice(), m_WaitFence, nullptr);
 
-	vkDestroyCommandPool(m_Device->GetVulkanDevice(), m_CommandPool, nullptr);
+	vkFreeCommandBuffers(m_Device->GetVulkanDevice(), m_Device->GetCommandPool(), 1, &m_CommandBuffer);
 }
 
 void Renderer::BeginImGuiFrame()
@@ -99,15 +99,27 @@ void Renderer::Render()
 
 	VkSampler viewportSampler = m_ImguiSampler;
 
+	const std::vector<float> vertices = {
+		0.0f, -0.5f, 1.0f, 1.0f, 1.0f,
+		0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
+		-0.5f, 0.5f, 0.0f, 0.0f, 1.0f
+	};
+
+	RenderBuffer vertexBuffer = RenderBuffer(m_Device, { vertices.size() * sizeof(float), BufferType::Vertex, false });
+	vertexBuffer.UploadDataStaging(vertices.data(), vertices.size() * sizeof(float));
+
 	m_RenderGraph->AddPass("Triangle",
 		[finalTexture](RgPassBuilder& builder)
 		{
 			builder.WriteColor(finalTexture);
 		},
-		[vertexShader, fragmentShader](RgCommandList& cmd)
+		[&vertexBuffer, vertexShader, fragmentShader](RgCommandList& cmd)
 		{
 			PipelineSpec trianglePipeline = {};
+			trianglePipeline.VertexBufferLayout = { { VertexElementType::Float2 }, { VertexElementType::Float3 } };
+
 			cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
+			cmd.BindVertexBuffer(&vertexBuffer);
 			cmd.Draw(3);
 		});
 
@@ -195,24 +207,13 @@ void Renderer::ClearCache()
 
 void Renderer::CreateCommandBuffer()
 {
-	VkCommandPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	poolInfo.queueFamilyIndex = m_Device->GetGraphicsFamilyIndex();
-
-	VkResult result = vkCreateCommandPool(m_Device->GetVulkanDevice(), &poolInfo, nullptr, &m_CommandPool);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to create Vulkan command pool... vkCreateCommandPool returned {}", (uint16_t)result);
-	}
-
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.commandPool = m_CommandPool;
+	allocInfo.commandPool = m_Device->GetCommandPool();
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandBufferCount = 1;
 
-	result = vkAllocateCommandBuffers(m_Device->GetVulkanDevice(), &allocInfo, &m_CommandBuffer);
+	VkResult result = vkAllocateCommandBuffers(m_Device->GetVulkanDevice(), &allocInfo, &m_CommandBuffer);
 	if (result != VK_SUCCESS)
 	{
 		HY_ENGINE_FATAL("Failed to allocate Vulkan command buffer... vkAllocateCommandBuffers returned {}", (uint16_t)result);

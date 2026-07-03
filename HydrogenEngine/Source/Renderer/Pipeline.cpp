@@ -32,7 +32,68 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 	dynamicState.pDynamicStates = dynamicStates.data();
 
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = CreateVertexInputStateCreateInfo();
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(m_Spec.VertexBufferLayout.size());
+	if (m_Spec.VertexBufferLayout.size() != 0)
+	{
+		uint32_t currentOffset = 0;
+		for (size_t i = 0; i < attributeDescriptions.size(); i++)
+		{
+			attributeDescriptions[i].binding = 0;
+			attributeDescriptions[i].location = (uint32_t)i;
+			attributeDescriptions[i].offset = currentOffset;
+
+			switch (m_Spec.VertexBufferLayout[i].Type)
+			{
+			case VertexElementType::Float:
+				attributeDescriptions[i].format = VK_FORMAT_R32_SFLOAT;
+				currentOffset += 4;
+				break;
+			case VertexElementType::Float2:
+				attributeDescriptions[i].format = VK_FORMAT_R32G32_SFLOAT;
+				currentOffset += 8;
+				break;
+			case VertexElementType::Float3:
+				attributeDescriptions[i].format = VK_FORMAT_R32G32B32_SFLOAT;
+				currentOffset += 12;
+				break;
+			case VertexElementType::Float4:
+				attributeDescriptions[i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+				currentOffset += 16;
+				break;
+			case VertexElementType::Int:
+				attributeDescriptions[i].format = VK_FORMAT_R32_SINT;
+				currentOffset += 4;
+				break;
+			case VertexElementType::Int2:
+				attributeDescriptions[i].format = VK_FORMAT_R32G32_SINT;
+				currentOffset += 8;
+				break;
+			case VertexElementType::Int3:
+				attributeDescriptions[i].format = VK_FORMAT_R32G32B32_SINT;
+				currentOffset += 12;
+				break;
+			case VertexElementType::Int4:
+				attributeDescriptions[i].format = VK_FORMAT_R32G32B32A32_SINT;
+				currentOffset += 16;
+				break;
+			default:
+				HY_ASSERT(false, "Invalid Vertex Attribute Type");
+			}
+		}
+
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = currentOffset;
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+	}
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -106,29 +167,42 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 	multisampling.minSampleShading = 1.0f;
 
-	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendAttachment.blendEnable = VK_FALSE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.blendEnable = VK_TRUE;
-	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments(spec.ColorBlending.size());
+	for (size_t i = 0; i < spec.ColorBlending.size(); i++)
+	{
+		colorBlendAttachments[i].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		switch (spec.ColorBlending[i])
+		{
+		case BlendMode::None:
+			colorBlendAttachments[i].blendEnable = VK_FALSE;
+			break;
+		case BlendMode::Additive:
+			colorBlendAttachments[i].blendEnable = VK_TRUE;
+			colorBlendAttachments[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			colorBlendAttachments[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+			colorBlendAttachments[i].colorBlendOp = VK_BLEND_OP_ADD;
+			colorBlendAttachments[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			colorBlendAttachments[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+			colorBlendAttachments[i].alphaBlendOp = VK_BLEND_OP_ADD;
+			break;
+		case BlendMode::Alpha:
+			colorBlendAttachments[i].blendEnable = VK_TRUE;
+			colorBlendAttachments[i].srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			colorBlendAttachments[i].dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			colorBlendAttachments[i].colorBlendOp = VK_BLEND_OP_ADD;
+			colorBlendAttachments[i].srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+			colorBlendAttachments[i].dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			colorBlendAttachments[i].alphaBlendOp = VK_BLEND_OP_ADD;
+			break;
+		}
+	}
 
 	VkPipelineColorBlendStateCreateInfo colorBlending{};
 	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	colorBlending.logicOpEnable = VK_FALSE;
 	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendAttachment;
+	colorBlending.attachmentCount = static_cast<uint32_t>(spec.ColorBlending.size());
+	colorBlending.pAttachments = colorBlendAttachments.data();
 	colorBlending.blendConstants[0] = 0.0f;
 	colorBlending.blendConstants[1] = 0.0f;
 	colorBlending.blendConstants[2] = 0.0f;
@@ -139,25 +213,27 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	for (size_t i = 0; i < spec.PushConstants.size(); i++)
 	{
 		m_VkPushConstantsRanges[i].offset = pushConstantRangeOffset;
-		m_VkPushConstantsRanges[i].size = (uint32_t)spec.PushConstants[i].size;
+		m_VkPushConstantsRanges[i].size = (uint32_t)spec.PushConstants[i].Size;
 		m_VkPushConstantsRanges[i].stageFlags = 0;
 
-		if (((uint32_t)spec.PushConstants[i].stageFlags & (uint32_t)ShaderStage::Vertex) == (uint32_t)ShaderStage::Vertex)
+		if (((uint32_t)spec.PushConstants[i].StageFlags & (uint32_t)ShaderStage::Vertex) == (uint32_t)ShaderStage::Vertex)
 		{
 			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if (((uint32_t)spec.PushConstants[i].stageFlags & (uint32_t)ShaderStage::Fragment) == (uint32_t)ShaderStage::Fragment)
+		if (((uint32_t)spec.PushConstants[i].StageFlags & (uint32_t)ShaderStage::Fragment) == (uint32_t)ShaderStage::Fragment)
 		{
 			m_VkPushConstantsRanges[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 
-		pushConstantRangeOffset += (uint32_t)spec.PushConstants[i].size;
+		pushConstantRangeOffset += (uint32_t)spec.PushConstants[i].Size;
 	}
+
+	CreateDescriptorSetLayout();
 
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	//pipelineLayoutInfo.setLayoutCount = 1;
-	//pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
+	pipelineLayoutInfo.setLayoutCount = 1;
+	pipelineLayoutInfo.pSetLayouts = &m_DescriptorSetLayout;
 	pipelineLayoutInfo.pushConstantRangeCount = static_cast<uint32_t>(spec.PushConstants.size());
 	pipelineLayoutInfo.pPushConstantRanges = m_VkPushConstantsRanges.data();
 
@@ -199,6 +275,7 @@ Pipeline::~Pipeline()
 {
 	vkDestroyPipeline(m_Device->GetVulkanDevice(), m_Pipeline, nullptr);
 	vkDestroyPipelineLayout(m_Device->GetVulkanDevice(), m_Layout, nullptr);
+	vkDestroyDescriptorSetLayout(m_Device->GetVulkanDevice(), m_DescriptorSetLayout, nullptr);
 }
 
 VkShaderModule Pipeline::CreateShaderModule(const std::vector<uint32_t>& byteCode)
@@ -218,74 +295,45 @@ VkShaderModule Pipeline::CreateShaderModule(const std::vector<uint32_t>& byteCod
 	return shaderModule;
 }
 
-VkPipelineVertexInputStateCreateInfo Pipeline::CreateVertexInputStateCreateInfo()
+void Pipeline::CreateDescriptorSetLayout()
 {
-	if (m_Spec.VertexBufferLayout.size() == 0)
+	std::vector<VkDescriptorSetLayoutBinding> uboLayoutBindings(m_Spec.DescriptorBindings.size());
+	for (size_t i = 0; i < m_Spec.DescriptorBindings.size(); i++)
 	{
-		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		return vertexInputInfo;
-	}
-
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(m_Spec.VertexBufferLayout.size());
-
-	uint32_t currentOffset = 0;
-	for (size_t i = 0; i < attributeDescriptions.size(); i++)
-	{
-		attributeDescriptions[i].binding = 0;
-		attributeDescriptions[i].location = (uint32_t)i;
-		attributeDescriptions[i].offset = currentOffset;
-
-		switch (m_Spec.VertexBufferLayout[i].Type)
+		uboLayoutBindings[i].binding = m_Spec.DescriptorBindings[i].Binding;
+		switch (m_Spec.DescriptorBindings[i].Type)
 		{
-		case VertexElementType::Float:
-			attributeDescriptions[i].format = VK_FORMAT_R32_SFLOAT;
-			currentOffset += 4;
+		case DescriptorType::UniformBuffer:
+			uboLayoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			break;
-		case VertexElementType::Float2:
-			attributeDescriptions[i].format = VK_FORMAT_R32G32_SFLOAT;
-			currentOffset += 8;
+		case DescriptorType::StorageBuffer:
+			uboLayoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			break;
-		case VertexElementType::Float3:
-			attributeDescriptions[i].format = VK_FORMAT_R32G32B32_SFLOAT;
-			currentOffset += 12;
-			break;
-		case VertexElementType::Float4:
-			attributeDescriptions[i].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-			currentOffset += 16;
-			break;
-		case VertexElementType::Int:
-			attributeDescriptions[i].format = VK_FORMAT_R32_SINT;
-			currentOffset += 4;
-			break;
-		case VertexElementType::Int2:
-			attributeDescriptions[i].format = VK_FORMAT_R32G32_SINT;
-			currentOffset += 8;
-			break;
-		case VertexElementType::Int3:
-			attributeDescriptions[i].format = VK_FORMAT_R32G32B32_SINT;
-			currentOffset += 12;
-			break;
-		case VertexElementType::Int4:
-			attributeDescriptions[i].format = VK_FORMAT_R32G32B32A32_SINT;
-			currentOffset += 16;
+		case DescriptorType::CombinedImageSampler:
+			uboLayoutBindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			break;
 		default:
-			HY_ASSERT(false, "Invalid Vertex Attribute Type");
+			HY_ASSERT(false, "Invalid Descriptor Type");
+		}
+
+		if (((uint32_t)m_Spec.DescriptorBindings[i].StageFlags & (uint32_t)ShaderStage::Vertex) == (uint32_t)ShaderStage::Vertex)
+		{
+			uboLayoutBindings[i].stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
+		}
+		if (((uint32_t)m_Spec.DescriptorBindings[i].StageFlags & (uint32_t)ShaderStage::Fragment) == (uint32_t)ShaderStage::Fragment)
+		{
+			uboLayoutBindings[i].stageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 	}
 
-	VkVertexInputBindingDescription bindingDescription{};
-	bindingDescription.binding = 0;
-	bindingDescription.stride = currentOffset;
-	bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = static_cast<uint32_t>(uboLayoutBindings.size());
+	layoutInfo.pBindings = uboLayoutBindings.data();
 
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputInfo.vertexBindingDescriptionCount = 1;
-	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
-	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
-
-	return vertexInputInfo;
+	VkResult result = vkCreateDescriptorSetLayout(m_Device->GetVulkanDevice(), &layoutInfo, nullptr, &m_DescriptorSetLayout);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan descriptor set layout... vkCreateDescriptorSetLayout returned {}", (uint16_t)result);
+	}
 }

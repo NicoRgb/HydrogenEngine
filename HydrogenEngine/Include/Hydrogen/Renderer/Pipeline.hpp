@@ -54,9 +54,24 @@ namespace Hydrogen
 
     struct PushConstantsRange
     {
-        size_t size;
-        ShaderStage stageFlags;
+        size_t Size;
+        ShaderStage StageFlags;
     };
+
+	enum class DescriptorType
+	{
+		UniformBuffer,
+		StorageBuffer,
+		CombinedImageSampler
+	};
+
+	struct DescriptorBinding
+	{
+		uint32_t Binding;
+		DescriptorType Type;
+		uint32_t Count;
+		ShaderStage StageFlags;
+	};
 
 	struct PipelineSpec
 	{
@@ -66,8 +81,9 @@ namespace Hydrogen
         VertexLayout VertexBufferLayout = {};
         PrimitiveStyle Primitive = PrimitiveStyle::Triangles;
         ShaderCullMode CullMode = ShaderCullMode::None;
-        BlendMode ColorBlending = BlendMode::None;
+        std::vector<BlendMode> ColorBlending = {};
         std::vector<PushConstantsRange> PushConstants = {};
+		std::vector<DescriptorBinding> DescriptorBindings = {};
 
         size_t Hash()
         {
@@ -83,13 +99,25 @@ namespace Hydrogen
             }
             HashCombine(seed, static_cast<size_t>(Primitive));
             HashCombine(seed, static_cast<size_t>(CullMode));
-            HashCombine(seed, static_cast<size_t>(ColorBlending));
+            HashCombine(seed, ColorBlending.size());
+            for (const auto& blending : ColorBlending)
+            {
+                HashCombine(seed, static_cast<size_t>(blending));
+            }
             HashCombine(seed, PushConstants.size());
             for (const auto& pc : PushConstants)
             {
-                HashCombine(seed, pc.size);
-                HashCombine(seed, static_cast<size_t>(pc.stageFlags));
+                HashCombine(seed, pc.Size);
+                HashCombine(seed, static_cast<size_t>(pc.StageFlags));
             }
+			HashCombine(seed, DescriptorBindings.size());
+			for (const auto& binding : DescriptorBindings)
+			{
+				HashCombine(seed, binding.Binding);
+				HashCombine(seed, static_cast<size_t>(binding.Type));
+				HashCombine(seed, binding.Count);
+				HashCombine(seed, static_cast<size_t>(binding.StageFlags));
+			}
 
             return seed;
         }
@@ -105,13 +133,14 @@ namespace Hydrogen
 
 	private:
 		VkShaderModule CreateShaderModule(const std::vector<uint32_t>& byteCode);
-        VkPipelineVertexInputStateCreateInfo CreateVertexInputStateCreateInfo();
+		void CreateDescriptorSetLayout();
 
 		RenderDevice* m_Device;
         PipelineSpec m_Spec;
 
         std::vector<VkPushConstantRange> m_VkPushConstantsRanges;
         VkPipelineLayout m_Layout;
+        VkDescriptorSetLayout m_DescriptorSetLayout;
         VkPipeline m_Pipeline;
 	};
 }

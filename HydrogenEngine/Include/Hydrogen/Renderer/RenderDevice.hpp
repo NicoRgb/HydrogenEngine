@@ -27,6 +27,7 @@ namespace Hydrogen
 		VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
 		VkQueue GetPresentQueue() const { return m_PresentQueue; }
 
+		VkCommandPool GetCommandPool() const { return m_CommandPool; }
 		VmaAllocator GetAllocator() const { return m_Allocator; }
 
 		static bool CheckDeviceSuitability(VkPhysicalDevice device, const std::shared_ptr<Viewport>& viewport);
@@ -57,6 +58,7 @@ namespace Hydrogen
 		VkQueue m_GraphicsQueue;
 		VkQueue m_PresentQueue;
 
+		VkCommandPool m_CommandPool = VK_NULL_HANDLE;
 		VmaAllocator m_Allocator = VK_NULL_HANDLE;
 	};
 }
