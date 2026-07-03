@@ -91,8 +91,6 @@ void Application::Run()
 			continue;
 		}
 
-		OnUpdate(deltaTime);
-
 		m_Renderer->BeginImGuiFrame();
 		static bool dockingEnabled = true;
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -119,7 +117,7 @@ void Application::Run()
 
 		OnImGuiRender();
 
-		m_Renderer->Render();
+		OnUpdate(deltaTime);
 
 		auto& io = ImGui::GetIO();
 		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)

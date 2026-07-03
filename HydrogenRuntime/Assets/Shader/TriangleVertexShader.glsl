@@ -1,11 +1,27 @@
 #version 450
 
-layout(location = 0) in vec2 inPosition;
-layout(location = 1) in vec3 inColor;
+layout(location = 0) in vec3 inPos;
+layout(location = 1) in vec2 inUV;
+layout(location = 2) in vec3 inNormal;
+layout(location = 3) in vec3 inTangent;
 
-layout(location = 0) out vec3 fragColor;
+layout(binding = 0, set = 0) uniform UniformBuffer
+{
+    mat4 view;
+    mat4 proj;
+    vec3 viewPos;
+    float pad;
+} cameraInfo;
 
-void main() {
-    gl_Position = vec4(inPosition, 0.0, 1.0);
-    fragColor = inColor;
+layout(push_constant) uniform constants
+{
+    mat4 model;
+    vec4 color;
+    int texIndex;
+} PushConstants;
+
+void main()
+{
+    vec4 worldPos = PushConstants.model * vec4(inPos, 1.0);
+    gl_Position = cameraInfo.proj * cameraInfo.view * worldPos;
 }

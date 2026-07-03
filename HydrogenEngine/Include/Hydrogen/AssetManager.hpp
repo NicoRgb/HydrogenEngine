@@ -179,6 +179,8 @@ namespace Hydrogen
 		const RenderBuffer* GetVertexBuffer(RenderDevice* device);
 		const RenderBuffer* GetIndexBuffer(RenderDevice* device);
 
+		uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
+
 	private:
 		void Parse(std::string path);
 

@@ -54,10 +54,13 @@ namespace Hydrogen
 			return (*m_PhysicalViews)[handle.Id];
 		}
 
+		void PushConstants(const void* data, uint32_t size, uint32_t offset, ShaderStage stageFlags);
 		void UpdateDescriptorSet(const std::vector<DescriptorBindingValue>& bindingValues);
 		void BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec);
-		void BindVertexBuffer(RenderBuffer* vertexBuffer);
+		void BindVertexBuffer(const RenderBuffer* vertexBuffer);
+		void BindIndexBuffer(const RenderBuffer* indexBuffer);
 		void Draw(uint32_t vertexCount);
+		void DrawIndexed(uint32_t indexCount);
 
 	private:
 		RenderDevice* m_Device;
@@ -66,6 +69,8 @@ namespace Hydrogen
 		const std::vector<RgResourceView>* m_PhysicalViews = nullptr;
 		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
 		VkDescriptorSet m_PassDescriptorSet = VK_NULL_HANDLE;
+
+		Pipeline* m_BoundPipeline = nullptr;
 
 		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
 		std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;

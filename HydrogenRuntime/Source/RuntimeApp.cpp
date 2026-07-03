@@ -128,7 +128,7 @@ public:
 		Entity cameraEntity;
 		if (UpdateCamera(dt, cameraEntity))
 		{
-			//MainRenderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
+			m_Renderer->Render(CurrentScene->GetScene(), cameraEntity.GetComponent<CameraComponent>(), cameraEntity.GetComponent<TransformComponent>().GetPosition());
 		}
 	}
 

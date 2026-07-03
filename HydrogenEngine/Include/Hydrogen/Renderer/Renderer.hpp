@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include "Hydrogen/Renderer/RenderGraph.hpp"
+#include "Hydrogen/Camera.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
 
@@ -48,7 +49,7 @@ namespace Hydrogen
 		~Renderer();
 
 		void BeginImGuiFrame();
-		void Render();
+		void Render(const std::shared_ptr<Scene>& scene, const CameraComponent& camera, glm::vec3 cameraPos);
 		
 		void UpdateSwapChain(SwapChain* swapChain);
 		void ClearCache();

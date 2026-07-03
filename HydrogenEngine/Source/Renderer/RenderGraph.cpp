@@ -24,6 +24,23 @@ static size_t HashDescriptorBindings(const std::vector<DescriptorBinding>& bindi
 	return seed;
 }
 
+void RgCommandList::PushConstants(const void* data, uint32_t size, uint32_t offset, ShaderStage stageFlags)
+{
+	HY_ASSERT(m_BoundPipeline, "No pipeline bound in PushConstants");
+
+	VkShaderStageFlags vkStageFlags = 0;
+	if (((uint32_t)stageFlags & (uint32_t)ShaderStage::Vertex) == (uint32_t)ShaderStage::Vertex)
+	{
+		vkStageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
+	}
+	if (((uint32_t)stageFlags & (uint32_t)ShaderStage::Fragment) == (uint32_t)ShaderStage::Fragment)
+	{
+		vkStageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+	}
+
+	vkCmdPushConstants(m_CmdBuf, m_BoundPipeline->GetPipelineLayout(), vkStageFlags, offset, size, data);
+}
+
 void RgCommandList::UpdateDescriptorSet(const std::vector<DescriptorBindingValue>& bindingValues)
 {
 	for (uint32_t i = 0; i < bindingValues.size(); i++)
@@ -95,18 +112,30 @@ void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShade
 	}
 	
 	vkCmdBindPipeline(m_CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineCache[hash]->GetPipeline());
+
+	m_BoundPipeline = m_PipelineCache.at(hash).get();
 }
 
-void RgCommandList::BindVertexBuffer(RenderBuffer* vertexBuffer)
+void RgCommandList::BindVertexBuffer(const RenderBuffer* vertexBuffer)
 {
 	VkBuffer vertexBuffers[] = { vertexBuffer->GetBuffer() };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(m_CmdBuf, 0, 1, vertexBuffers, offsets);
 }
 
+void RgCommandList::BindIndexBuffer(const RenderBuffer* indexBuffer)
+{
+	vkCmdBindIndexBuffer(m_CmdBuf, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+}
+
 void RgCommandList::Draw(uint32_t vertexCount)
 {
 	vkCmdDraw(m_CmdBuf, vertexCount, 1, 0, 0);
+}
+
+void Hydrogen::RgCommandList::DrawIndexed(uint32_t indexCount)
+{
+	vkCmdDrawIndexed(m_CmdBuf, indexCount, 1, 0, 0, 0);
 }
 
 RgTextureHandle RgPassBuilder::WriteColor(RgTextureHandle texture)
