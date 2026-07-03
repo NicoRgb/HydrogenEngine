@@ -30,18 +30,9 @@ private:
 	float m_FPS = 0.0f;
 	bool  m_IsSimulating = false;
 
-	std::shared_ptr<DeferredRenderer> SceneViewportRenderer;
-	std::shared_ptr<DeferredRenderer> ViewportRenderer;
-	std::shared_ptr<DebugGUIRenderer> ImGuiRenderer;
-
-	//PostProcessing SceneViewportPostProcessing;
-	//PostProcessing ViewportPostProcessing;
-
 	std::shared_ptr<DebugGUI> DebugGUI;
 	FreeCamera FreeCam;
-	std::shared_ptr<CubeMap> Skybox;
-
-	RenderSettingsManager settingsManager;
+	//std::shared_ptr<CubeMap> Skybox;
 
 private:
 
@@ -141,149 +132,6 @@ private:
 
 	void DrawSettingsWindow()
 	{
-		RenderSettings settings = settingsManager.Get();
-		bool changed = false;
-
-		if (ImGui::Begin("Renderer Settings"))
-		{
-			// --------------------------------------------------------------------
-			// DISPLAY SETTINGS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Display", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				changed |= ImGui::Checkbox("Enable VSync", &settings.Display.EnableVSync);
-				changed |= ImGui::Checkbox("Enable HDR", &settings.Display.EnableHDR);
-				changed |= ImGui::Checkbox("Wireframe Mode", &settings.Display.EnableWireframe);
-			}
-
-			// --------------------------------------------------------------------
-			// SHADOW SETTINGS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Shadows"))
-			{
-				changed |= ImGui::Checkbox("Enable Shadows", &settings.Shadows.EnableShadows);
-
-				if (settings.Shadows.EnableShadows)
-				{
-					// Shadow Resolution Dropdown
-					const char* shadowResLabels[] = { "Low (512x512)", "Medium (1024x1024)", "High (2048x2048)", "Ultra (4096x4096)" };
-					int currentResIdx = 0;
-					if (settings.Shadows.Resolution == ShadowResolution::Low) currentResIdx = 0;
-					else if (settings.Shadows.Resolution == ShadowResolution::Medium) currentResIdx = 1;
-					else if (settings.Shadows.Resolution == ShadowResolution::High) currentResIdx = 2;
-					else if (settings.Shadows.Resolution == ShadowResolution::Ultra) currentResIdx = 3;
-
-					if (ImGui::Combo("Shadow Resolution", &currentResIdx, shadowResLabels, IM_ARRAYSIZE(shadowResLabels)))
-					{
-						if (currentResIdx == 0) settings.Shadows.Resolution = ShadowResolution::Low;
-						else if (currentResIdx == 1) settings.Shadows.Resolution = ShadowResolution::Medium;
-						else if (currentResIdx == 2) settings.Shadows.Resolution = ShadowResolution::High;
-						else if (currentResIdx == 3) settings.Shadows.Resolution = ShadowResolution::Ultra;
-						changed = true;
-					}
-
-					changed |= ImGui::Checkbox("Soft Shadows (PCF)", &settings.Shadows.EnableSoftShadows);
-				}
-			}
-
-			// --------------------------------------------------------------------
-			// ANTI-ALIASING & FILTERING SETTINGS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Anti-Aliasing & Filtering"))
-			{
-				// Post-Process AA Dropdown
-				const char* aaModes[] = { "None", "FXAA", "TAA", "SMAA" };
-				int currentMode = static_cast<int>(settings.AA.Mode);
-				if (ImGui::Combo("Anti-Aliasing Method", &currentMode, aaModes, IM_ARRAYSIZE(aaModes)))
-				{
-					settings.AA.Mode = static_cast<AntiAliasingMode>(currentMode);
-					changed = true;
-				}
-
-				// Hardware MSAA Dropdown
-				const char* msaaSamples[] = { "None", "2x MSAA", "4x MSAA", "8x MSAA" };
-				int currentMSAA = 0;
-				if (settings.AA.MSAASamples == MSAASampleCount::None) currentMSAA = 0;
-				else if (settings.AA.MSAASamples == MSAASampleCount::X2) currentMSAA = 1;
-				else if (settings.AA.MSAASamples == MSAASampleCount::X4) currentMSAA = 2;
-				else if (settings.AA.MSAASamples == MSAASampleCount::X8) currentMSAA = 3;
-
-				if (ImGui::Combo("MSAA Count", &currentMSAA, msaaSamples, IM_ARRAYSIZE(msaaSamples)))
-				{
-					if (currentMSAA == 0) settings.AA.MSAASamples = MSAASampleCount::None;
-					else if (currentMSAA == 1) settings.AA.MSAASamples = MSAASampleCount::X2;
-					else if (currentMSAA == 2) settings.AA.MSAASamples = MSAASampleCount::X4;
-					else if (currentMSAA == 3) settings.AA.MSAASamples = MSAASampleCount::X8;
-					changed = true;
-				}
-
-				changed |= ImGui::Checkbox("Anisotropic Filtering", &settings.AA.EnableAnisotropicFiltering);
-			}
-
-			// --------------------------------------------------------------------
-			// LIGHTING & SCREEN SPACE EFFECTS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Lighting & GI"))
-			{
-				changed |= ImGui::Checkbox("Screen-Space Ambient Occlusion (SSAO)", &settings.Lighting.EnableSSAO);
-				changed |= ImGui::Checkbox("Screen-Space Global Illumination (SSGI)", &settings.Lighting.EnableSSGI);
-				changed |= ImGui::Checkbox("Standard Screen-Space Reflections (SSR)", &settings.Lighting.EnableSSR);
-				changed |= ImGui::Checkbox("Stochastic Reflections (SSSR)", &settings.Lighting.EnableSSSR);
-			}
-
-			// --------------------------------------------------------------------
-			// POST-PROCESSING SETTINGS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Post-Processing"))
-			{
-				changed |= ImGui::Checkbox("Enable Bloom", &settings.PostProcess.EnableBloom);
-				changed |= ImGui::Checkbox("Enable Depth of Field", &settings.PostProcess.EnableDepthOfField);
-				changed |= ImGui::Checkbox("Enable Motion Blur", &settings.PostProcess.EnableMotionBlur);
-
-				ImGui::Separator();
-				changed |= ImGui::Checkbox("Enable Tonemapping", &settings.PostProcess.EnableToneMapping);
-
-				if (settings.PostProcess.EnableToneMapping)
-				{
-					const char* tonemappers[] = { "None", "Reinhard", "ACES", "Filmic" };
-					int currentTonemapper = static_cast<int>(settings.PostProcess.Tonemapper);
-					if (ImGui::Combo("Tonemap Operator", &currentTonemapper, tonemappers, IM_ARRAYSIZE(tonemappers)))
-					{
-						settings.PostProcess.Tonemapper = static_cast<TonemappingMethod>(currentTonemapper);
-						changed = true;
-					}
-				}
-			}
-
-			// --------------------------------------------------------------------
-			// CULLING OPTIMIZATIONS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Culling & Optimizations"))
-			{
-				changed |= ImGui::Checkbox("Frustum Culling", &settings.Culling.EnableFrustumCulling);
-				changed |= ImGui::Checkbox("Hardware Occlusion Culling", &settings.Culling.EnableOcclusionCulling);
-			}
-
-			// --------------------------------------------------------------------
-			// DEBUGGING TOOLS & OVERLAYS
-			// --------------------------------------------------------------------
-			if (ImGui::CollapsingHeader("Debug & Tooling"))
-			{
-				changed |= ImGui::Checkbox("Show Debug Overlays (GBuffer/Stats)", &settings.Debug.EnableDebugOverlays);
-				changed |= ImGui::Checkbox("Enable Entity ID Picking (Editor)", &settings.Debug.EnableEntityIDPicking);
-				changed |= ImGui::Checkbox("Render Editor Gizmos", &settings.Debug.EnableGizmoRendering);
-			}
-
-			// --------------------------------------------------------------------
-			// SUBMIT UPDATE TO ENGINE
-			// --------------------------------------------------------------------
-			// Only trigger dirty flags and evaluation changes if a checkbox/combo flipped
-			if (changed)
-			{
-				settingsManager.SetSettings(settings);
-			}
-		}
-		ImGui::End();
 	}
 
 	void DrawLogMessages()
@@ -354,10 +202,6 @@ private:
 			{
 				SceneViewportSize = contentRegion;
 
-				SceneViewportRenderer->Resize(
-					(size_t)contentRegion.x,
-					(size_t)contentRegion.y);
-
 				ImGuizmo::SetRect(
 					SceneViewportPos.x,
 					SceneViewportPos.y,
@@ -365,7 +209,7 @@ private:
 					contentRegion.y);
 			}
 
-			const auto& image = SceneViewportRenderer->GetFinalSceneTexture();
+			/*const auto& image = SceneViewportRenderer->GetFinalSceneTexture();
 			if (image)
 			{
 				ImGui::Image(image->GetImGuiImage(), contentRegion);
@@ -400,7 +244,7 @@ private:
 						}
 					}
 				}
-			}
+			}*/
 
 			DrawGizmo();
 		}
@@ -419,10 +263,6 @@ private:
 			{
 				ViewportSize = contentRegion;
 
-				ViewportRenderer->Resize(
-					(size_t)contentRegion.x,
-					(size_t)contentRegion.y);
-
 				ImGuizmo::SetRect(
 					ViewportPos.x,
 					ViewportPos.y,
@@ -430,11 +270,11 @@ private:
 					contentRegion.y);
 			}
 
-			const auto& image = ViewportRenderer->GetFinalSceneTexture();
+			/*const auto& image = ViewportRenderer->GetFinalSceneTexture();
 			if (image)
 			{
 				ImGui::Image(image->GetImGuiImage(), contentRegion);
-			}
+			}*/
 		}
 
 		ImGui::End();

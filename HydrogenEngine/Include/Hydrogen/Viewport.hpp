@@ -3,6 +3,8 @@
 #include <string>
 #include <memory>
 
+#include <vulkan/vulkan.h>
+
 #include "Event.hpp"
 
 namespace Hydrogen
@@ -20,9 +22,10 @@ namespace Hydrogen
 		virtual int IsOpen() const = 0;
 
 		virtual const std::vector<const char*> GetVulkanExtensions() const = 0;
-		virtual void* CreateVulkanSurface(const class RenderContext* renderContext) const = 0;
+		virtual VkSurfaceKHR GetVulkanSurface() = 0;
 		virtual void InitImGui() const = 0;
 		virtual void ImGuiNewFrame() const = 0;
+		virtual void ImGuiShutdown() const = 0;
 
 		static void PumpMessages();
 		Event<int, int>& GetResizeEvent() { return m_ResizeEvent; }

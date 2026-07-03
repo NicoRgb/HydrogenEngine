@@ -10,7 +10,7 @@ namespace Hydrogen
 	{
 	public:
 		WindowsViewport(std::string name, int width, int height, int x, int y);
-		~WindowsViewport() = default;
+		~WindowsViewport();
 
 		void Open() override;
 		void Close() override;
@@ -20,9 +20,10 @@ namespace Hydrogen
 		int IsOpen() const override { return m_IsOpen; }
 
 		const std::vector<const char*> GetVulkanExtensions() const override;
-		void* CreateVulkanSurface(const class RenderContext* renderContext) const override;
+		VkSurfaceKHR GetVulkanSurface() override;
 		void ImGuiNewFrame() const override;
 		void InitImGui() const override;
+		void ImGuiShutdown() const override;
 
 		void LockCursor() override;
 		void UnlockCursor() override;
@@ -36,5 +37,7 @@ namespace Hydrogen
 
 		HWND m_hWnd;
 		RECT m_Rect;
+
+		VkSurfaceKHR m_VulkanSurface = VK_NULL_HANDLE;
 	};
 }

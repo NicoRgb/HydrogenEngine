@@ -9,7 +9,7 @@ project "HydrogenRuntime"
 	objdir ("%{wks.location}/bin-int/" .. outputdir)
 
 	includedirs { "%{wks.location}/HydrogenEngine/Include", "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/imgui-docking",
-	"%{wks.location}/Extern/sol2/include", "%{wks.location}/Extern/bin/lua",
+	"%{wks.location}/Extern/sol2/include", "%{wks.location}/Extern/bin/lua", "$(VULKAN_SDK)/Include",
 	"%{wks.location}/Extern/json/single_include/nlohmann", "%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/bin/reactphysics3d/include", "Include" }
 
 	links { "HydrogenEngine" }

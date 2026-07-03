@@ -8,3 +8,11 @@
 #else
 	#define HY_ASSERT(x, ...) if (!(x)) { HY_ENGINE_FATAL(__VA_ARGS__); exit(1); }
 #endif
+
+namespace Hydrogen
+{
+	inline void HashCombine(size_t & seed, size_t value)
+	{
+		seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+	}
+}

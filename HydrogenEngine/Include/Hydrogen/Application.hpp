@@ -8,6 +8,11 @@
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/AssetManager.hpp"
 
+#include "Hydrogen/Renderer/RenderInstance.hpp"
+#include "Hydrogen/Renderer/RenderDevice.hpp"
+#include "Hydrogen/Renderer/SwapChain.hpp"
+#include "Hydrogen/Renderer/Renderer.hpp"
+
 #include "imgui.h"
 
 namespace Hydrogen
@@ -19,7 +24,7 @@ namespace Hydrogen
 		{
 			s_Instance = this;
 		}
-		~Application() = default;
+		~Application();
 
 		static Application* Get()
 		{
@@ -29,7 +34,10 @@ namespace Hydrogen
 		void OnResize(int width, int height);
 		void Run();
 		void PhysicsUpdate(float deltaTime);
-		void ReloadShader();
+		const RenderDeviceDescriptor& GetCurrentRenderDeviceDesc() const;
+		void ChangeRenderDevice(const RenderDeviceDescriptor& desc);
+		const SwapChainSpec& GetCurrentSwapChainSepc() const { return m_CurrentSwapChainSpec; }
+		void RecreateSwapchain(SwapChainSpec swapChainSepc);
 
 		virtual void OnSetup() = 0;
 
@@ -59,6 +67,13 @@ namespace Hydrogen
 	private:
 		const float timeStep = 1.0f / 60.0f;
 		float accumulator = 0.0f;
+
+		std::unique_ptr<RenderInstance> m_RenderInstance;
+		std::unique_ptr<RenderDevice> m_RenderDevice;
+		std::unique_ptr<SwapChain> m_SwapChain;
+		std::unique_ptr<Renderer> m_Renderer;
+
+		SwapChainSpec m_CurrentSwapChainSpec;
 
 		static Application* s_Instance;
 	};

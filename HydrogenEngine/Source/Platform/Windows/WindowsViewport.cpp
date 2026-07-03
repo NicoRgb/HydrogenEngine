@@ -1,11 +1,11 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 
 #include "Hydrogen/Platform/Windows/WindowsViewport.hpp"
+#include "Hydrogen/Renderer/RenderInstance.hpp"
 #include "Hydrogen/Core.hpp"
 #include "Hydrogen/Input.hpp"
 
 #include "backends/imgui_impl_win32.h"
-#include <vulkan/vulkan.h>
 
 #include "windowsx.h"
 #include <shobjidl.h>
@@ -90,6 +90,15 @@ WindowsViewport::WindowsViewport(std::string name, int width, int height, int x,
 	HY_ASSERT(m_hWnd, "Failed to create hWnd");
 }
 
+WindowsViewport::~WindowsViewport()
+{
+	if (m_VulkanSurface != VK_NULL_HANDLE)
+	{
+		vkDestroySurfaceKHR(RenderInstance::Get()->GetVulkanInstance(), m_VulkanSurface, nullptr);
+	}
+	DestroyWindow(m_hWnd);
+}
+
 void WindowsViewport::Open()
 {
 	ShowWindow(m_hWnd, 1);
@@ -106,21 +115,19 @@ const std::vector<const char*> WindowsViewport::GetVulkanExtensions() const
 	return std::vector<const char*> { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
 }
 
-void* WindowsViewport::CreateVulkanSurface(const RenderContext* renderContext) const
+VkSurfaceKHR WindowsViewport::GetVulkanSurface()
 {
-	/*VkSurfaceKHR surface;
+	if (m_VulkanSurface == VK_NULL_HANDLE)
+	{
+		VkWin32SurfaceCreateInfoKHR createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		createInfo.hwnd = m_hWnd;
+		createInfo.hinstance = WindowsBackend::GetHInstance();
 
-	VkWin32SurfaceCreateInfoKHR createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-	createInfo.hwnd = m_hWnd;
-	createInfo.hinstance = WindowsBackend::GetHInstance();
+		HY_ASSERT(vkCreateWin32SurfaceKHR(RenderInstance::Get()->GetVulkanInstance(), &createInfo, nullptr, &m_VulkanSurface) == VK_SUCCESS, "Failed to create win32 window surface for vulkan");
+	}
 
-	const VulkanRenderContext* vkContext = dynamic_cast<const VulkanRenderContext*>(renderContext);
-
-	HY_ASSERT(vkCreateWin32SurfaceKHR(vkContext->GetInstance(), &createInfo, nullptr, &surface) == VK_SUCCESS, "Failed to create win32 window surface for vulkan");
-
-	return (void*)surface;*/
-	return nullptr;
+	return m_VulkanSurface;
 }
 
 void WindowsViewport::ImGuiNewFrame() const
@@ -139,6 +146,11 @@ void WindowsViewport::InitImGui() const
 			createInfo.hinstance = ::GetModuleHandle(nullptr);
 			return (int)vkCreateWin32SurfaceKHR((VkInstance)vk_instance, &createInfo, (VkAllocationCallbacks*)vk_allocator, (VkSurfaceKHR*)out_vk_surface);
 		};
+}
+
+void WindowsViewport::ImGuiShutdown() const
+{
+	ImGui_ImplWin32_Shutdown();
 }
 
 void WindowsViewport::LockCursor()
