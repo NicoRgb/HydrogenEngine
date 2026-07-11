@@ -136,8 +136,20 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	rasterizer.depthClampEnable = VK_FALSE;
 
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer.lineWidth = 1.0f;
+
+	switch (spec.PolygonMode)
+	{
+	case PolygonModeStyle::Fill:
+		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+		break;
+	case PolygonModeStyle::Line:
+		rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
+		break;
+	default:
+		HY_ENGINE_ERROR("Invalid PolygonMode specified, defaulting to fill");
+		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+	}
 
 	switch (spec.CullMode)
 	{

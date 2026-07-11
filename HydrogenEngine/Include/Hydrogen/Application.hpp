@@ -47,6 +47,10 @@ namespace Hydrogen
 		virtual void OnImGuiRender() = 0;
 		virtual void OnImGuiMenuBarRender() = 0;
 
+		virtual void OnSwapchainRecreation() = 0;
+		virtual void OnRenderDeviceChangeStart() = 0;
+		virtual void OnRenderDeviceChangeFinish() = 0;
+
 		struct ApplicationSpecification
 		{
 			std::string Name = "Hydrogen Application";
@@ -64,12 +68,12 @@ namespace Hydrogen
 		std::shared_ptr<Viewport> MainViewport;
 		std::shared_ptr<SceneAsset> CurrentScene;
 
-		std::unique_ptr<RenderInstance> m_RenderInstance;
-		std::unique_ptr<RenderDevice> m_RenderDevice;
-		std::unique_ptr<SwapChain> m_SwapChain;
-		std::unique_ptr<Renderer> m_Renderer;
+		std::unique_ptr<RenderDevice> ActiveRenderDevice;
+		std::unique_ptr<SwapChain> ActiveSwapChain;
 
 	private:
+		std::unique_ptr<RenderInstance> m_RenderInstance;
+
 		const float timeStep = 1.0f / 60.0f;
 		float accumulator = 0.0f;
 

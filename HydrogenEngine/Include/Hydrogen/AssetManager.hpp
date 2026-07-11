@@ -356,6 +356,11 @@ namespace Hydrogen
 			return res;
 		}
 
+		void Clear()
+		{
+			m_Assets.clear();
+		}
+
 	private:
 		std::string m_Directory;
 

@@ -19,8 +19,6 @@ Application* Application::s_Instance;
 
 Application::~Application()
 {
-	MainViewport.reset();
-	m_RenderDevice.reset();
 }
 
 void Application::OnResize(int width, int height)
@@ -30,7 +28,7 @@ void Application::OnResize(int width, int height)
 		return;
 	}
 
-	if (m_SwapChain)
+	if (ActiveSwapChain)
 	{
 		RecreateSwapchain(m_CurrentSwapChainSpec);
 	}
@@ -63,12 +61,11 @@ void Application::Run()
 	m_RenderInstance = std::make_unique<RenderInstance>(createInfo, MainViewport);
 
 	RenderDeviceDescriptor renderDeviceDesc = m_RenderInstance->ChooseRenderDevice(MainViewport);
-	m_RenderDevice = std::make_unique<RenderDevice>(renderDeviceDesc, MainViewport);
+	ActiveRenderDevice = std::make_unique<RenderDevice>(renderDeviceDesc, MainViewport);
 
 	m_CurrentSwapChainSpec.ColorPreference = ColorFormat::RGBA8_SRGB;
 	m_CurrentSwapChainSpec.VsyncPreference = PresentMode::Mailbox;
-	m_SwapChain = std::make_unique<SwapChain>(m_RenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
-	m_Renderer = std::make_unique<Renderer>(MainViewport, m_RenderDevice.get(), m_SwapChain.get());
+	ActiveSwapChain = std::make_unique<SwapChain>(ActiveRenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
 
 	OnStartup();
 
@@ -91,30 +88,6 @@ void Application::Run()
 			continue;
 		}
 
-		m_Renderer->BeginImGuiFrame();
-		static bool dockingEnabled = true;
-		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
-
-		const ImGuiViewport* viewport = ImGui::GetMainViewport();
-		ImGui::SetNextWindowPos(viewport->WorkPos);
-		ImGui::SetNextWindowSize(viewport->WorkSize);
-		ImGui::SetNextWindowViewport(viewport->ID);
-
-		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
-			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-
-		ImGui::Begin("MainDockSpace", &dockingEnabled, window_flags);
-
-		ImGui::PopStyleVar(2);
-		ImGuiID dockspace_id = ImGui::GetID("DockSpace");
-		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
-		OnImGuiMenuBarRender();
-		ImGui::End();
-
 		OnImGuiRender();
 
 		OnUpdate(deltaTime);
@@ -129,11 +102,15 @@ void Application::Run()
 		Input::EndFrame();
 	}
 
+	CurrentScene->ClearScene();
+	MainAssetManager.Clear();
+
+	ActiveRenderDevice->WaitForIdle();
 	OnShutdown();
 
-	m_Renderer.reset();
-	m_SwapChain.reset();
-	m_RenderDevice.reset();
+	ActiveSwapChain.reset();
+	ActiveRenderDevice.reset();
+	MainViewport.reset();
 }
 
 void Application::PhysicsUpdate(float deltaTime)
@@ -153,33 +130,33 @@ void Application::PhysicsUpdate(float deltaTime)
 
 const RenderDeviceDescriptor& Application::GetCurrentRenderDeviceDesc() const
 {
-	return m_RenderDevice->GetDescriptor();
+	return ActiveRenderDevice->GetDescriptor();
 }
 
 void Application::ChangeRenderDevice(const RenderDeviceDescriptor& desc)
 {
-	m_RenderDevice->WaitForIdle();
+	ActiveRenderDevice->WaitForIdle();
 
-	m_Renderer.reset();
-	m_SwapChain.reset();
-	m_RenderDevice.reset();
+	OnRenderDeviceChangeStart();
 
-	m_RenderDevice = std::make_unique<RenderDevice>(desc, MainViewport);
+	ActiveSwapChain.reset();
+	ActiveRenderDevice.reset();
 
-	m_SwapChain = std::make_unique<SwapChain>(m_RenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
-	m_Renderer = std::make_unique<Renderer>(MainViewport, m_RenderDevice.get(), m_SwapChain.get());
+	ActiveRenderDevice = std::make_unique<RenderDevice>(desc, MainViewport);
 
-	m_Renderer->ClearCache();
+	ActiveSwapChain = std::make_unique<SwapChain>(ActiveRenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
+
+	OnRenderDeviceChangeFinish();
 }
 
 void Application::RecreateSwapchain(SwapChainSpec swapChainSepc)
 {
 	m_CurrentSwapChainSpec = swapChainSepc;
 
-	m_RenderDevice->WaitForIdle();
+	ActiveRenderDevice->WaitForIdle();
 
-	m_SwapChain.reset();
-	m_SwapChain = std::make_unique<SwapChain>(m_RenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
+	ActiveSwapChain.reset();
+	ActiveSwapChain = std::make_unique<SwapChain>(ActiveRenderDevice.get(), MainViewport->GetVulkanSurface(), m_CurrentSwapChainSpec);
 
-	m_Renderer->UpdateSwapChain(m_SwapChain.get());
+	OnSwapchainRecreation();
 }

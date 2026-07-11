@@ -31,6 +31,12 @@ namespace Hydrogen
         Triangles
     };
 
+    enum class PolygonModeStyle
+    {
+        Fill,
+        Line
+    };
+
     enum class ShaderCullMode
     {
         None,
@@ -87,6 +93,7 @@ namespace Hydrogen
 		VkExtent2D ViewportExtent = { 800, 600 };
         VertexLayout VertexBufferLayout = {};
         PrimitiveStyle Primitive = PrimitiveStyle::Triangles;
+        PolygonModeStyle PolygonMode = PolygonModeStyle::Fill;
         ShaderCullMode CullMode = ShaderCullMode::None;
         std::vector<BlendMode> ColorBlending = {};
         std::vector<PushConstantsRange> PushConstants = {};
@@ -105,6 +112,7 @@ namespace Hydrogen
                 HashCombine(seed, static_cast<size_t>(element.Type));
             }
             HashCombine(seed, static_cast<size_t>(Primitive));
+            HashCombine(seed, static_cast<size_t>(PolygonMode));
             HashCombine(seed, static_cast<size_t>(CullMode));
             HashCombine(seed, ColorBlending.size());
             for (const auto& blending : ColorBlending)

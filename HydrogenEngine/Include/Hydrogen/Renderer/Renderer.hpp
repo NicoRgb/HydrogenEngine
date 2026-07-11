@@ -49,10 +49,13 @@ namespace Hydrogen
 		~Renderer();
 
 		void BeginImGuiFrame();
-		void Render(const std::shared_ptr<Scene>& scene, const CameraComponent& camera, glm::vec3 cameraPos);
-		
+		void Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present);
+
 		void UpdateSwapChain(SwapChain* swapChain);
 		void ClearCache();
+
+		VkSampler GetImguiSampler() { return m_ImguiSampler; }
+		VkSemaphore GetImageAvailableSemaphore() { return m_ImageAvailableSemaphore; }
 
 	private:
 		void CreateCommandBuffer();

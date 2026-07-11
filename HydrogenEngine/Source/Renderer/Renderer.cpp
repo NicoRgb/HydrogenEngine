@@ -5,28 +5,6 @@
 
 using namespace Hydrogen;
 
-ImGuiTextureCache g_ImGuiTextureCache;
-ImVec2 g_OldViewportContentRegion = ImVec2(1920, 1080);
-ImVec2 g_ViewportContentRegion = ImVec2(1920, 1080);
-
-std::unique_ptr<RenderBuffer> g_UniformBuffer;
-
-struct UniformBuffer
-{
-	glm::mat4 View;
-	glm::mat4 Proj;
-	glm::vec3 ViewPos;
-	float Padding;
-};
-
-struct PushConstants
-{
-	glm::mat4 Model;
-	glm::vec4 Color;
-	int TexIndex;
-	int Padding[3];
-};
-
 Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain)
 	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain)
 {
@@ -63,19 +41,13 @@ Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* devi
 	{
 		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
 	}
-
-	BufferDescription desc = { sizeof(UniformBuffer), BufferType::Uniform, true, true };
-	g_UniformBuffer = std::make_unique<RenderBuffer>(m_Device, desc);
 }
 
 Renderer::~Renderer()
 {
 	m_Device->WaitForIdle();
 
-	g_UniformBuffer.reset();
-
 	vkDestroySampler(m_Device->GetVulkanDevice(), m_ImguiSampler, nullptr);
-	g_ImGuiTextureCache.Clear();
 
 	m_Viewport->ImGuiShutdown();
 	ImGui_ImplVulkan_Shutdown();
@@ -96,89 +68,14 @@ void Renderer::BeginImGuiFrame()
 	ImGui::NewFrame();
 }
 
-void Renderer::Render(const std::shared_ptr<Scene>& scene, const CameraComponent& camera, glm::vec3 cameraPos)
+void Renderer::Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present)
 {
 	vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence);
 
 	m_RenderGraph->Reset();
 
-	if (g_ViewportContentRegion.x != g_OldViewportContentRegion.x || g_ViewportContentRegion.y != g_OldViewportContentRegion.y)
-	{
-		g_OldViewportContentRegion = g_ViewportContentRegion;
-		ClearCache();
-	}
-
-	RgTextureDesc finalSceneDesc = {};
-	finalSceneDesc.Width = (uint32_t)g_ViewportContentRegion.x;
-	finalSceneDesc.Height = (uint32_t)g_ViewportContentRegion.y;
-	finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
-	auto finalTexture = m_RenderGraph->CreateTexture(finalSceneDesc);
-
-	auto swapChainImage = m_SwapChain->AcquireNextImage(m_RenderGraph.get(), m_ImageAvailableSemaphore);
-
-	auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-	auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
-
-	VkSampler viewportSampler = m_ImguiSampler;
-
-	UniformBuffer cameraInfo = {};
-	cameraInfo.View = camera.View;
-	cameraInfo.Proj = camera.Proj;
-	cameraInfo.ViewPos = cameraPos;
-
-	g_UniformBuffer->UploadData((void*)&cameraInfo, sizeof(UniformBuffer), 0);
-
-	RenderDevice* renderDevice = m_Device;
-
-	m_RenderGraph->AddPass("Triangle", {},
-		[finalTexture](RgPassBuilder& builder)
-		{
-			builder.WriteColor(finalTexture);
-		},
-		[renderDevice, scene, vertexShader, fragmentShader](RgCommandList& cmd)
-		{
-			PipelineSpec trianglePipeline = {};
-			trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
-			trianglePipeline.ColorBlending = { BlendMode::None };
-			trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
-			cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
-
-			scene->IterateComponents<MeshRendererComponent>([&cmd, renderDevice](Entity e, MeshRendererComponent mesh)
-				{
-					PushConstants pc = {};
-					pc.Model = e.GetComponent<TransformComponent>().Transform;
-					pc.Color = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
-					pc.TexIndex = 0;
-
-					cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
-
-					cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(renderDevice));
-					cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(renderDevice));
-					cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
-				});
-		});
-
-	m_RenderGraph->AddPass("ImGui", {},
-		[finalTexture, swapChainImage](RgPassBuilder& builder)
-		{
-			builder.WriteColor(swapChainImage);
-			builder.ReadTexture(finalTexture);
-		},
-		[viewportSampler, finalSceneDesc, finalTexture, vertexShader, fragmentShader](RgCommandList& cmd)
-		{
-			ImGui::Begin("Viewport");
-			g_ViewportContentRegion = ImGui::GetContentRegionAvail();
-			ImGui::Image(g_ImGuiTextureCache.GetTextureID(cmd.GetTextureView(finalTexture).ImageView, viewportSampler), ImVec2((float)finalSceneDesc.Width, (float)finalSceneDesc.Height));
-			ImGui::End();
-
-			ImGui::Render();
-			ImDrawData* drawData = ImGui::GetDrawData();
-
-			ImGui_ImplVulkan_RenderDrawData(drawData, cmd.GetCommandBuffer());
-		});
-
-	m_RenderGraph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
+	const auto descriptorBindingValues = setupPasses(m_RenderGraph.get());
 
 	vkResetCommandBuffer(m_CommandBuffer, 0);
 	VkCommandBufferBeginInfo beginInfo{};
@@ -192,11 +89,7 @@ void Renderer::Render(const std::shared_ptr<Scene>& scene, const CameraComponent
 		HY_ENGINE_FATAL("Failed to begin Vulkan command buffer... vkBeginCommandBuffer returned {}", (uint16_t)result);
 	}
 
-	DescriptorBindingValue value;
-	value.Type = DescriptorType::UniformBuffer;
-	value.RenderBuffers.push_back(g_UniformBuffer.get());
-
-	m_RenderGraph->Execute(m_CommandBuffer, { value });
+	m_RenderGraph->Execute(m_CommandBuffer, descriptorBindingValues);
 
 	result = vkEndCommandBuffer(m_CommandBuffer);
 	if (result != VK_SUCCESS)
@@ -214,10 +107,19 @@ void Renderer::Render(const std::shared_ptr<Scene>& scene, const CameraComponent
 	submitInfo.pWaitSemaphores = &m_ImageAvailableSemaphore;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.pCommandBuffers = commandBuffers;
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &m_PresentFinishedSemaphore;
+
+	if (present)
+	{
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = &m_PresentFinishedSemaphore;
+	}
 
 	vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_WaitFence);
+
+	if (!present)
+	{
+		return;
+	}
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -241,7 +143,6 @@ void Renderer::UpdateSwapChain(SwapChain* swapChain)
 
 void Renderer::ClearCache()
 {
-	g_ImGuiTextureCache.Clear();
 	m_RenderGraph->ClearCache();
 }
 
