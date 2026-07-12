@@ -53,8 +53,7 @@ void AssetEditorPanel::SaveFile()
 
     m_LastSaveStatus = "Saved!";
     auto app = Hydrogen::Application::Get();
-    app->MainAssetManager.LoadAssets("assets", app->_RenderContext);
-    app->ReloadShader();
+    app->MainAssetManager.LoadAssets("assets");
 }
 
 TextEditor::LanguageDefinition AssetEditorPanel::GuessLanguage(const std::filesystem::path& path)

@@ -18,8 +18,8 @@ layout(push_constant) uniform constants
     vec4 tint;
     float roughness;
     float metallic;
-    uint objectID;
     float padding0;
+    float padding1;
     vec4 emissive;
 } PushConstants;
 
@@ -33,14 +33,11 @@ layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outAlbedoRough;
 layout(location = 3) out vec4 outMaterial; // r = metallic, g = ao
 layout(location = 4) out vec4 outEmissive;
-layout(location = 5) out uint outEntityID;
 
 void main()
 {
     outPosition = vec4(fragPos, 1.0);
     outMaterial = vec4(0.0, 1.0, 0.0, 0.0);
-
-    outEntityID = PushConstants.objectID;
 
     if (PushConstants.normalIndex > MAX_TEXTURES)
     {

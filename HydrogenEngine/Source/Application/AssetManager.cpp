@@ -50,6 +50,7 @@ void ShaderAsset::Compile()
 
 void AssetManager::LoadAssets(const std::string& directory)
 {
+	Clear();
 	HY_ASSERT(fs::exists(directory), "Asset directory '{}' does not exist", directory);
 
 	m_Directory = directory;
@@ -173,6 +174,22 @@ void AssetManager::LoadAssets(const std::string& directory)
 			HY_ENGINE_ERROR("Unknown asset type for file '{}'", filePath);
 		}
 	}
+}
+
+const Texture* TextureAsset::GetTexture(RenderDevice* device)
+{
+	if (!m_Texture)
+	{
+		TextureDescription textureDesc;
+		textureDesc.width = m_Width;
+		textureDesc.height = m_Height;
+		textureDesc.usageFlags = TextureUsage::SampledImage;
+
+		m_Texture = std::make_unique<Texture>(device, textureDesc);
+		m_Texture->UploadData(m_Image.data(), m_Width, m_Height);
+	}
+
+	return m_Texture.get();
 }
 
 void TextureAsset::Parse(std::string path)

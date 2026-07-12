@@ -39,6 +39,8 @@ namespace Hydrogen
 		const SwapChainSpec& GetCurrentSwapChainSepc() const { return m_CurrentSwapChainSpec; }
 		void RecreateSwapchain(SwapChainSpec swapChainSepc);
 
+		RenderDevice* GetRenderDevice() const { return ActiveRenderDevice.get(); }
+
 		virtual void OnSetup() = 0;
 
 		virtual void OnStartup() = 0;

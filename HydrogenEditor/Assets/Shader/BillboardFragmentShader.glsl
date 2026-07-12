@@ -21,5 +21,5 @@ void main()
     if(texColor.a < 0.1) discard; 
 
     outColor = texColor;
-    outColor.a = 1;
+    outColor.a = 0.25;
 }

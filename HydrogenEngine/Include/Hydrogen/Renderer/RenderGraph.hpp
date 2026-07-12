@@ -25,6 +25,7 @@ namespace Hydrogen
 		VkImageView ImageView = VK_NULL_HANDLE;
 		VkImageUsageFlags UsageFlags = 0;
 		bool IsImported = false;
+		bool IsOutput = false;
 	};
 
 	class RgCommandList
@@ -163,6 +164,9 @@ namespace Hydrogen
 			const std::vector<DescriptorBinding>& bindings, // set 1
 			std::function<void(RgPassBuilder&)> setup,
 			std::function<void(RgCommandList&)> execute);
+
+		void AddOutput(const RgTextureHandle& handle);
+		std::vector<RgResourceView> GetOutputs();
 
 		void Compile(const std::vector<DescriptorBinding>& frameBindings); // set 0
 		void Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues);

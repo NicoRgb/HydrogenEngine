@@ -1,4 +1,5 @@
 #include "Hydrogen/Renderer/Texture.hpp"
+#include "Hydrogen/Renderer/RenderBuffer.hpp"
 #include "Hydrogen/Core.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
@@ -52,27 +53,24 @@ Texture::Texture(RenderDevice* device, const TextureDescription& desc)
 	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-	VkResult result = vkCreateImage(m_Device->GetVulkanDevice(), &imageInfo, nullptr, &m_Image);
+	VmaAllocationCreateInfo allocInfo{};
+	allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+	VkResult result = vmaCreateImage(
+		m_Device->GetAllocator(),
+		&imageInfo,
+		&allocInfo,
+		&m_Image,
+		&m_Allocation,
+		nullptr
+	);
+
 	if (result != VK_SUCCESS)
 	{
-		HY_ENGINE_FATAL("Failed to create Vulkan image... vkCreateImage returned {}", (uint16_t)result);
+		HY_ENGINE_FATAL("Failed to create Vulkan image... vmaCreateImage returned {}", (uint16_t)result);
 	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(m_Device->GetVulkanDevice(), m_Image, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(m_Device->GetVulkanPhysicalDevice(), memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	result = vkAllocateMemory(m_Device->GetVulkanDevice(), &allocInfo, nullptr, &m_Memory);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to allocate Vulkan texture memory... vkAllocateMemory returned {}", (uint16_t)result);
-	}
-
-	vkBindImageMemory(m_Device->GetVulkanDevice(), m_Image, m_Memory, 0);
 
 	VkImageViewCreateInfo viewInfo{};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -90,81 +88,127 @@ Texture::Texture(RenderDevice* device, const TextureDescription& desc)
 	{
 		HY_ENGINE_FATAL("Failed to create Vulkan image view... vkCreateImageView returned {}", (uint16_t)result);
 	}
-
-	if (((uint32_t)desc.usageFlags & (uint32_t)TextureUsage::SampledImage) == (uint32_t)TextureUsage::SampledImage)
-	{
-		CreateSampler();
-	}
 }
 
-Texture::Texture(RenderDevice* device, VkImage image, VkImageView imageView, const TextureDescription& desc, VkSampler sampler)
-	: m_Device(device), m_Desc(desc), m_Image(image), m_ImageView(imageView), m_Sampler(sampler)
+Texture::Texture(RenderDevice* device, VkImage image, VkImageView imageView, const TextureDescription& desc)
+	: m_Device(device), m_Desc(desc), m_Image(image), m_ImageView(imageView)
 {
 }
 
 Texture::~Texture()
 {
-	if (m_ImGuiImage != 0) ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)m_ImGuiImage);
 	if (m_ImageView != VK_NULL_HANDLE) vkDestroyImageView(m_Device->GetVulkanDevice(), m_ImageView, nullptr);
-	if (m_Image != VK_NULL_HANDLE) vkDestroyImage(m_Device->GetVulkanDevice(), m_Image, nullptr);
-	if (m_Memory != VK_NULL_HANDLE) vkFreeMemory(m_Device->GetVulkanDevice(), m_Memory, nullptr);
+	vmaDestroyImage(m_Device->GetAllocator(), m_Image, m_Allocation);
 }
 
-ImTextureID Texture::GetImGuiTexture()
+void Texture::UploadData(uint32_t* data, uint32_t width, uint32_t height)
 {
-	if (m_ImGuiImage == 0)
-	{
-		m_ImGuiImage = (ImTextureID)ImGui_ImplVulkan_AddTexture(
-			m_Sampler,
-			m_ImageView,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-		);
-	}
+	RenderBuffer stagingBuffer(m_Device, BufferDescription{ width * height * 4, BufferType::Staging, true });
+	stagingBuffer.UploadData(data, width * height * 4);
 
-	return m_ImGuiImage;
-}
+	VkCommandBufferAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocInfo.commandPool = m_Device->GetCommandPool();
+	allocInfo.commandBufferCount = 1;
 
-uint32_t Texture::FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-	VkPhysicalDeviceMemoryProperties memProperties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-	{
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-		{
-			return i;
-		}
-	}
-	HY_ASSERT(false, "Failed to find suitable memory type!");
-}
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(m_Device->GetVulkanDevice(), &allocInfo, &commandBuffer);
 
-void Texture::CreateSampler()
-{
-	VkSamplerCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	createInfo.magFilter = VK_FILTER_LINEAR;
-	createInfo.minFilter = VK_FILTER_LINEAR;
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
-	createInfo.anisotropyEnable = VK_FALSE;
-	createInfo.maxAnisotropy = 1.0f;
-	createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	createInfo.unnormalizedCoordinates = VK_FALSE;
+	// barrier
 
-	createInfo.compareEnable = VK_FALSE;
-	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = m_Image;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
 
-	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	createInfo.mipLodBias = 0.0f;
-	createInfo.minLod = 0.0f;
-	createInfo.maxLod = 1.0f;
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
 
-	VkResult result = vkCreateSampler(m_Device->GetVulkanDevice(), &createInfo, nullptr, &m_Sampler);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
-	}
+	barrier.srcAccessMask = 0;
+	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
+
+	// copy
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = { 0, 0, 0 };
+	region.imageExtent = {
+		width,
+		height,
+		1
+	};
+
+	vkCmdCopyBufferToImage(commandBuffer, stagingBuffer.GetBuffer(), m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	// barrier
+
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = m_Image;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
+
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{};
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &commandBuffer;
+
+	vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(m_Device->GetGraphicsQueue());
+
+	vkFreeCommandBuffers(m_Device->GetVulkanDevice(), m_Device->GetCommandPool(), 1, &commandBuffer);
 }

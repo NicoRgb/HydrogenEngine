@@ -308,6 +308,26 @@ void RenderGraph::AddPass(const std::string& passName, const std::vector<Descrip
 	m_PassNodes.push_back(builder.GetNode());
 }
 
+void RenderGraph::AddOutput(const RgTextureHandle& handle)
+{
+	auto& view = m_PhysicalViews[handle.Id];
+	view.UsageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+	view.IsOutput = true;
+}
+
+std::vector<RgResourceView> RenderGraph::GetOutputs()
+{
+	std::vector<RgResourceView> result;
+	for (const auto& view : m_PhysicalViews)
+	{
+		if (view.IsOutput)
+		{
+			result.push_back(view);
+		}
+	}
+	return result;
+}
+
 struct TextureStateTracker
 {
 	VkImageLayout CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -640,6 +660,32 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 				m_PostRenderBarriers.push_back(finalCmd);
 				state.CurrentLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			}
+			else if (view.IsOutput && state.CurrentLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			{
+				VkBarrierCommand finalCmd{};
+				finalCmd.TextureId = i;
+				finalCmd.SrcStage = state.AccessStage;
+				finalCmd.DstStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+
+				finalCmd.Barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+				finalCmd.Barrier.oldLayout = state.CurrentLayout;
+				finalCmd.Barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				finalCmd.Barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+				finalCmd.Barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+				finalCmd.Barrier.image = view.Image;
+
+				finalCmd.Barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+				finalCmd.Barrier.subresourceRange.baseMipLevel = 0;
+				finalCmd.Barrier.subresourceRange.levelCount = 1;
+				finalCmd.Barrier.subresourceRange.baseArrayLayer = 0;
+				finalCmd.Barrier.subresourceRange.layerCount = 1;
+
+				finalCmd.Barrier.srcAccessMask = state.AccessMask;
+				finalCmd.Barrier.dstAccessMask = 0;
+
+				m_PostRenderBarriers.push_back(finalCmd);
+				state.CurrentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			}
 		}
 	}

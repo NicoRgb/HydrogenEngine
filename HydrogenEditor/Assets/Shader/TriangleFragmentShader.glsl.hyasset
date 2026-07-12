@@ -1,0 +1,5 @@
+{
+  "name": "TriangleFragmentShader.glsl",
+  "preferences": { "stage": "fragment" },
+  "type": "Shader"
+}

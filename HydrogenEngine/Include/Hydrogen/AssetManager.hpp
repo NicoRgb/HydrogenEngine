@@ -7,6 +7,7 @@
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Core.hpp"
 #include "Hydrogen/Renderer/RenderBuffer.hpp"
+#include "Hydrogen/Renderer/Texture.hpp"
 
 #include <json.hpp>
 
@@ -118,7 +119,7 @@ namespace Hydrogen
 		const uint8_t GetChannels() const { return m_Channels; }
 		const std::vector<uint32_t>& GetImageData() const { return m_Image; }
 
-		//const std::shared_ptr<Texture>& GetTexture() const { return m_Texture; }
+		const Texture* GetTexture(RenderDevice* device);
 
 	private:
 		void Parse(std::string path);
@@ -128,7 +129,7 @@ namespace Hydrogen
 
 		std::vector<uint32_t> m_Image;
 
-		//std::shared_ptr<Texture> m_Texture;
+		std::unique_ptr<Texture> m_Texture = nullptr;
 	};
 
 	class CubeMapAsset : public Asset

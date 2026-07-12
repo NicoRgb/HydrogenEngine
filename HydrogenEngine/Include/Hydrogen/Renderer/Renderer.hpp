@@ -46,16 +46,20 @@ namespace Hydrogen
 	{
 	public:
 		Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain);
+		Renderer(RenderDevice* device);
 		~Renderer();
 
 		void BeginImGuiFrame();
-		void Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present);
+
+		std::vector<RgResourceView> Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present);
 
 		void UpdateSwapChain(SwapChain* swapChain);
 		void ClearCache();
 
-		VkSampler GetImguiSampler() { return m_ImguiSampler; }
-		VkSemaphore GetImageAvailableSemaphore() { return m_ImageAvailableSemaphore; }
+		VkSampler GetImguiSampler() const { return m_ImguiSampler; }
+		VkSemaphore GetImageAvailableSemaphore() const { return m_ImageAvailableSemaphore; }
+
+		RenderGraph* GetRenderGraph() { return m_RenderGraph.get(); }
 
 	private:
 		void CreateCommandBuffer();

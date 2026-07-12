@@ -43,14 +43,54 @@ Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* devi
 	}
 }
 
+Renderer::Renderer(RenderDevice* device)
+	: m_Viewport(nullptr), m_Device(device), m_SwapChain(nullptr)
+{
+	m_RenderGraph = std::make_unique<RenderGraph>(device);
+
+	CreateCommandBuffer();
+	CreateSyncObjects();
+
+	VkSamplerCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	createInfo.magFilter = VK_FILTER_LINEAR;
+	createInfo.minFilter = VK_FILTER_LINEAR;
+
+	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+	createInfo.anisotropyEnable = VK_FALSE;
+	createInfo.maxAnisotropy = 1.0f;
+	createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	createInfo.unnormalizedCoordinates = VK_FALSE;
+
+	createInfo.compareEnable = VK_FALSE;
+	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	createInfo.mipLodBias = 0.0f;
+	createInfo.minLod = 0.0f;
+	createInfo.maxLod = 1.0f;
+
+	VkResult result = vkCreateSampler(m_Device->GetVulkanDevice(), &createInfo, nullptr, &m_ImguiSampler);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
+	}
+}
+
 Renderer::~Renderer()
 {
 	m_Device->WaitForIdle();
 
 	vkDestroySampler(m_Device->GetVulkanDevice(), m_ImguiSampler, nullptr);
 
-	m_Viewport->ImGuiShutdown();
-	ImGui_ImplVulkan_Shutdown();
+	if (m_Viewport)
+	{
+		m_Viewport->ImGuiShutdown();
+		ImGui_ImplVulkan_Shutdown();
+	}
 
 	vkDestroyDescriptorPool(m_Device->GetVulkanDevice(), m_ImGuiDescriptorPool, nullptr);
 
@@ -63,13 +103,20 @@ Renderer::~Renderer()
 
 void Renderer::BeginImGuiFrame()
 {
+	HY_ASSERT(m_Viewport, "Renderer initialized without viewport does not have imgui capabilities");
+
 	ImGui_ImplVulkan_NewFrame();
 	m_Viewport->ImGuiNewFrame();
 	ImGui::NewFrame();
 }
 
-void Renderer::Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present)
+std::vector<RgResourceView> Renderer::Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present)
 {
+	if (present)
+	{
+		HY_ASSERT(m_SwapChain, "Renderer initialized without swapchain does not have present capabilities");
+	}
+
 	vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence);
 
@@ -103,8 +150,11 @@ void Renderer::Render(const std::function<const std::vector<DescriptorBindingVal
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.commandBufferCount = 1;
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &m_ImageAvailableSemaphore;
+	if (present)
+	{
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = &m_ImageAvailableSemaphore;
+	}
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.pCommandBuffers = commandBuffers;
 
@@ -118,7 +168,7 @@ void Renderer::Render(const std::function<const std::vector<DescriptorBindingVal
 
 	if (!present)
 	{
-		return;
+		return m_RenderGraph->GetOutputs();
 	}
 
 	VkPresentInfoKHR presentInfo{};
@@ -133,6 +183,8 @@ void Renderer::Render(const std::function<const std::vector<DescriptorBindingVal
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = imageIndices;
 	vkQueuePresentKHR(m_Device->GetPresentQueue(), &presentInfo);
+
+	return m_RenderGraph->GetOutputs();
 }
 
 void Renderer::UpdateSwapChain(SwapChain* swapChain)
