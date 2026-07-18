@@ -212,7 +212,7 @@ public:
 			m_FreeCam.CalculateView();
 			UpdateCameraViewportSize(m_FreeCam, { (int)m_SceneViewportSize.x, (int)m_SceneViewportSize.y });
 
-			m_SceneViewportFinalScene = DefaultRenderer::RenderScene(m_ViewportRenderer.get(), renderSettings, m_FreeCam, m_FreeCam.GetPosition(), CurrentScene->GetScene()).ImageView;
+			m_SceneViewportFinalScene = DefaultRenderer::RenderSceneDeferred(m_ViewportRenderer.get(), renderSettings, m_FreeCam, m_FreeCam.GetPosition(), CurrentScene->GetScene()).ImageView;
 		}
 
 		DefaultRenderer::RenderImGui(m_ImGuiRenderer.get(), ActiveSwapChain.get());

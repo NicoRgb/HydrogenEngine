@@ -1,5 +1,6 @@
 #include "Hydrogen/Renderer/Renderer.hpp"
 #include "Hydrogen/Application.hpp"
+#include "Hydrogen/ProceduralMesh.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
 
@@ -346,6 +347,9 @@ void Renderer::InitImGui()
 	vkDestroyRenderPass(m_Device->GetVulkanDevice(), bootstrapRenderPass, nullptr);
 }
 
+std::unique_ptr<RenderBuffer> DefaultRenderer::s_SphereVertexBuffer;
+std::unique_ptr<RenderBuffer> DefaultRenderer::s_SphereIndexBuffer;
+
 struct UniformBuffer
 {
 	glm::mat4 View;
@@ -353,76 +357,6 @@ struct UniformBuffer
 	glm::vec3 ViewPos;
 	float Padding;
 };
-
-struct PushConstants
-{
-	glm::mat4 Model;
-	glm::vec4 Color;
-	int TexIndex;
-	int Padding[3];
-};
-
-RgTextureView DefaultRenderer::RenderScene(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
-{
-	UniformBuffer cameraInfo = {};
-	cameraInfo.View = camera.View;
-	cameraInfo.Proj = camera.Proj;
-	cameraInfo.ViewPos = cameraPos;
-
-	const auto& outputs = renderer->Render(
-		[cameraInfo, scene, settings](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
-		{
-			RgTextureDesc finalSceneDesc = {};
-			finalSceneDesc.Width = settings.Display.Width;
-			finalSceneDesc.Height = settings.Display.Height;
-			finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
-			auto finalTexture = graph->CreateTexture(finalSceneDesc);
-
-			graph->AddPass("Scene", {}, {},
-				[finalTexture](RgPassBuilder& builder)
-				{
-					builder.WriteColor(finalTexture);
-				},
-				[finalTexture, scene, settings](RgCommandList& cmd)
-				{
-					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
-
-					PipelineSpec trianglePipeline = {};
-					trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
-					trianglePipeline.ColorBlending = { BlendMode::None };
-					trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
-					if (settings.Debug.WireframeMode)
-					{
-						trianglePipeline.PolygonMode = PolygonModeStyle::Line;
-					}
-
-					cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
-
-					scene->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
-						{
-							PushConstants pc = {};
-							pc.Model = e.GetComponent<TransformComponent>().Transform;
-							pc.Color = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
-							pc.TexIndex = 0;
-
-							cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
-
-							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->GetRenderDevice()));
-							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->GetRenderDevice()));
-							cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
-						});
-				});
-
-			graph->AddOutput(finalTexture);
-
-			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
-
-			return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
-		}, false);
-
-	return outputs[0];
-}
 
 struct GeometryPassPushConstants
 {
@@ -454,6 +388,27 @@ struct LightingPassPushConstants
 
 RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
+	if (!s_SphereVertexBuffer)
+	{
+		auto sphereData = GenerateUVSphere(16, 16);
+
+		BufferDescription vertexBufferDesc;
+		vertexBufferDesc.cpuVisible = false;
+		vertexBufferDesc.size = sphereData.Vertices.size() * sizeof(float);
+		vertexBufferDesc.type = BufferType::Vertex;
+
+		s_SphereVertexBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), vertexBufferDesc);
+		s_SphereVertexBuffer->UploadDataStaging((void*)sphereData.Vertices.data(), vertexBufferDesc.size);
+
+		BufferDescription indexBufferDesc;
+		indexBufferDesc.cpuVisible = false;
+		indexBufferDesc.size = sphereData.Indices.size() * sizeof(uint32_t);
+		indexBufferDesc.type = BufferType::Index;
+
+		s_SphereIndexBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), indexBufferDesc);
+		s_SphereIndexBuffer->UploadDataStaging((void*)sphereData.Indices.data(), indexBufferDesc.size);
+	}
+
 	std::vector<const Texture*> AlbedoTextures;
 	std::vector<const Texture*> NormalTextures;
 	std::vector<const Texture*> ORMTextures;
@@ -605,7 +560,6 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 				{
 					builder.WriteColor(sceneColor);
 					builder.WriteColor(sceneBright);
-					//builder.WriteDepth(gBufferDepth);
 
 					builder.ReadTexture(gBufferPosition);
 					builder.ReadTexture(gBufferNormal);
@@ -615,18 +569,53 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 				},
 				[&](RgCommandList& cmd)
 				{
+					// directional lights
 					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("DirectionalLightsVertexShader.glsl");
 					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("DirectionalLightsPBRFragmentShader.glsl");
 
-					PipelineSpec gBufferPipeline = {};
-					gBufferPipeline.VertexBufferLayout = {};
-					gBufferPipeline.PushConstants = { { sizeof(GeometryPassPushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
-					gBufferPipeline.CullMode = ShaderCullMode::None;
-					gBufferPipeline.ColorBlending = { BlendMode::None, BlendMode::None };
-					gBufferPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
+					PipelineSpec directionalLightsPipeline = {};
+					directionalLightsPipeline.VertexBufferLayout = {};
+					directionalLightsPipeline.PushConstants = {};
+					directionalLightsPipeline.CullMode = ShaderCullMode::None;
+					directionalLightsPipeline.ColorBlending = { BlendMode::None, BlendMode::None };
+					directionalLightsPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
 
-					cmd.BindPipeline(vertexShader, fragmentShader, gBufferPipeline);
+					cmd.BindPipeline(vertexShader, fragmentShader, directionalLightsPipeline);
 					cmd.Draw(3);
+
+					// point lights
+					vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PointLightVertexShader.glsl");
+					fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PointLightPBRFragmentShader.glsl");
+
+					PipelineSpec pointLightPipeline = {};
+					pointLightPipeline.VertexBufferLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3} };
+					pointLightPipeline.PushConstants = { { sizeof(LightingPassPushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
+					pointLightPipeline.CullMode = ShaderCullMode::Front;
+					pointLightPipeline.ColorBlending = { BlendMode::Additive, BlendMode::Additive };
+					pointLightPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
+
+					cmd.BindPipeline(vertexShader, fragmentShader, pointLightPipeline);
+
+					scene->IterateComponents<PointLightComponent>(
+						[&](Entity e, const PointLightComponent& l)
+						{
+							const auto& transform = e.GetComponent<TransformComponent>().Transform;
+							glm::vec3 position = glm::vec3(transform[3]);
+							glm::mat4 model = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(l.Radius));
+
+							LightingPassPushConstants pushConstants{};
+							pushConstants.Model = model;
+							pushConstants.Color = l.Color;
+							pushConstants.Intensity = l.Intensity;
+							pushConstants.Position = position;
+							pushConstants.Radius = l.Radius;
+
+							cmd.PushConstants(&pushConstants, sizeof(LightingPassPushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
+
+							cmd.BindVertexBuffer(s_SphereVertexBuffer.get());
+							cmd.BindIndexBuffer(s_SphereIndexBuffer.get());
+							cmd.DrawIndexed(s_SphereIndexBuffer->GetSize() / sizeof(uint32_t));
+						});
 				});
 
 			graph->AddOutput(sceneColor);

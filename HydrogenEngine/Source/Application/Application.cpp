@@ -104,6 +104,7 @@ void Application::Run()
 
 	ActiveRenderDevice->WaitForIdle();
 
+	DefaultRenderer::Reset();
 	CurrentScene->ClearScene();
 	MainAssetManager.Clear();
 

@@ -77,9 +77,14 @@ namespace Hydrogen
 	class DefaultRenderer
 	{
 	public:
-		static RgTextureView RenderScene(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
 		static RgTextureView RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
 		static void RenderImGui(Renderer* renderer, SwapChain* swapChain);
+
+		static void Reset()
+		{
+			s_SphereVertexBuffer.reset();
+			s_SphereIndexBuffer.reset();
+		}
 
 	private:
 		static void UploadMaterialTextures(
@@ -90,6 +95,9 @@ namespace Hydrogen
 			std::vector<const Texture*>& emissiveTextures);
 
 		static std::vector<DirectionalLight> GetDirectionalLights(Scene* scene);
+
+		static std::unique_ptr<RenderBuffer> s_SphereVertexBuffer;
+		static std::unique_ptr<RenderBuffer> s_SphereIndexBuffer;
 	};
 
 	class ImGuiTextureCache

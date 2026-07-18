@@ -1,17 +1,21 @@
 #version 450
 
+#extension GL_KHR_vulkan_glsl : enable
+
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outBright;
 
-layout(binding = 0) uniform sampler2D gPosition;
-layout(binding = 1) uniform sampler2D gNormal;
-layout(binding = 2) uniform sampler2D gAlbedoRough;
-layout(binding = 3) uniform sampler2D gMaterial; // r = metallic, g = ao
+layout(binding = 0, set = 1) uniform sampler2D gPosition;
+layout(binding = 1, set = 1) uniform sampler2D gNormal;
+layout(binding = 2, set = 1) uniform sampler2D gAlbedoRough;
+layout(binding = 3, set = 1) uniform sampler2D gMaterial; // r = metallic, g = ao
 
-layout(binding = 4) uniform CameraBuffer
+layout(binding = 0, set = 0) uniform UniformBufferObject
 {
-    mat4 viewProj;
+    mat4 view;
+    mat4 proj;
     vec3 viewPos;
+    float pad;
 } ubo;
 
 layout(push_constant) uniform LightData
@@ -35,11 +39,11 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float a2 = a*a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
-	
+    
     float num = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
-	
+    
     return num / denom;
 }
 
@@ -50,7 +54,7 @@ float GeometrySchlickGGX(float NdotV, float roughness)
 
     float num = NdotV;
     float denom = NdotV * (1.0 - k) + k;
-	
+    
     return num / denom;
 }
 
@@ -60,7 +64,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float NdotL = max(dot(N, L), 0.0);
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
-	
+    
     return ggx1 * ggx2;
 }
 
