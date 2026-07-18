@@ -58,7 +58,7 @@ private:
 	// ============================================================
 	// Rendering & Camera
 	// ============================================================
-	bool m_WireframeMode = false;
+	RenderSettings m_RenderSettings = {};
 	FreeCamera m_FreeCam;
 
 	std::unique_ptr<Renderer> m_ViewportRenderer;
@@ -168,11 +168,8 @@ public:
 		HandleHardwareChanges();
 		CalculateFPS(deltaTime);
 
-		RenderSettings renderSettings;
-		renderSettings.Display.Width = m_GameViewportSize.x;
-		renderSettings.Display.Height = m_GameViewportSize.y;
-
-		renderSettings.Debug.WireframeMode = m_WireframeMode;
+		m_RenderSettings.Display.Width = m_GameViewportSize.x;
+		m_RenderSettings.Display.Height = m_GameViewportSize.y;
 
 		CurrentScene->GetScene()->RenderPhysicsDebug();
 
@@ -188,7 +185,7 @@ public:
 			const auto& camera = cameraEntity.GetComponent<CameraComponent>();
 			const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
 
-			m_ViewportFinalScene = DefaultRenderer::RenderSceneDeferred(m_ViewportRenderer.get(), renderSettings, camera, cameraPos, CurrentScene->GetScene()).ImageView;
+			m_ViewportFinalScene = DefaultRenderer::RenderSceneDeferred(m_ViewportRenderer.get(), m_RenderSettings, camera, cameraPos, CurrentScene->GetScene()).ImageView;
 		}
 
 		// Update Scene Viewport
@@ -212,7 +209,7 @@ public:
 			m_FreeCam.CalculateView();
 			UpdateCameraViewportSize(m_FreeCam, { (int)m_SceneViewportSize.x, (int)m_SceneViewportSize.y });
 
-			m_SceneViewportFinalScene = DefaultRenderer::RenderSceneDeferred(m_ViewportRenderer.get(), renderSettings, m_FreeCam, m_FreeCam.GetPosition(), CurrentScene->GetScene()).ImageView;
+			m_SceneViewportFinalScene = DefaultRenderer::RenderSceneDeferred(m_ViewportRenderer.get(), m_RenderSettings, m_FreeCam, m_FreeCam.GetPosition(), CurrentScene->GetScene()).ImageView;
 		}
 
 		DefaultRenderer::RenderImGui(m_ImGuiRenderer.get(), ActiveSwapChain.get());
@@ -652,7 +649,13 @@ private:
 		ImGui::Spacing();
 
 		ImGui::TextDisabled("RENDERING SETTINGS");
-		ImGui::Checkbox("Wireframe Mode", &m_WireframeMode);
+		ImGui::Checkbox("Wireframe Mode", &m_RenderSettings.Debug.WireframeMode);
+		ImGui::Checkbox("Tone Mapping", &m_RenderSettings.PostProcessing.ToneMapping);
+
+		int bloomIterations = (int)m_RenderSettings.PostProcessing.BloomIterations;
+		if (ImGui::InputInt("Bloom Iterations", &bloomIterations))
+			m_RenderSettings.PostProcessing.BloomIterations = (uint8_t)bloomIterations;
+
 		ImGui::Spacing();
 
 		ImGui::End();

@@ -386,6 +386,11 @@ struct LightingPassPushConstants
 	float Radius;
 };
 
+struct BlurPushConstants
+{
+	int Horizontal;
+};
+
 RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
 	if (!s_SphereVertexBuffer)
@@ -618,10 +623,96 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 						});
 				});
 
-			graph->AddOutput(sceneColor);
+			if (!settings.PostProcessing.ToneMapping)
+			{
+				graph->AddOutput(sceneColor);
+				graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, (ShaderStage)((uint32_t)ShaderStage::Vertex | (uint32_t)ShaderStage::Fragment) } });
+				return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
+			}
 
+			RgResourceHandle sceneBright2 = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+
+			uint8_t numBlurPasses = settings.PostProcessing.BloomIterations * 2;
+			for (uint8_t i = 0; i < numBlurPasses; i++)
+			{
+				std::string name = "Bloom Blur " + std::to_string(i);
+				bool horizontal = (i % 2) == 0;
+
+				graph->AddPass(name,
+					{
+						{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment }
+					},
+
+					{
+						{.Resources = {horizontal ? sceneBright : sceneBright2} }
+					},
+
+					[&](RgPassBuilder& builder)
+					{
+						builder.WriteColor(horizontal ? sceneBright2 : sceneBright);
+						builder.ReadTexture(horizontal ? sceneBright : sceneBright2);
+					},
+					[horizontal](RgCommandList& cmd)
+					{
+						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurVertexShader.glsl");
+						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurFragmentShader.glsl");
+
+						PipelineSpec blurPipeline = {};
+						blurPipeline.VertexBufferLayout = {};
+						blurPipeline.PushConstants = { { sizeof(BlurPushConstants), ShaderStage::Fragment } };
+						blurPipeline.CullMode = ShaderCullMode::None;
+						blurPipeline.ColorBlending = { BlendMode::None };
+						blurPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
+
+						cmd.BindPipeline(vertexShader, fragmentShader, blurPipeline);
+
+						BlurPushConstants pc{};
+						pc.Horizontal = horizontal;
+
+						cmd.PushConstants(&pc, sizeof(BlurPushConstants), 0, ShaderStage::Fragment);
+
+						cmd.Draw(3);
+					});
+			}
+
+			RgResourceHandle sceneFinal = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+
+			graph->AddPass("Post Processing",
+				{
+					{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
+					{ 1, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment }
+				},
+
+				{
+					{.Resources = {sceneColor} },
+					{.Resources = {sceneBright} }
+				},
+
+				[&](RgPassBuilder& builder)
+				{
+					builder.WriteColor(sceneFinal);
+
+					builder.ReadTexture(sceneColor);
+					builder.ReadTexture(sceneBright);
+				},
+				[&](RgCommandList& cmd)
+				{
+					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl");
+					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl");
+
+					PipelineSpec postProcessingPipeline = {};
+					postProcessingPipeline.VertexBufferLayout = {};
+					postProcessingPipeline.PushConstants = {};
+					postProcessingPipeline.CullMode = ShaderCullMode::None;
+					postProcessingPipeline.ColorBlending = { BlendMode::None };
+					postProcessingPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
+
+					cmd.BindPipeline(vertexShader, fragmentShader, postProcessingPipeline);
+					cmd.Draw(3);
+				});
+
+			graph->AddOutput(sceneFinal);
 			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, (ShaderStage)((uint32_t)ShaderStage::Vertex | (uint32_t)ShaderStage::Fragment) } });
-
 			return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
 		}, false);
 

@@ -60,10 +60,17 @@ namespace Hydrogen
 		bool WireframeMode = false;
 	};
 
+	struct PostProcessingSettings
+	{
+		uint8_t BloomIterations = 3;
+		bool ToneMapping = true;
+	};
+
 	struct RenderSettings
 	{
 		DisplaySettings Display;
 		DebugSettings Debug;
+		PostProcessingSettings PostProcessing;
 	};
 
 	struct DirectionalLight

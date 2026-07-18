@@ -620,7 +620,6 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 				targetStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 				VkFormat vkFormat = VK_FORMAT_R8G8B8A8_SRGB;
-
 				switch (desc.Format)
 				{
 				case TextureFormat::RGBA8_SRGB:    vkFormat = VK_FORMAT_R8G8B8A8_SRGB; break;
@@ -636,7 +635,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 				RenderPassAttachment att{};
 				att.Format = vkFormat;
-				att.InitialLayout = state.CurrentLayout;
+				att.InitialLayout = targetLayout;
 				att.LoadOp = currentLoadOp;
 				passColorAttachments.push_back(att);
 
@@ -660,7 +659,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 				RenderPassAttachment att{};
 				att.Format = VK_FORMAT_D32_SFLOAT;
-				att.InitialLayout = state.CurrentLayout;
+				att.InitialLayout = targetLayout;
 				att.LoadOp = currentLoadOp;
 				passDepthAttachment = att;
 

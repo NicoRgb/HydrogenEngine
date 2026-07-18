@@ -1,15 +1,18 @@
 #version 450
 
-layout(set = 0, binding = 0) uniform sampler2D hdrScene;
-layout(set = 0, binding = 1) uniform sampler2D bloomBlur;
+#extension GL_KHR_vulkan_glsl : enable
 
-layout(location = 0) in vec2 fragUV;
+layout(set = 0, binding = 0, set = 1) uniform sampler2D hdrScene;
+layout(set = 0, binding = 1, set = 1) uniform sampler2D bloomBlur;
+
+layout(location = 0) in vec2 inUV;
+
 layout(location = 0) out vec4 outColor;
 
 void main()
 {
-    vec3 hdrColor = texture(hdrScene, fragUV).rgb;
-    vec3 bloomColor = texture(bloomBlur, fragUV).rgb;
+    vec3 hdrColor = texture(hdrScene, inUV).rgb;
+    vec3 bloomColor = texture(bloomBlur, inUV).rgb;
     hdrColor += bloomColor;
 
     vec3 mapped = hdrColor / (hdrColor + vec3(1.0));
