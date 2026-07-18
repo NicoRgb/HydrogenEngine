@@ -274,11 +274,12 @@ RgResourceHandle RenderGraph::ImportTexture(VkImage image, VkImageView imageView
 	return RgResourceHandle{ id };
 }
 
-void RenderGraph::AddPass(const std::string& passName, const std::vector<DescriptorBinding>& bindings, std::function<void(RgPassBuilder& builder)> setupFunc, std::function<void(RgCommandList& cmd)> executeFunc)
+void RenderGraph::AddPass(const std::string& passName, const std::vector<DescriptorBinding>& bindings, const std::vector<DescriptorBindingValue>& bindingValues, std::function<void(RgPassBuilder& builder)> setupFunc, std::function<void(RgCommandList& cmd)> executeFunc)
 {
 	RgPassNode newNode{};
 	newNode.Name = passName;
 	newNode.DescriptorBindings = bindings;
+	newNode.DescriptorBindingValues = bindingValues;
 	newNode.ExecuteCallback = executeFunc;
 
 	RgPassBuilder builder(newNode);
@@ -431,7 +432,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 		compiledPass.Name = recordedPass.Name;
 		compiledPass.ExecuteCallback = recordedPass.ExecuteCallback;
 
-		if (frameBindings.size() != 0)
+		if (recordedPass.DescriptorBindings.size() != 0)
 		{
 			size_t bindingHash = HashDescriptorBindings(recordedPass.DescriptorBindings);
 			for (auto& pooled : m_DescriptorSetPool)
@@ -473,6 +474,8 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 				compiledPass.DescriptorSetLayout = pooled.DescriptorSetLayout;
 				compiledPass.DescriptorSet = pooled.DescriptorSet;
 			}
+
+			UpdatePassDescriptorSet(recordedPass, compiledPass);
 		}
 
 		std::optional<RenderPassAttachment> passDepthAttachment = std::nullopt;
@@ -1111,6 +1114,69 @@ uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
 void RenderGraph::UploadDataToBuffer(void* data, size_t size, void* mapped)
 {
 	std::memcpy(mapped, data, size);
+}
+
+void RenderGraph::UpdatePassDescriptorSet(const RgPassNode& passNode, const CompiledPass& compiledPass)
+{
+	for (uint32_t i = 0; i < passNode.DescriptorBindings.size(); i++)
+	{
+		switch (passNode.DescriptorBindings[i].Type)
+		{
+		case DescriptorType::UniformBuffer:
+			for (uint32_t j = 0; j < passNode.DescriptorBindings[i].Count; j++)
+			{
+				RgBufferDesc bufferDesc{};
+				bufferDesc.Type = RgBufferType::Uniform;
+				bufferDesc.Size = passNode.DescriptorBindingValues[i].Size;
+
+				uint32_t idx = GetOrCreateBuffer(bufferDesc);
+				const auto& pooled = m_PhysicalBufferPool[idx];
+
+				void* mapped = pooled.MappedMemory;
+				if (!pooled.IsMapped)
+				{
+					VkResult result = vmaMapMemory(m_Device->GetAllocator(), pooled.Allocation, &mapped);
+					if (result != VK_SUCCESS)
+					{
+						HY_ENGINE_FATAL("VMA failed to map and vma buffer memory.");
+					}
+				}
+				UploadDataToBuffer(passNode.DescriptorBindingValues[i].Data, passNode.DescriptorBindingValues[i].Size, mapped);
+				if (!pooled.IsMapped)
+				{
+					vmaUnmapMemory(m_Device->GetAllocator(), pooled.Allocation);
+				}
+
+				VkDescriptorBufferInfo bufferInfo{};
+				bufferInfo.buffer = pooled.Buffer;
+				bufferInfo.offset = 0;
+				bufferInfo.range = passNode.DescriptorBindingValues[i].Size;
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = compiledPass.DescriptorSet;
+				descriptorWrite.dstBinding = i;
+				descriptorWrite.dstArrayElement = j;
+
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				descriptorWrite.descriptorCount = 1;
+
+				descriptorWrite.pBufferInfo = &bufferInfo;
+				descriptorWrite.pImageInfo = nullptr;
+
+				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
+			}
+			break;
+
+		case DescriptorType::StorageBuffer:
+			HY_ASSERT(false, "Not implemented");
+			break;
+
+		case DescriptorType::CombinedImageSampler:
+			HY_ASSERT(false, "Not implemented");
+			break;
+		}
+	}
 }
 
 uint32_t RenderGraph::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)

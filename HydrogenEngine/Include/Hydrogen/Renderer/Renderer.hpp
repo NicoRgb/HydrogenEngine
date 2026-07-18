@@ -55,15 +55,22 @@ namespace Hydrogen
 		uint64_t Height = 1080;
 	};
 
+	struct DebugSettings
+	{
+		bool WireframeMode = false;
+	};
+
 	struct RenderSettings
 	{
 		DisplaySettings Display;
+		DebugSettings Debug;
 	};
 
 	class DefaultRenderer
 	{
 	public:
 		static RgTextureView RenderScene(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
+		static RgTextureView RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
 		static void RenderImGui(Renderer* renderer, SwapChain* swapChain);
 	};
 

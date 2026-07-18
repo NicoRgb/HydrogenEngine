@@ -168,6 +168,12 @@ public:
 		HandleHardwareChanges();
 		CalculateFPS(deltaTime);
 
+		RenderSettings renderSettings;
+		renderSettings.Display.Width = m_GameViewportSize.x;
+		renderSettings.Display.Height = m_GameViewportSize.y;
+
+		renderSettings.Debug.WireframeMode = m_WireframeMode;
+
 		CurrentScene->GetScene()->RenderPhysicsDebug();
 
 		if (m_IsSimulating)
@@ -179,10 +185,6 @@ public:
 		{
 			const auto& camera = cameraEntity.GetComponent<CameraComponent>();
 			const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
-
-			RenderSettings renderSettings;
-			renderSettings.Display.Width = m_GameViewportSize.x;
-			renderSettings.Display.Height = m_GameViewportSize.y;
 
 			m_ViewportFinalScene = DefaultRenderer::RenderScene(m_ViewportRenderer.get(), renderSettings, camera, cameraPos, CurrentScene->GetScene()).ImageView;
 		}
@@ -205,10 +207,6 @@ public:
 
 			m_FreeCam.CalculateView();
 			UpdateCameraViewportSize(m_FreeCam, { (int)m_SceneViewportSize.x, (int)m_SceneViewportSize.y });
-
-			RenderSettings renderSettings;
-			renderSettings.Display.Width = m_SceneViewportSize.x;
-			renderSettings.Display.Height = m_SceneViewportSize.y;
 
 			m_SceneViewportFinalScene = DefaultRenderer::RenderScene(m_ViewportRenderer.get(), renderSettings, m_FreeCam, m_FreeCam.GetPosition(), CurrentScene->GetScene()).ImageView;
 		}

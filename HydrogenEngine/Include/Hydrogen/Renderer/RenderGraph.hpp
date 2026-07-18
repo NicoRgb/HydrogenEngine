@@ -107,6 +107,7 @@ namespace Hydrogen
 		std::string Name;
 		std::vector<RgResourceUsage> Usages;
 		std::vector<DescriptorBinding> DescriptorBindings;
+		std::vector<DescriptorBindingValue> DescriptorBindingValues;
 		std::function<void(RgCommandList&)> ExecuteCallback;
 	};
 
@@ -177,6 +178,7 @@ namespace Hydrogen
 
 		void AddPass(const std::string& name,
 			const std::vector<DescriptorBinding>& bindings, // set 1
+			const std::vector<DescriptorBindingValue>& bindingValues,
 			std::function<void(RgPassBuilder&)> setup,
 			std::function<void(RgCommandList&)> execute);
 
@@ -211,6 +213,8 @@ namespace Hydrogen
 
 		uint32_t GetOrCreateBuffer(const RgBufferDesc& desc);
 		void UploadDataToBuffer(void* data, size_t size, void* mapped);
+
+		void UpdatePassDescriptorSet(const RgPassNode& passNode, const CompiledPass& compiledPass);
 
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
