@@ -47,7 +47,6 @@ namespace Hydrogen
 		virtual void OnShutdown() = 0;
 		virtual void OnUpdate(float deltaTime) = 0;
 		virtual void OnImGuiRender() = 0;
-		virtual void OnImGuiMenuBarRender() = 0;
 
 		virtual void OnSwapchainRecreation() = 0;
 		virtual void OnRenderDeviceChangeStart() = 0;

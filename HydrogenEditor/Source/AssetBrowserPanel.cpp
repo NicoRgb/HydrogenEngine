@@ -232,7 +232,7 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 			renderSettings.Display.Height = 256;
 
 			VkImageView finalImage =
-				DefaultRenderer::DefaultRenderFunc(m_MaterialPreviewRenderer.get(), renderSettings, activeCameraEntity.GetComponent<CameraComponent>(),
+				DefaultRenderer::RenderScene(m_MaterialPreviewRenderer.get(), renderSettings, activeCameraEntity.GetComponent<CameraComponent>(),
 					activeCameraEntity.GetComponent<TransformComponent>().GetPosition(), m_MaterialPreviewScene->GetScene()).ImageView;
 
 			ImGui::Image(TextureCache.GetTextureID(finalImage, m_MaterialPreviewRenderer->GetImguiSampler()), {256, 256});

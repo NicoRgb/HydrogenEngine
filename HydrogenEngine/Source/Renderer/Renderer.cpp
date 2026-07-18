@@ -313,12 +313,6 @@ void Renderer::InitImGui()
 		HY_ENGINE_FATAL("Failed to create Vulkan render pass... vkCreateRenderPass returned {}", (uint16_t)result);
 	}
 
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
 	m_Viewport->InitImGui();
 
 	ImGui_ImplVulkan_InitInfo initInfo = {};
@@ -368,7 +362,7 @@ struct PushConstants
 	int Padding[3];
 };
 
-RgTextureView DefaultRenderer::DefaultRenderFunc(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
+RgTextureView DefaultRenderer::RenderScene(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
 	UniformBuffer cameraInfo = {};
 	cameraInfo.View = camera.View;
@@ -424,4 +418,29 @@ RgTextureView DefaultRenderer::DefaultRenderFunc(Renderer* renderer, RenderSetti
 		}, false);
 
 	return outputs[0];
+}
+
+void DefaultRenderer::RenderImGui(Renderer* renderer, SwapChain* swapChain)
+{
+	renderer->Render(
+		[renderer, swapChain](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
+		{
+			auto swapChainImage = swapChain->AcquireNextImage(graph, renderer->GetImageAvailableSemaphore());
+
+			graph->AddPass("ImGui", {},
+				[swapChainImage](RgPassBuilder& builder)
+				{
+					builder.WriteColor(swapChainImage);
+				},
+				[](RgCommandList& cmd)
+				{
+					ImGui::Render();
+					ImDrawData* drawData = ImGui::GetDrawData();
+
+					ImGui_ImplVulkan_RenderDrawData(drawData, cmd.GetCommandBuffer());
+				});
+
+			graph->Compile({});
+			return {};
+		}, true);
 }

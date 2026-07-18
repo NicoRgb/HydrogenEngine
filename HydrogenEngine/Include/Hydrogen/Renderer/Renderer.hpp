@@ -63,7 +63,8 @@ namespace Hydrogen
 	class DefaultRenderer
 	{
 	public:
-		static RgTextureView DefaultRenderFunc(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
+		static RgTextureView RenderScene(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
+		static void RenderImGui(Renderer* renderer, SwapChain* swapChain);
 	};
 
 	class ImGuiTextureCache
