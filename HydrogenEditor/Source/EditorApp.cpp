@@ -186,7 +186,7 @@ public:
 			const auto& camera = cameraEntity.GetComponent<CameraComponent>();
 			const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
 
-			m_ViewportFinalScene = DefaultRenderer::RenderScene(m_ViewportRenderer.get(), renderSettings, camera, cameraPos, CurrentScene->GetScene()).ImageView;
+			m_ViewportFinalScene = DefaultRenderer::RenderSceneDeferred(m_ViewportRenderer.get(), renderSettings, camera, cameraPos, CurrentScene->GetScene()).ImageView;
 		}
 
 		// Update Scene Viewport
@@ -348,7 +348,9 @@ private:
 			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
 
 			if (m_SceneViewportSize.x != contentRegion.x || m_SceneViewportSize.y != contentRegion.y)
+			{
 				m_SceneViewportSize = { contentRegion.x, contentRegion.y };
+			}
 
 			if (m_SceneViewportFinalScene != VK_NULL_HANDLE)
 			{
@@ -367,7 +369,9 @@ private:
 		{
 			ImVec2 contentRegion = ImGui::GetContentRegionAvail();
 			if (m_GameViewportSize.x != contentRegion.x || m_GameViewportSize.y != contentRegion.y)
+			{
 				m_GameViewportSize = { contentRegion.x, contentRegion.y };
+			}
 
 			if (m_ViewportFinalScene != VK_NULL_HANDLE)
 			{

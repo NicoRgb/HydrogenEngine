@@ -146,8 +146,16 @@ void RenderDevice::CreateLogicalDevice()
 	VkPhysicalDeviceFeatures deviceFeatures{};
 	deviceFeatures.fillModeNonSolid = VK_TRUE;
 
+	VkPhysicalDeviceVulkan12Features features12{};
+	features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+	features12.pNext = nullptr;
+	features12.runtimeDescriptorArray = VK_TRUE;
+	features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+	features12.descriptorBindingPartiallyBound = VK_TRUE;
+
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.pNext = &features12;
 	createInfo.pEnabledFeatures = &deviceFeatures;
 
 	createInfo.pQueueCreateInfos = queueCreateInfos.data();

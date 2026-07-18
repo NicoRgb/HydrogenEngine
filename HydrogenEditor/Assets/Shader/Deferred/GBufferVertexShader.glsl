@@ -1,9 +1,11 @@
 #version 450
 
-layout(binding = 0) uniform UniformBufferObject
+layout(binding = 0, set = 0) uniform UniformBufferObject
 {
-    mat4 viewProj;
+    mat4 view;
+    mat4 proj;
     vec3 viewPos;
+    float pad;
 } ubo;
 
 layout(push_constant) uniform constants
@@ -14,12 +16,14 @@ layout(push_constant) uniform constants
     int normalIndex;
     int ormIndex;
     int emissiveIndex;
-
+    
     vec4 tint;
+    
     float roughness;
     float metallic;
     float padding0;
     float padding1;
+    
     vec4 emissive;
 } PushConstants;
 
@@ -36,6 +40,7 @@ layout(location = 3) out vec3 fragTangent;
 void main()
 {
     vec4 worldPos = PushConstants.model * vec4(inPosition, 1.0);
+
     fragPos = worldPos.xyz;
     fragUV = inTexCoord;
 
@@ -44,5 +49,6 @@ void main()
     fragNormal = normalMatrix * inNormal;
     fragTangent = normalMatrix * inTangent;
 
-    gl_Position = ubo.viewProj * worldPos;
+
+    gl_Position = ubo.proj * ubo.view * worldPos;
 }

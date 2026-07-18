@@ -222,6 +222,8 @@ namespace Hydrogen
 		RgCommandList m_CommandList;
 
 		VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
+		VkSampler m_Sampler = VK_NULL_HANDLE;
+
 		VkDescriptorSetLayout m_FrameDescriptorSetLayout = VK_NULL_HANDLE;
 		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
 

@@ -253,6 +253,29 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 		HY_ENGINE_FATAL("Failed to create Vulkan pipeline layout... vkCreatePipelineLayout returned {}", (uint16_t)result);
 	}
 
+	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = spec.DepthSpec.DepthTest;
+	depthStencil.depthWriteEnable = spec.DepthSpec.DepthWrite;
+	switch (spec.DepthSpec.Operator)
+	{
+	case DepthTestOp::Less:
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		break;
+	default:
+		HY_ENGINE_ERROR("Invalid Depth Test Operator... Defaulting to DepthTestOp::Less");
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+		break;
+	}
+
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.minDepthBounds = 0.0f;
+	depthStencil.maxDepthBounds = 1.0f;
+	depthStencil.stencilTestEnable = VK_FALSE;
+	depthStencil.front = {};
+	depthStencil.back = {};
+
+
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = 2;
@@ -262,7 +285,7 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
 	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = nullptr;
+	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = m_Layout;
@@ -307,8 +330,20 @@ VkShaderModule Pipeline::CreateShaderModule(const std::vector<uint32_t>& byteCod
 VkDescriptorSetLayout Pipeline::CreateDescriptorSetLayout(RenderDevice* device, const std::vector<DescriptorBinding>& bindings)
 {
 	std::vector<VkDescriptorSetLayoutBinding> uboLayoutBindings(bindings.size());
+	std::vector<VkDescriptorBindingFlags> bindingFlags(bindings.size());
 	for (size_t i = 0; i < bindings.size(); i++)
 	{
+		if ((uint32_t)bindings[i].BindingFlags & (uint32_t)DescriptorBindingFlags::VariableDescriptorCount)
+		{
+			bindingFlags.push_back(VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT |
+									VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT |
+									VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
+		}
+		else
+		{
+			bindingFlags.push_back(0);
+		}
+
 		uboLayoutBindings[i].binding = bindings[i].Binding;
 		switch (bindings[i].Type)
 		{
@@ -337,8 +372,14 @@ VkDescriptorSetLayout Pipeline::CreateDescriptorSetLayout(RenderDevice* device, 
 		uboLayoutBindings[i].descriptorCount = bindings[i].Count;
 	}
 
+	VkDescriptorSetLayoutBindingFlagsCreateInfo bindingInfo{};
+	bindingInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+	bindingInfo.bindingCount = static_cast<uint32_t>(uboLayoutBindings.size());
+	bindingInfo.pBindingFlags = bindingFlags.data();
+
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.pNext = &bindingInfo;
 	layoutInfo.bindingCount = static_cast<uint32_t>(uboLayoutBindings.size());
 	layoutInfo.pBindings = uboLayoutBindings.data();
 

@@ -72,6 +72,14 @@ namespace Hydrogen
 		static RgTextureView RenderScene(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
 		static RgTextureView RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
 		static void RenderImGui(Renderer* renderer, SwapChain* swapChain);
+
+	private:
+		static void UploadMaterialTextures(
+			Scene* scene,
+			std::vector<const Texture*>& albedoTextures,
+			std::vector<const Texture*>& normalTextures,
+			std::vector<const Texture*>& ORMTextures,
+			std::vector<const Texture*>& emissiveTextures);
 	};
 
 	class ImGuiTextureCache

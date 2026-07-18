@@ -64,11 +64,28 @@ namespace Hydrogen
 		ShaderStage StageFlags;
 	};
 
+	enum class DepthTestOp
+	{
+		Less
+	};
+
+	struct DepthTestSpec
+	{
+		bool DepthTest;
+		bool DepthWrite;
+		DepthTestOp Operator;
+	};
+
 	enum class DescriptorType
 	{
 		UniformBuffer,
 		StorageBuffer,
 		CombinedImageSampler
+	};
+
+	enum class DescriptorBindingFlags : uint32_t
+	{
+		VariableDescriptorCount = 1 << 0,
 	};
 
 	struct DescriptorBinding
@@ -77,12 +94,15 @@ namespace Hydrogen
 		DescriptorType Type;
 		uint32_t Count;
 		ShaderStage StageFlags;
+		DescriptorBindingFlags BindingFlags = (DescriptorBindingFlags)0;
 	};
 
 	struct DescriptorBindingValue
 	{
 		size_t Size;
 		uint32_t* Data;
+
+		std::vector<const Texture*> Textures;
 	};
 
 	struct PipelineSpec
@@ -94,6 +114,7 @@ namespace Hydrogen
 		PrimitiveStyle Primitive = PrimitiveStyle::Triangles;
 		PolygonModeStyle PolygonMode = PolygonModeStyle::Fill;
 		ShaderCullMode CullMode = ShaderCullMode::None;
+		DepthTestSpec DepthSpec = { false, false, DepthTestOp::Less };
 		std::vector<BlendMode> ColorBlending = {};
 		std::vector<PushConstantsRange> PushConstants = {};
 		std::vector<VkDescriptorSetLayout> DescriptorSetLayouts = {};
@@ -113,6 +134,9 @@ namespace Hydrogen
 			HashCombine(seed, static_cast<size_t>(Primitive));
 			HashCombine(seed, static_cast<size_t>(PolygonMode));
 			HashCombine(seed, static_cast<size_t>(CullMode));
+			HashCombine(seed, static_cast<size_t>(DepthSpec.DepthTest));
+			HashCombine(seed, static_cast<size_t>(DepthSpec.DepthWrite));
+			HashCombine(seed, static_cast<size_t>(DepthSpec.Operator));
 			HashCombine(seed, ColorBlending.size());
 			for (const auto& blending : ColorBlending)
 			{

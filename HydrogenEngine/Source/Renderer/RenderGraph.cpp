@@ -166,11 +166,41 @@ RenderGraph::RenderGraph(RenderDevice* device)
 	{
 		HY_ENGINE_FATAL("Failed to create Vulkan descriptor pool... vkCreateDescriptorPool returned {}", (uint16_t)result);
 	}
+
+	VkSamplerCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	createInfo.magFilter = VK_FILTER_LINEAR;
+	createInfo.minFilter = VK_FILTER_LINEAR;
+
+	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+	createInfo.anisotropyEnable = VK_FALSE;
+	createInfo.maxAnisotropy = 1.0f;
+	createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	createInfo.unnormalizedCoordinates = VK_FALSE;
+
+	createInfo.compareEnable = VK_FALSE;
+	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	createInfo.mipLodBias = 0.0f;
+	createInfo.minLod = 0.0f;
+	createInfo.maxLod = 1.0f;
+
+	result = vkCreateSampler(m_Device->GetVulkanDevice(), &createInfo, nullptr, &m_Sampler);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
+	}
 }
 
 RenderGraph::~RenderGraph()
 {
 	VkDevice device = m_Device->GetVulkanDevice();
+
+	vkDestroySampler(device, m_Sampler, nullptr);
 
 	for (auto& [hash, rp] : m_RenderPassCache) vkDestroyRenderPass(device, rp, nullptr);
 	for (auto& [hash, fb] : m_FramebufferCache) vkDestroyFramebuffer(device, fb, nullptr);
@@ -1173,7 +1203,27 @@ void RenderGraph::UpdatePassDescriptorSet(const RgPassNode& passNode, const Comp
 			break;
 
 		case DescriptorType::CombinedImageSampler:
-			HY_ASSERT(false, "Not implemented");
+			for (uint32_t j = 0; j < passNode.DescriptorBindingValues[i].Textures.size(); j++)
+			{
+				VkDescriptorImageInfo imageInfo{};
+				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imageInfo.imageView = passNode.DescriptorBindingValues[i].Textures[j]->GetImageView();
+				imageInfo.sampler = m_Sampler;
+
+				VkWriteDescriptorSet descriptorWrite{};
+				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				descriptorWrite.dstSet = compiledPass.DescriptorSet;
+				descriptorWrite.dstBinding = i;
+				descriptorWrite.dstArrayElement = j;
+
+				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				descriptorWrite.descriptorCount = 1;
+
+				descriptorWrite.pBufferInfo = nullptr;
+				descriptorWrite.pImageInfo = &imageInfo;
+
+				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
+			}
 			break;
 		}
 	}

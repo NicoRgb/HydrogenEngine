@@ -424,51 +424,143 @@ RgTextureView DefaultRenderer::RenderScene(Renderer* renderer, RenderSettings se
 	return outputs[0];
 }
 
+struct GeometryPassPushConstants
+{
+	glm::mat4 Model;
+
+	int32_t AlbedoIndex;
+	int32_t NormalIndex;
+	int32_t ORMIndex;
+	int32_t EmissiveIndex;
+
+	glm::vec4 Tint;
+
+	float Roughness;
+	float Metallic;
+	float Padding0;
+	float Padding1;
+
+	glm::vec4 Emissive;
+};
+
 RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
+	std::vector<const Texture*> AlbedoTextures;
+	std::vector<const Texture*> NormalTextures;
+	std::vector<const Texture*> ORMTextures;
+	std::vector<const Texture*> EmissiveTextures;
+
+	UploadMaterialTextures(scene, AlbedoTextures, NormalTextures, ORMTextures, EmissiveTextures);
+
+	std::vector<const Texture*> Textures;
+	Textures.reserve(AlbedoTextures.size() + NormalTextures.size() + ORMTextures.size() + EmissiveTextures.size());
+	Textures.insert(Textures.end(), AlbedoTextures.begin(), AlbedoTextures.end());
+	Textures.insert(Textures.end(), NormalTextures.begin(), NormalTextures.end());
+	Textures.insert(Textures.end(), ORMTextures.begin(), ORMTextures.end());
+	Textures.insert(Textures.end(), EmissiveTextures.begin(), EmissiveTextures.end());
+
 	UniformBuffer cameraInfo = {};
 	cameraInfo.View = camera.View;
 	cameraInfo.Proj = camera.Proj;
 	cameraInfo.ViewPos = cameraPos;
 
 	const auto& outputs = renderer->Render(
-		[cameraInfo, scene, settings](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
+		[&](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
 		{
-			RgTextureDesc finalSceneDesc = {};
-			finalSceneDesc.Width = settings.Display.Width;
-			finalSceneDesc.Height = settings.Display.Height;
-			finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
-			auto finalTexture = graph->CreateTexture(finalSceneDesc);
+			uint32_t textureWidth = settings.Display.Width;
+			uint32_t textureHeight = settings.Display.Height;
 
-			graph->AddPass("Triangle", {}, {},
-				[finalTexture](RgPassBuilder& builder)
+			auto gBufferPosition = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			auto gBufferNormal = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			auto gBufferAlbedoRoughness = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA8_SRGB });
+			auto gBufferMetallicAO = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA8_SRGB });
+			auto gBufferEmissive = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			auto gBufferDepth = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::D32_SFLOAT });
+			
+			graph->AddPass("GBuffer",
 				{
-					builder.WriteColor(finalTexture);
+					{ 0, DescriptorType::CombinedImageSampler, 1000, ShaderStage::Fragment, DescriptorBindingFlags::VariableDescriptorCount }
 				},
-				[finalTexture, scene, settings](RgCommandList& cmd)
-				{
-					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
 
-					PipelineSpec trianglePipeline = {};
-					trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
-					trianglePipeline.ColorBlending = { BlendMode::None };
-					trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
+				{
+					{ .Textures = Textures },
+				},
+
+				[&](RgPassBuilder& builder)
+				{
+					builder.WriteColor(gBufferPosition);
+					builder.WriteColor(gBufferNormal);
+					builder.WriteColor(gBufferAlbedoRoughness);
+					builder.WriteColor(gBufferMetallicAO);
+					builder.WriteColor(gBufferEmissive);
+					builder.WriteDepth(gBufferDepth);
+				},
+				[&](RgCommandList& cmd)
+				{
+					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GBufferVertexShader.glsl");
+					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GBufferFragmentShader.glsl");
+
+					PipelineSpec gBufferPipeline = {};
+					gBufferPipeline.VertexBufferLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} };
+					gBufferPipeline.PushConstants = { { sizeof(GeometryPassPushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
+					gBufferPipeline.CullMode = ShaderCullMode::Back;
+					gBufferPipeline.ColorBlending = { BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None };
+					gBufferPipeline.DepthSpec = { .DepthTest = true, .DepthWrite = true, .Operator = DepthTestOp::Less };
 					if (settings.Debug.WireframeMode)
 					{
-						trianglePipeline.PolygonMode = PolygonModeStyle::Line;
+						gBufferPipeline.PolygonMode = PolygonModeStyle::Line;
 					}
 
-					cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
+					cmd.BindPipeline(vertexShader, fragmentShader, gBufferPipeline);
 
-					scene->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
+					uint32_t albedoIndex = 0;
+					uint32_t normalIndex = 0;
+					uint32_t ORMIndex = 0;
+					uint32_t emissiveIndex = 0;
+
+					uint32_t albedoOffset = 0;
+					uint32_t normalOffset = (uint32_t)AlbedoTextures.size();
+					uint32_t ORMOffset = (uint32_t)AlbedoTextures.size() + (uint32_t)NormalTextures.size();
+					uint32_t emissiveOffset = (uint32_t)AlbedoTextures.size() + (uint32_t)NormalTextures.size() + (uint32_t)ORMTextures.size();
+
+					scene->IterateComponents<MeshRendererComponent>([&cmd, &albedoIndex, &normalIndex, &ORMIndex, &emissiveIndex, albedoOffset, normalOffset, ORMOffset, emissiveOffset]
+					(Entity e, MeshRendererComponent mesh)
 						{
-							PushConstants pc = {};
-							pc.Model = e.GetComponent<TransformComponent>().Transform;
-							pc.Color = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
-							pc.TexIndex = 0;
+							GeometryPassPushConstants pushConstants{};
+							pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
 
-							cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
+							pushConstants.AlbedoIndex = -1;
+							pushConstants.NormalIndex = -1;
+							pushConstants.ORMIndex = -1;
+							pushConstants.EmissiveIndex = -1;
+
+							if (mesh.Material->GetAlbedoMap())
+							{
+								pushConstants.AlbedoIndex = albedoIndex + albedoOffset;
+								albedoIndex++;
+							}
+							if (mesh.Material->GetNormalMap())
+							{
+								pushConstants.NormalIndex = normalIndex + normalOffset;
+								normalIndex++;
+							}
+							if (mesh.Material->GetORMMap())
+							{
+								pushConstants.ORMIndex = ORMIndex + ORMOffset;
+								ORMIndex++;
+							}
+							if (mesh.Material->GetEmissiveMap())
+							{
+								pushConstants.EmissiveIndex = emissiveIndex + emissiveOffset;
+								emissiveIndex++;
+							}
+
+							pushConstants.Tint = glm::vec4(mesh.Material->GetTint(), 1.0);
+							pushConstants.Roughness = mesh.Material->GetRoughnessFactor();
+							pushConstants.Metallic = mesh.Material->GetMetallicFactor();
+							pushConstants.Emissive = mesh.Material->GetEmissive();
+
+							cmd.PushConstants(&pushConstants, sizeof(GeometryPassPushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
 
 							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->GetRenderDevice()));
 							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->GetRenderDevice()));
@@ -476,7 +568,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 						});
 				});
 
-			graph->AddOutput(finalTexture);
+			graph->AddOutput(gBufferAlbedoRoughness);
 
 			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
 
@@ -509,4 +601,38 @@ void DefaultRenderer::RenderImGui(Renderer* renderer, SwapChain* swapChain)
 			graph->Compile({});
 			return {};
 		}, true);
+}
+
+void DefaultRenderer::UploadMaterialTextures(Scene* scene, std::vector<const Texture*>& albedoTextures, std::vector<const Texture*>& normalTextures, std::vector<const Texture*>& ORMTextures, std::vector<const Texture*>& emissiveTextures)
+{
+	scene->IterateComponents<MeshRendererComponent>(
+		[&](Entity e, const MeshRendererComponent& m)
+		{
+			if (!m.Mesh)
+				return;
+
+			auto albedo = m.Material->GetAlbedoMap();
+			if (albedo)
+			{
+				albedoTextures.push_back(albedo->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+
+			auto normal = m.Material->GetNormalMap();
+			if (normal)
+			{
+				normalTextures.push_back(normal->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+			
+			auto orm = m.Material->GetORMMap();
+			if (orm)
+			{
+				ORMTextures.push_back(orm->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+
+			auto emissive = m.Material->GetEmissiveMap();
+			if (emissive)
+			{
+				emissiveTextures.push_back(emissive->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+		});
 }

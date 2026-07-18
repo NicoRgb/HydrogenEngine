@@ -29,7 +29,7 @@ namespace Hydrogen
 		uint32_t ApplicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		const char* EngineName = "Hydrogen Engine";
 		uint32_t EngineVersion = VK_MAKE_VERSION(1, 0, 0);
-		uint32_t ApiVersion = VK_API_VERSION_1_0;
+		uint32_t ApiVersion = VK_API_VERSION_1_2;
 	};
 
 	class RenderInstance
@@ -40,7 +40,7 @@ namespace Hydrogen
 
 		static RenderInstance* Get() { return s_Instance; }
 
-		uint32_t GetVulkanApiVersion() const { return VK_API_VERSION_1_0; }
+		uint32_t GetVulkanApiVersion() const { return VK_API_VERSION_1_2; }
 
 		const std::vector<RenderDeviceDescriptor> GetRenderDevices() const;
 		RenderDeviceDescriptor ChooseRenderDevice(const std::shared_ptr<Viewport>& viewport, const std::function<uint64_t(const RenderDeviceDescriptor&, const std::shared_ptr<Viewport>&)>& scoreFunction = &RenderInstance::DefaultScoreDevice) const;
