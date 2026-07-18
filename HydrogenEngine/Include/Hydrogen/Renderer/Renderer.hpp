@@ -8,40 +8,6 @@
 
 namespace Hydrogen
 {
-	struct DisplaySettings
-	{
-		uint64_t Width = 1920;
-		uint64_t Height = 1080;
-	};
-
-	struct RendererSettings
-	{
-		DisplaySettings Display;
-	};
-
-	enum RendererDirtyFlags
-	{
-		RendererDirtyFlag_Clean = 0,
-	};
-
-	class RendererSettingsManager
-	{
-	public:
-		RendererSettingsManager() : m_DirtyFlags(RendererDirtyFlag_Clean) {}
-		RendererSettingsManager(const RendererSettings& settings) : m_Settings(settings), m_DirtyFlags(RendererDirtyFlag_Clean) {}
-		~RendererSettingsManager() = default;
-
-		void SetSettings(const RendererSettings& settings) { m_Settings = settings; }
-		const RendererSettings& GetSettings() const { return m_Settings; }
-
-		bool IsDirty() const { return m_DirtyFlags != RendererDirtyFlag_Clean; }
-		uint16_t GetDirtyFlags() const { return m_DirtyFlags; }
-
-	private:
-		RendererSettings m_Settings;
-		uint16_t m_DirtyFlags;
-	};
-
 	class Renderer
 	{
 	public:
@@ -76,12 +42,28 @@ namespace Hydrogen
 		VkSemaphore m_PresentFinishedSemaphore;
 		VkFence m_WaitFence;
 
-		RendererSettingsManager m_SettingsManager;
 		std::unique_ptr<RenderGraph> m_RenderGraph;
 
 		VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE;
 
 		VkSampler m_ImguiSampler;
+	};
+
+	struct DisplaySettings
+	{
+		uint64_t Width = 1920;
+		uint64_t Height = 1080;
+	};
+
+	struct RenderSettings
+	{
+		DisplaySettings Display;
+	};
+
+	class DefaultRenderer
+	{
+	public:
+		static RgTextureView DefaultRenderFunc(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene);
 	};
 
 	class ImGuiTextureCache

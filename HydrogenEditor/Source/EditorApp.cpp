@@ -46,7 +46,8 @@ private:
 	ImVec2 m_OldViewportContentRegion = ImVec2(1920, 1080);
 	ImVec2 m_ViewportContentRegion = ImVec2(1920, 1080);
 
-	std::unique_ptr<Renderer> m_Renderer;
+	std::unique_ptr<Renderer> m_ViewportRenderer;
+	std::unique_ptr<Renderer> m_ImGuiRenderer;
 
 	struct UniformBuffer
 	{
@@ -278,7 +279,8 @@ public:
 		FreeCam.CalculateProj();
 		FreeCam.Active = true;
 
-		m_Renderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
+		m_ViewportRenderer = std::make_unique<Renderer>(ActiveRenderDevice.get());
+		m_ImGuiRenderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
 
 		CurrentScene->GetScene()->CreateScripts();
 
@@ -302,7 +304,8 @@ public:
 	{
 		_BrowserPanel.Shutdown();
 		TextureCache.Clear();
-		m_Renderer.reset();
+		m_ViewportRenderer.reset();
+		m_ImGuiRenderer.reset();
 	}
 
 	virtual void OnUpdate(float deltaTime) override
@@ -383,7 +386,7 @@ public:
 
 	virtual void OnImGuiRender() override
 	{
-		m_Renderer->BeginImGuiFrame();
+		m_ImGuiRenderer->BeginImGuiFrame();
 
 		static bool dockingEnabled = true;
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
@@ -629,20 +632,20 @@ public:
 	virtual void OnSwapchainRecreation() override
 	{
 		TextureCache.Clear();
-		m_Renderer->UpdateSwapChain(ActiveSwapChain.get());
+		m_ImGuiRenderer->UpdateSwapChain(ActiveSwapChain.get());
 	}
 
 	virtual void OnRenderDeviceChangeStart() override
 	{
 		TextureCache.Clear();
-		m_Renderer.reset();
+		m_ViewportRenderer.reset();
+		m_ImGuiRenderer.reset();
 	}
 
 	virtual void OnRenderDeviceChangeFinish() override
 	{
-		BufferDescription desc = { sizeof(UniformBuffer), BufferType::Uniform, true, true };
-
-		m_Renderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
+		m_ViewportRenderer = std::make_unique<Renderer>(ActiveRenderDevice.get());
+		m_ImGuiRenderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
 	}
 
 private:
@@ -656,17 +659,17 @@ private:
 
 		const auto& camera = cameraEntity.GetComponent<CameraComponent>();
 		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
-		const auto& scene = CurrentScene->GetScene();
+		Scene* scene = CurrentScene->GetScene();
 
-		UniformBuffer cameraInfo = {};
-		cameraInfo.View = camera.View;
-		cameraInfo.Proj = camera.Proj;
-		cameraInfo.ViewPos = cameraPos;
+		RenderSettings renderSettings;
+		renderSettings.Display.Width = m_ViewportContentRegion.x;
+		renderSettings.Display.Height = m_ViewportContentRegion.y;
+
+		VkImageView finalScene = DefaultRenderer::DefaultRenderFunc(m_ViewportRenderer.get(), renderSettings, camera, cameraPos, scene).ImageView;
 
 		bool viewportChanged = false;
-
-		m_Renderer->Render(
-			[this, cameraInfo, scene, &viewportChanged](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
+		m_ImGuiRenderer->Render(
+			[this, finalScene, &viewportChanged](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
 			{
 				if (m_ViewportContentRegion.x != m_OldViewportContentRegion.x || m_ViewportContentRegion.y != m_OldViewportContentRegion.y)
 				{
@@ -674,64 +677,21 @@ private:
 					viewportChanged = true;
 				}
 
-				RgTextureDesc finalSceneDesc = {};
-				finalSceneDesc.Width = (uint32_t)m_ViewportContentRegion.x;
-				finalSceneDesc.Height = (uint32_t)m_ViewportContentRegion.y;
-				finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
-				auto finalTexture = graph->CreateTexture(finalSceneDesc);
-
-				auto swapChainImage = ActiveSwapChain->AcquireNextImage(graph, m_Renderer->GetImageAvailableSemaphore());
-				VkSampler viewportSampler = m_Renderer->GetImguiSampler();
-				auto wireframeMode = m_WireframeMode;
-
-				graph->AddPass("Triangle", {},
-					[finalTexture](RgPassBuilder& builder)
-					{
-						builder.WriteColor(finalTexture);
-					},
-					[scene, wireframeMode](RgCommandList& cmd)
-					{
-						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
-
-						PipelineSpec trianglePipeline = {};
-						trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
-						trianglePipeline.ColorBlending = { BlendMode::None };
-						trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
-						if (wireframeMode)
-						{
-							trianglePipeline.PolygonMode = PolygonModeStyle::Line;
-						}
-						cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
-
-						scene->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
-							{
-								PushConstants pc = {};
-								pc.Model = e.GetComponent<TransformComponent>().Transform;
-								pc.Color = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
-								pc.TexIndex = 0;
-
-								cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
-
-								cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->ActiveRenderDevice.get()));
-								cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->ActiveRenderDevice.get()));
-								cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
-							});
-					});
-
+				auto swapChainImage = ActiveSwapChain->AcquireNextImage(graph, m_ImGuiRenderer->GetImageAvailableSemaphore());
 				auto& contentRegion = m_ViewportContentRegion;
 
+				VkSampler viewportSampler = m_ImGuiRenderer->GetImguiSampler();
+
 				graph->AddPass("ImGui", {},
-					[finalTexture, swapChainImage](RgPassBuilder& builder)
+					[swapChainImage](RgPassBuilder& builder)
 					{
 						builder.WriteColor(swapChainImage);
-						builder.ReadTexture(finalTexture);
 					},
-					[viewportSampler, finalSceneDesc, finalTexture, &contentRegion](RgCommandList& cmd)
+					[viewportSampler, finalScene, &contentRegion](RgCommandList& cmd)
 					{
 						ImGui::Begin("Viewport");
 						contentRegion = ImGui::GetContentRegionAvail();
-						ImGui::Image(TextureCache.GetTextureID(cmd.GetTextureView(finalTexture).ImageView, viewportSampler), ImVec2((float)finalSceneDesc.Width, (float)finalSceneDesc.Height));
+						ImGui::Image(TextureCache.GetTextureID(finalScene, viewportSampler), ImVec2(contentRegion.x, contentRegion.y));
 						ImGui::End();
 
 						ImGui::Render();
@@ -740,15 +700,14 @@ private:
 						ImGui_ImplVulkan_RenderDrawData(drawData, cmd.GetCommandBuffer());
 					});
 
-				graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
-
-				return { { sizeof(UniformBuffer), (uint32_t*) &cameraInfo}};
+				graph->Compile({});
+				return {};
 			}, true);
 
 		if (viewportChanged)
 		{
 			ActiveRenderDevice->WaitForIdle();
-			m_Renderer->ClearCache();
+			m_ViewportRenderer->ClearCache();
 			TextureCache.Clear();
 		}
 	}

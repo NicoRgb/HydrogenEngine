@@ -351,3 +351,77 @@ void Renderer::InitImGui()
 
 	vkDestroyRenderPass(m_Device->GetVulkanDevice(), bootstrapRenderPass, nullptr);
 }
+
+struct UniformBuffer
+{
+	glm::mat4 View;
+	glm::mat4 Proj;
+	glm::vec3 ViewPos;
+	float Padding;
+};
+
+struct PushConstants
+{
+	glm::mat4 Model;
+	glm::vec4 Color;
+	int TexIndex;
+	int Padding[3];
+};
+
+RgTextureView DefaultRenderer::DefaultRenderFunc(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
+{
+	UniformBuffer cameraInfo = {};
+	cameraInfo.View = camera.View;
+	cameraInfo.Proj = camera.Proj;
+	cameraInfo.ViewPos = cameraPos;
+
+	const auto& outputs = renderer->Render(
+		[cameraInfo, scene, settings](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
+		{
+			RgTextureDesc finalSceneDesc = {};
+			finalSceneDesc.Width = settings.Display.Width;
+			finalSceneDesc.Height = settings.Display.Height;
+			finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
+			auto finalTexture = graph->CreateTexture(finalSceneDesc);
+
+			graph->AddPass("Triangle", {},
+				[finalTexture](RgPassBuilder& builder)
+				{
+					builder.WriteColor(finalTexture);
+				},
+				[finalTexture, scene](RgCommandList& cmd)
+				{
+					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
+					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
+
+					PipelineSpec trianglePipeline = {};
+					trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
+					trianglePipeline.ColorBlending = { BlendMode::None };
+					trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
+
+					cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
+
+					scene->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
+						{
+							PushConstants pc = {};
+							pc.Model = e.GetComponent<TransformComponent>().Transform;
+							pc.Color = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
+							pc.TexIndex = 0;
+
+							cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
+
+							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->GetRenderDevice()));
+							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->GetRenderDevice()));
+							cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
+						});
+				});
+
+			graph->AddOutput(finalTexture);
+
+			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
+
+			return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
+		}, false);
+
+	return outputs[0];
+}

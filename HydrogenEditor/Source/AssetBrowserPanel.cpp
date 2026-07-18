@@ -9,22 +9,6 @@ using namespace Hydrogen;
 
 extern ImGuiTextureCache TextureCache;
 
-struct UniformBuffer
-{
-	glm::mat4 View;
-	glm::mat4 Proj;
-	glm::vec3 ViewPos;
-	float Padding;
-};
-
-struct PushConstants
-{
-	glm::mat4 Model;
-	glm::vec4 Color;
-	int TexIndex;
-	int Padding[3];
-};
-
 AssetBrowserPanel::AssetBrowserPanel(const std::filesystem::path& assetDir, AssetEditorPanel& editor)
 	: m_EditorPanel(editor),
 	m_AssetDirectory(assetDir),
@@ -51,8 +35,6 @@ void AssetBrowserPanel::Setup()
 				camera.CalculateProj();
 			}
 		});
-
-	BufferDescription desc = { sizeof(UniformBuffer), BufferType::Uniform, true, true };
 }
 
 void AssetBrowserPanel::Shutdown()
@@ -236,7 +218,6 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 		ImGui::Separator();
 
 		Entity activeCameraEntity;
-
 		m_MaterialPreviewScene->GetScene()->IterateComponents<CameraComponent>(
 			[&](Entity entity, CameraComponent& camera)
 			{
@@ -246,72 +227,19 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 
 		if (activeCameraEntity.IsValid())
 		{
-			Render(activeCameraEntity.GetComponent<CameraComponent>(), activeCameraEntity.GetComponent<TransformComponent>().GetPosition());
-			ImGui::Image(TextureCache.GetTextureID(m_FinalImage, m_MaterialPreviewRenderer->GetImguiSampler()), {256, 256});
+			RenderSettings renderSettings;
+			renderSettings.Display.Width = 256;
+			renderSettings.Display.Height = 256;
+
+			VkImageView finalImage =
+				DefaultRenderer::DefaultRenderFunc(m_MaterialPreviewRenderer.get(), renderSettings, activeCameraEntity.GetComponent<CameraComponent>(),
+					activeCameraEntity.GetComponent<TransformComponent>().GetPosition(), m_MaterialPreviewScene->GetScene()).ImageView;
+
+			ImGui::Image(TextureCache.GetTextureID(finalImage, m_MaterialPreviewRenderer->GetImguiSampler()), {256, 256});
 		}
 
 		ImGui::TreePop();
 	}
-}
-
-void AssetBrowserPanel::Render(const CameraComponent& camera, const glm::vec3 cameraPos)
-{
-	UniformBuffer cameraInfo = {};
-	cameraInfo.View = camera.View;
-	cameraInfo.Proj = camera.Proj;
-	cameraInfo.ViewPos = cameraPos;
-
-	const auto& outputs = m_MaterialPreviewRenderer->Render(
-		[this, cameraInfo](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
-		{
-			RgTextureDesc finalSceneDesc = {};
-			finalSceneDesc.Width = 256;
-			finalSceneDesc.Height = 256;
-			finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
-			auto finalTexture = graph->CreateTexture(finalSceneDesc);
-
-			const auto& scene = m_MaterialPreviewScene;
-
-			graph->AddPass("Triangle", {},
-				[finalTexture](RgPassBuilder& builder)
-				{
-					builder.WriteColor(finalTexture);
-				},
-				[finalTexture, scene](RgCommandList& cmd)
-				{
-					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
-
-					PipelineSpec trianglePipeline = {};
-					trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
-					trianglePipeline.ColorBlending = { BlendMode::None };
-					trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
-
-					cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
-
-					scene->GetScene()->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
-						{
-							PushConstants pc = {};
-							pc.Model = e.GetComponent<TransformComponent>().Transform;
-							pc.Color = glm::vec4(255.0f, 255.0f, 255.0f, 255.0f);
-							pc.TexIndex = 0;
-
-							cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
-
-							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->GetRenderDevice()));
-							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->GetRenderDevice()));
-							cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
-						});
-				});
-
-			graph->AddOutput(finalTexture);
-
-			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
-
-			return { { sizeof(UniformBuffer), (uint32_t*) &cameraInfo }};
-		}, false);
-
-	m_FinalImage = outputs[0].ImageView;
 }
 
 void AssetBrowserPanel::OnImGuiRender()

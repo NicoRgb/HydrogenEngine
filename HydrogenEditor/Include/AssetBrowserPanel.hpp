@@ -24,7 +24,6 @@ public:
 
 private:
     void DrawFileConfig(std::filesystem::path path, nlohmann::json& j);
-    void Render(const Hydrogen::CameraComponent& camera, const glm::vec3 cameraPos);
 
     AssetEditorPanel& m_EditorPanel;
     std::filesystem::path m_AssetDirectory, m_CurrentDirectory, m_CurrentFile;
@@ -36,6 +35,4 @@ private:
 
     std::unique_ptr<Hydrogen::Renderer> m_MaterialPreviewRenderer;
     std::shared_ptr<Hydrogen::SceneAsset> m_MaterialPreviewScene;
-
-    VkImageView m_FinalImage;
 };
