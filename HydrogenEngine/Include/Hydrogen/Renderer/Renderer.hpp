@@ -63,6 +63,7 @@ namespace Hydrogen
 	struct PostProcessingSettings
 	{
 		uint8_t BloomIterations = 3;
+		bool BloomEnabled = true;
 		bool ToneMapping = true;
 	};
 

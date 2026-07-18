@@ -491,6 +491,11 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 	for (size_t i = 0; i < m_PhysicalTextureViews.size(); ++i)
 	{
+		if (m_PhysicalTextureViews[i].UsageFlags == 0)
+		{
+			continue;
+		}
+
 		if (!m_PhysicalTextureViews[i].IsImported)
 		{
 			size_t descHash = HashTextureDesc(m_TextureDescs[i], m_PhysicalTextureViews[i].UsageFlags);

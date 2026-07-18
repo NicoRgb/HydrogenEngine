@@ -623,80 +623,79 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 						});
 				});
 
-			if (!settings.PostProcessing.ToneMapping)
+			RgResourceHandle currentSceneTarget = sceneColor;
+			RgResourceHandle finalBloomTarget;
+
+			if (settings.PostProcessing.BloomEnabled && settings.PostProcessing.BloomIterations > 0)
 			{
-				graph->AddOutput(sceneColor);
-				graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, (ShaderStage)((uint32_t)ShaderStage::Vertex | (uint32_t)ShaderStage::Fragment) } });
-				return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
-			}
+				uint32_t bloomWidth = std::max(1u, textureWidth / 2);
+				uint32_t bloomHeight = std::max(1u, textureHeight / 2);
 
-			RgResourceHandle sceneBright2 = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+				RgResourceHandle blurPing = graph->CreateTexture({ .Width = bloomWidth, .Height = bloomHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+				RgResourceHandle blurPong = graph->CreateTexture({ .Width = bloomWidth, .Height = bloomHeight, .Format = TextureFormat::RGBA16_SFLOAT });
 
-			uint8_t numBlurPasses = settings.PostProcessing.BloomIterations * 2;
-			for (uint8_t i = 0; i < numBlurPasses; i++)
-			{
-				std::string name = "Bloom Blur " + std::to_string(i);
-				bool horizontal = (i % 2) == 0;
+				uint8_t numBlurPasses = settings.PostProcessing.BloomIterations * 2;
+				for (uint8_t i = 0; i < numBlurPasses; i++)
+				{
+					std::string name = "Bloom Blur Pass " + std::to_string(i);
+					bool horizontal = (i % 2) == 0;
 
-				graph->AddPass(name,
-					{
-						{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment }
-					},
+					RgResourceHandle readTarget = (i == 0) ? sceneBright : (horizontal ? blurPong : blurPing);
+					RgResourceHandle writeTarget = horizontal ? blurPing : blurPong;
 
-					{
-						{.Resources = {horizontal ? sceneBright : sceneBright2} }
-					},
+					graph->AddPass(name,
+						{ { 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment } },
+						{ {.Resources = {readTarget} } },
+						[&](RgPassBuilder& builder)
+						{
+							builder.WriteColor(writeTarget);
+							builder.ReadTexture(readTarget);
+						},
+						[horizontal](RgCommandList& cmd)
+						{
+							auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurVertexShader.glsl");
+							auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurFragmentShader.glsl");
 
-					[&](RgPassBuilder& builder)
-					{
-						builder.WriteColor(horizontal ? sceneBright2 : sceneBright);
-						builder.ReadTexture(horizontal ? sceneBright : sceneBright2);
-					},
-					[horizontal](RgCommandList& cmd)
-					{
-						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurVertexShader.glsl");
-						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurFragmentShader.glsl");
+							PipelineSpec blurPipeline = {};
+							blurPipeline.VertexBufferLayout = {};
+							blurPipeline.PushConstants = { { sizeof(BlurPushConstants), ShaderStage::Fragment } };
+							blurPipeline.CullMode = ShaderCullMode::None;
+							blurPipeline.ColorBlending = { BlendMode::None };
+							blurPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
 
-						PipelineSpec blurPipeline = {};
-						blurPipeline.VertexBufferLayout = {};
-						blurPipeline.PushConstants = { { sizeof(BlurPushConstants), ShaderStage::Fragment } };
-						blurPipeline.CullMode = ShaderCullMode::None;
-						blurPipeline.ColorBlending = { BlendMode::None };
-						blurPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
+							cmd.BindPipeline(vertexShader, fragmentShader, blurPipeline);
 
-						cmd.BindPipeline(vertexShader, fragmentShader, blurPipeline);
+							BlurPushConstants pc{};
+							pc.Horizontal = horizontal;
 
-						BlurPushConstants pc{};
-						pc.Horizontal = horizontal;
+							cmd.PushConstants(&pc, sizeof(BlurPushConstants), 0, ShaderStage::Fragment);
 
-						cmd.PushConstants(&pc, sizeof(BlurPushConstants), 0, ShaderStage::Fragment);
+							cmd.Draw(3);
+						}
+					);
 
-						cmd.Draw(3);
-					});
+					finalBloomTarget = writeTarget;
+				}
 			}
 
 			RgResourceHandle sceneFinal = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			RgResourceHandle bloomInput = (finalBloomTarget.IsValid()) ? finalBloomTarget : sceneBright;
 
-			graph->AddPass("Post Processing",
+			graph->AddPass("Post Processing Composite",
 				{
 					{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
 					{ 1, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment }
 				},
-
 				{
-					{.Resources = {sceneColor} },
-					{.Resources = {sceneBright} }
+					{.Resources = {currentSceneTarget} },
+					{.Resources = {bloomInput} }
 				},
-
-				[&](RgPassBuilder& builder)
-				{
+				[&](RgPassBuilder& builder) {
 					builder.WriteColor(sceneFinal);
-
-					builder.ReadTexture(sceneColor);
-					builder.ReadTexture(sceneBright);
+					builder.ReadTexture(currentSceneTarget);
+					builder.ReadTexture(bloomInput);
 				},
-				[&](RgCommandList& cmd)
-				{
+				[settings](RgCommandList& cmd) {
 					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl");
 					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl");
 

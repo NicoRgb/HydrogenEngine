@@ -651,6 +651,7 @@ private:
 		ImGui::TextDisabled("RENDERING SETTINGS");
 		ImGui::Checkbox("Wireframe Mode", &m_RenderSettings.Debug.WireframeMode);
 		ImGui::Checkbox("Tone Mapping", &m_RenderSettings.PostProcessing.ToneMapping);
+		ImGui::Checkbox("Bloom", &m_RenderSettings.PostProcessing.BloomEnabled);
 
 		int bloomIterations = (int)m_RenderSettings.PostProcessing.BloomIterations;
 		if (ImGui::InputInt("Bloom Iterations", &bloomIterations))
