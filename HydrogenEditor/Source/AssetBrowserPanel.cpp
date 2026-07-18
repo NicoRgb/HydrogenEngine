@@ -37,11 +37,10 @@ void AssetBrowserPanel::Setup()
 {
 	m_MaterialPreviewRenderer = std::make_unique<Renderer>(Application::Get()->GetRenderDevice());
 
-	auto s = Application::Get()->MainAssetManager.GetAsset<SceneAsset>("MaterialPreview.hyscene");
-	s->Load(&Application::Get()->MainAssetManager);
-	m_MaterialPreviewScene = s->GetScene();
+	m_MaterialPreviewScene = Application::Get()->MainAssetManager.GetAsset<SceneAsset>("MaterialPreview.hyscene");
+	m_MaterialPreviewScene->Load(&Application::Get()->MainAssetManager);
 
-	m_MaterialPreviewScene->IterateComponents<CameraComponent>(
+	m_MaterialPreviewScene->GetScene()->IterateComponents<CameraComponent>(
 		[&](Entity entity, CameraComponent& camera)
 		{
 			if (camera.Active)
@@ -54,7 +53,12 @@ void AssetBrowserPanel::Setup()
 		});
 
 	BufferDescription desc = { sizeof(UniformBuffer), BufferType::Uniform, true, true };
-	m_UniformBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), desc);
+}
+
+void AssetBrowserPanel::Shutdown()
+{
+	m_MaterialPreviewRenderer.reset();
+	m_MaterialPreviewScene.reset();
 }
 
 void AssetBrowserPanel::LoadTextures(const Texture* folderTex, const Texture* fileTex)
@@ -127,7 +131,7 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 		{
 			auto materialAsset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(path.filename().string());
 
-			m_MaterialPreviewScene->IterateComponents<MeshRendererComponent>(
+			m_MaterialPreviewScene->GetScene()->IterateComponents<MeshRendererComponent>(
 				[&](Entity entity, MeshRendererComponent& mesh)
 				{
 					mesh.Material = materialAsset;
@@ -233,7 +237,7 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 
 		Entity activeCameraEntity;
 
-		m_MaterialPreviewScene->IterateComponents<CameraComponent>(
+		m_MaterialPreviewScene->GetScene()->IterateComponents<CameraComponent>(
 			[&](Entity entity, CameraComponent& camera)
 			{
 				if (camera.Active)
@@ -252,8 +256,13 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 
 void AssetBrowserPanel::Render(const CameraComponent& camera, const glm::vec3 cameraPos)
 {
+	UniformBuffer cameraInfo = {};
+	cameraInfo.View = camera.View;
+	cameraInfo.Proj = camera.Proj;
+	cameraInfo.ViewPos = cameraPos;
+
 	const auto& outputs = m_MaterialPreviewRenderer->Render(
-		[this, camera, cameraPos](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
+		[this, cameraInfo](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
 		{
 			RgTextureDesc finalSceneDesc = {};
 			finalSceneDesc.Width = 256;
@@ -261,17 +270,6 @@ void AssetBrowserPanel::Render(const CameraComponent& camera, const glm::vec3 ca
 			finalSceneDesc.Format = TextureFormat::RGBA8_SRGB;
 			auto finalTexture = graph->CreateTexture(finalSceneDesc);
 
-			auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-			auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
-
-			UniformBuffer cameraInfo = {};
-			cameraInfo.View = camera.View;
-			cameraInfo.Proj = camera.Proj;
-			cameraInfo.ViewPos = cameraPos;
-
-			m_UniformBuffer->UploadData((void*)&cameraInfo, sizeof(UniformBuffer), 0);
-
-			RenderDevice* renderDevice = Application::Get()->GetRenderDevice();
 			const auto& scene = m_MaterialPreviewScene;
 
 			graph->AddPass("Triangle", {},
@@ -279,15 +277,19 @@ void AssetBrowserPanel::Render(const CameraComponent& camera, const glm::vec3 ca
 				{
 					builder.WriteColor(finalTexture);
 				},
-				[finalTexture, renderDevice, scene, vertexShader, fragmentShader](RgCommandList& cmd)
+				[finalTexture, scene](RgCommandList& cmd)
 				{
+					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
+					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
+
 					PipelineSpec trianglePipeline = {};
 					trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
 					trianglePipeline.ColorBlending = { BlendMode::None };
 					trianglePipeline.PushConstants = { { sizeof(PushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
+
 					cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
 
-					scene->IterateComponents<MeshRendererComponent>([&cmd, renderDevice](Entity e, MeshRendererComponent mesh)
+					scene->GetScene()->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
 						{
 							PushConstants pc = {};
 							pc.Model = e.GetComponent<TransformComponent>().Transform;
@@ -296,8 +298,8 @@ void AssetBrowserPanel::Render(const CameraComponent& camera, const glm::vec3 ca
 
 							cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
 
-							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(renderDevice));
-							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(renderDevice));
+							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->GetRenderDevice()));
+							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->GetRenderDevice()));
 							cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
 						});
 				});
@@ -306,11 +308,7 @@ void AssetBrowserPanel::Render(const CameraComponent& camera, const glm::vec3 ca
 
 			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
 
-			DescriptorBindingValue value;
-			value.Type = DescriptorType::UniformBuffer;
-			value.RenderBuffers.push_back(m_UniformBuffer.get());
-
-			return { value };
+			return { { sizeof(UniformBuffer), (uint32_t*) &cameraInfo }};
 		}, false);
 
 	m_FinalImage = outputs[0].ImageView;

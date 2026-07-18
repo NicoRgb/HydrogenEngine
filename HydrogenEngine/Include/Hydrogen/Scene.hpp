@@ -55,7 +55,7 @@ namespace Hydrogen
 
 	class Entity;
 
-	class Scene : public std::enable_shared_from_this<Scene>
+	class Scene
 	{
 	public:
 		Scene();
@@ -72,7 +72,7 @@ namespace Hydrogen
 				{
 					Entity entity;
 					entity.m_Entity = entityHandle;
-					entity.m_Scene = shared_from_this();
+					entity.m_Scene = this;
 
 					std::forward<Func>(func)(entity);
 				}
@@ -85,7 +85,7 @@ namespace Hydrogen
 				{
 					Entity entity;
 					entity.m_Entity = entityHandle;
-					entity.m_Scene = shared_from_this();
+					entity.m_Scene = this;
 
 					std::forward<Func>(func)(
 						entity,
@@ -124,7 +124,7 @@ namespace Hydrogen
 	class Entity
 	{
 	public:
-		Entity(const std::shared_ptr<Scene>& scene, std::string name);
+		Entity(Scene* scene, std::string name);
 		Entity();
 		~Entity() = default;
 
@@ -182,7 +182,7 @@ namespace Hydrogen
 
 	private:
 		entt::entity m_Entity;
-		std::shared_ptr<Scene> m_Scene;
+		Scene* m_Scene;
 
 		friend class Scene;
 	};

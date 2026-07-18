@@ -9,13 +9,13 @@
 class InspectorPanel : public Panel
 {
 public:
-    void SetContext(const std::shared_ptr<Hydrogen::Scene>& scene, Hydrogen::Entity selected);
-    void OnImGuiRender() override;
-    const char* GetName() const override { return "Inspector"; }
+	void SetContext(Hydrogen::Scene* scene, Hydrogen::Entity selected);
+	void OnImGuiRender() override;
+	const char* GetName() const override { return "Inspector"; }
 
 	void SetSelectedEntity(Hydrogen::Entity entity) { m_SelectedEntity = entity; }
 
 private:
-    std::shared_ptr<Hydrogen::Scene> m_Scene;
-    Hydrogen::Entity m_SelectedEntity;
+	Hydrogen::Scene* m_Scene;
+	Hydrogen::Entity m_SelectedEntity;
 };

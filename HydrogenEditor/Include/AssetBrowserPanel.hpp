@@ -16,6 +16,7 @@ public:
     AssetBrowserPanel(const std::filesystem::path& assetDir, AssetEditorPanel& editor);
 
     void Setup();
+    void Shutdown();
 
     void LoadTextures(const Hydrogen::Texture* folderTex, const Hydrogen::Texture* fileTex);
     void OnImGuiRender() override;
@@ -34,8 +35,7 @@ private:
     char inputName[256] = "";
 
     std::unique_ptr<Hydrogen::Renderer> m_MaterialPreviewRenderer;
-    std::unique_ptr<Hydrogen::RenderBuffer> m_UniformBuffer;
-    std::shared_ptr<Hydrogen::Scene> m_MaterialPreviewScene;
+    std::shared_ptr<Hydrogen::SceneAsset> m_MaterialPreviewScene;
 
     VkImageView m_FinalImage;
 };

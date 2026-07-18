@@ -110,7 +110,7 @@ void Renderer::BeginImGuiFrame()
 	ImGui::NewFrame();
 }
 
-std::vector<RgResourceView> Renderer::Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present)
+std::vector<RgTextureView> Renderer::Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present)
 {
 	if (present)
 	{

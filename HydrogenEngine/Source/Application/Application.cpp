@@ -102,10 +102,11 @@ void Application::Run()
 		Input::EndFrame();
 	}
 
+	ActiveRenderDevice->WaitForIdle();
+
 	CurrentScene->ClearScene();
 	MainAssetManager.Clear();
 
-	ActiveRenderDevice->WaitForIdle();
 	OnShutdown();
 
 	ActiveSwapChain.reset();

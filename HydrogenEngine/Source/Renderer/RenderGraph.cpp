@@ -13,6 +13,14 @@ static size_t HashTextureDesc(const RgTextureDesc& desc, VkImageUsageFlags usage
 	return seed;
 }
 
+static size_t HashBufferDesc(const RgBufferDesc& desc)
+{
+	size_t seed = 0;
+	HashCombine(seed, desc.Size);
+	HashCombine(seed, static_cast<size_t>(desc.Type));
+	return seed;
+}
+
 static size_t HashDescriptorBindings(const std::vector<DescriptorBinding>& bindings)
 {
 	size_t seed = 0;
@@ -39,47 +47,6 @@ void RgCommandList::PushConstants(const void* data, uint32_t size, uint32_t offs
 	}
 
 	vkCmdPushConstants(m_CmdBuf, m_BoundPipeline->GetPipelineLayout(), vkStageFlags, offset, size, data);
-}
-
-void RgCommandList::UpdateDescriptorSet(const std::vector<DescriptorBindingValue>& bindingValues)
-{
-	for (uint32_t i = 0; i < bindingValues.size(); i++)
-	{
-		switch (bindingValues[i].Type)
-		{
-		case DescriptorType::UniformBuffer:
-			for (uint32_t j = 0; j < bindingValues[i].RenderBuffers.size(); j++)
-			{
-				VkDescriptorBufferInfo bufferInfo{};
-				bufferInfo.buffer = bindingValues[i].RenderBuffers[j]->GetBuffer();
-				bufferInfo.offset = 0;
-				bufferInfo.range = bindingValues[i].RenderBuffers[j]->GetSize();
-
-				VkWriteDescriptorSet descriptorWrite{};
-				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrite.dstSet = m_PassDescriptorSet;
-				descriptorWrite.dstBinding = i;
-				descriptorWrite.dstArrayElement = j;
-
-				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrite.descriptorCount = 1;
-
-				descriptorWrite.pBufferInfo = &bufferInfo;
-				descriptorWrite.pImageInfo = nullptr;
-
-				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
-			}
-			break;
-
-		case DescriptorType::StorageBuffer:
-			HY_ASSERT(false, "Not implemented");
-			break;
-
-		case DescriptorType::CombinedImageSampler:
-			HY_ASSERT(false, "Not implemented");
-			break;
-		}
-	}
 }
 
 void RgCommandList::BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec)
@@ -138,7 +105,7 @@ void Hydrogen::RgCommandList::DrawIndexed(uint32_t indexCount)
 	vkCmdDrawIndexed(m_CmdBuf, indexCount, 1, 0, 0, 0);
 }
 
-RgTextureHandle RgPassBuilder::WriteColor(RgTextureHandle texture)
+RgResourceHandle RgPassBuilder::WriteColor(RgResourceHandle texture)
 {
 	if (texture.IsValid())
 	{
@@ -147,7 +114,7 @@ RgTextureHandle RgPassBuilder::WriteColor(RgTextureHandle texture)
 	return texture;
 }
 
-RgTextureHandle RgPassBuilder::WriteDepth(RgTextureHandle texture)
+RgResourceHandle RgPassBuilder::WriteDepth(RgResourceHandle texture)
 {
 	if (texture.IsValid())
 	{
@@ -156,7 +123,7 @@ RgTextureHandle RgPassBuilder::WriteDepth(RgTextureHandle texture)
 	return texture;
 }
 
-RgTextureHandle RgPassBuilder::ReadTexture(RgTextureHandle texture)
+RgResourceHandle RgPassBuilder::ReadTexture(RgResourceHandle texture)
 {
 	if (texture.IsValid())
 	{
@@ -169,7 +136,7 @@ RenderGraph::RenderGraph(RenderDevice* device)
 	: m_Device(device), m_CommandList(device)
 {
 	m_TextureDescs.reserve(64);
-	m_PhysicalViews.reserve(64);
+	m_PhysicalTextureViews.reserve(64);
 	m_PassNodes.reserve(32);
 	m_CompiledPasses.reserve(32);
 
@@ -220,13 +187,20 @@ RenderGraph::~RenderGraph()
 	}
 	m_PhysicalTexturePool.clear();
 
+	for (auto& pooled : m_PhysicalBufferPool)
+	{
+		vmaDestroyBuffer(m_Device->GetAllocator(), pooled.Buffer, pooled.Allocation);
+	}
+	m_PhysicalBufferPool.clear();
+
 	vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
 }
 
 void RenderGraph::Reset()
 {
+	m_FrameDescriptorBindings.clear();
 	m_TextureDescs.clear();
-	m_PhysicalViews.clear();
+	m_PhysicalTextureViews.clear();
 	m_PassNodes.clear();
 	m_CompiledPasses.clear();
 	m_PostRenderBarriers.clear();
@@ -237,6 +211,11 @@ void RenderGraph::Reset()
 	}
 
 	for (auto& pooled : m_PhysicalTexturePool)
+	{
+		pooled.IsFree = true;
+	}
+
+	for (auto& pooled : m_PhysicalBufferPool)
 	{
 		pooled.IsFree = true;
 	}
@@ -269,30 +248,30 @@ void RenderGraph::ClearCache()
 	m_PhysicalTexturePool.clear();
 }
 
-RgTextureHandle RenderGraph::CreateTexture(const RgTextureDesc& desc)
+RgResourceHandle RenderGraph::CreateTexture(const RgTextureDesc& desc)
 {
 	uint32_t id = static_cast<uint32_t>(m_TextureDescs.size());
 	m_TextureDescs.push_back(desc);
 
-	RgResourceView view{};
+	RgTextureView view{};
 	view.IsImported = false;
-	m_PhysicalViews.push_back(view);
+	m_PhysicalTextureViews.push_back(view);
 
-	return RgTextureHandle{ id };
+	return RgResourceHandle{ id };
 }
 
-RgTextureHandle RenderGraph::ImportTexture(VkImage image, VkImageView imageView, const RgTextureDesc& desc)
+RgResourceHandle RenderGraph::ImportTexture(VkImage image, VkImageView imageView, const RgTextureDesc& desc)
 {
 	uint32_t id = static_cast<uint32_t>(m_TextureDescs.size());
 	m_TextureDescs.push_back(desc);
 
-	RgResourceView view{};
+	RgTextureView view{};
 	view.Image = image;
 	view.ImageView = imageView;
 	view.IsImported = true;
-	m_PhysicalViews.push_back(view);
+	m_PhysicalTextureViews.push_back(view);
 
-	return RgTextureHandle{ id };
+	return RgResourceHandle{ id };
 }
 
 void RenderGraph::AddPass(const std::string& passName, const std::vector<DescriptorBinding>& bindings, std::function<void(RgPassBuilder& builder)> setupFunc, std::function<void(RgCommandList& cmd)> executeFunc)
@@ -308,17 +287,17 @@ void RenderGraph::AddPass(const std::string& passName, const std::vector<Descrip
 	m_PassNodes.push_back(builder.GetNode());
 }
 
-void RenderGraph::AddOutput(const RgTextureHandle& handle)
+void RenderGraph::AddOutput(const RgResourceHandle& handle)
 {
-	auto& view = m_PhysicalViews[handle.Id];
+	auto& view = m_PhysicalTextureViews[handle.Id];
 	view.UsageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
 	view.IsOutput = true;
 }
 
-std::vector<RgResourceView> RenderGraph::GetOutputs()
+std::vector<RgTextureView> RenderGraph::GetOutputs()
 {
-	std::vector<RgResourceView> result;
-	for (const auto& view : m_PhysicalViews)
+	std::vector<RgTextureView> result;
+	for (const auto& view : m_PhysicalTextureViews)
 	{
 		if (view.IsOutput)
 		{
@@ -337,6 +316,8 @@ struct TextureStateTracker
 
 void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 {
+	m_FrameDescriptorBindings = frameBindings;
+
 	m_FrameDescriptorSetLayout = VK_NULL_HANDLE;
 	m_FrameDescriptorSet = VK_NULL_HANDLE;
 	if (frameBindings.size() != 0)
@@ -387,7 +368,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 	{
 		for (const auto& usage : pass.Usages)
 		{
-			auto& view = m_PhysicalViews[usage.Handle.Id];
+			auto& view = m_PhysicalTextureViews[usage.Handle.Id];
 			switch (usage.UsageType)
 			{
 			case RgResourceUsage::Type::ShaderRead: view.UsageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT; break;
@@ -397,19 +378,19 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 		}
 	}
 
-	for (size_t i = 0; i < m_PhysicalViews.size(); ++i)
+	for (size_t i = 0; i < m_PhysicalTextureViews.size(); ++i)
 	{
-		if (!m_PhysicalViews[i].IsImported)
+		if (!m_PhysicalTextureViews[i].IsImported)
 		{
-			size_t descHash = HashTextureDesc(m_TextureDescs[i], m_PhysicalViews[i].UsageFlags);
+			size_t descHash = HashTextureDesc(m_TextureDescs[i], m_PhysicalTextureViews[i].UsageFlags);
 			bool foundCachedResource = false;
 
 			for (auto& pooled : m_PhysicalTexturePool)
 			{
 				if (pooled.IsFree && pooled.Hash == descHash)
 				{
-					m_PhysicalViews[i].Image = pooled.Image;
-					m_PhysicalViews[i].ImageView = pooled.View;
+					m_PhysicalTextureViews[i].Image = pooled.Image;
+					m_PhysicalTextureViews[i].ImageView = pooled.View;
 					pooled.IsFree = false;
 					foundCachedResource = true;
 					break;
@@ -420,11 +401,11 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 			{
 				VmaAllocation allocationHandle = VK_NULL_HANDLE;
 
-				VkImage physicalImage = CreatePhysicalImage(m_TextureDescs[i], m_PhysicalViews[i].UsageFlags, &allocationHandle);
-				VkImageView physicalView = CreatePhysicalImageView(physicalImage, m_TextureDescs[i], m_PhysicalViews[i].UsageFlags);
+				VkImage physicalImage = CreatePhysicalImage(m_TextureDescs[i], m_PhysicalTextureViews[i].UsageFlags, &allocationHandle);
+				VkImageView physicalView = CreatePhysicalImageView(physicalImage, m_TextureDescs[i], m_PhysicalTextureViews[i].UsageFlags);
 
-				m_PhysicalViews[i].Image = physicalImage;
-				m_PhysicalViews[i].ImageView = physicalView;
+				m_PhysicalTextureViews[i].Image = physicalImage;
+				m_PhysicalTextureViews[i].ImageView = physicalView;
 
 				PooledTexture newPooled{};
 				newPooled.Image = physicalImage;
@@ -438,8 +419,8 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 		}
 	}
 
-	std::vector<TextureStateTracker> textureStates(m_PhysicalViews.size());
-	std::vector<bool> textureWrittenThisFrame(m_PhysicalViews.size(), false);
+	std::vector<TextureStateTracker> textureStates(m_PhysicalTextureViews.size());
+	std::vector<bool> textureWrittenThisFrame(m_PhysicalTextureViews.size(), false);
 	std::vector<RenderPassAttachment> passColorAttachments;
 
 	for (const auto& recordedPass : m_PassNodes)
@@ -499,7 +480,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 		for (const auto& usage : recordedPass.Usages)
 		{
-			const auto& view = m_PhysicalViews[usage.Handle.Id];
+			const auto& view = m_PhysicalTextureViews[usage.Handle.Id];
 			const auto& desc = m_TextureDescs[usage.Handle.Id];
 			auto& state = textureStates[usage.Handle.Id];
 
@@ -630,9 +611,9 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 	if (!m_CompiledPasses.empty())
 	{
-		for (size_t i = 0; i < m_PhysicalViews.size(); i++)
+		for (size_t i = 0; i < m_PhysicalTextureViews.size(); i++)
 		{
-			auto& view = m_PhysicalViews[i];
+			auto& view = m_PhysicalTextureViews[i];
 			auto& state = textureStates[i];
 
 			if (view.IsImported && state.CurrentLayout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
@@ -693,17 +674,39 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues)
 {
-	for (uint32_t i = 0; i < bindingValues.size(); i++)
+	for (uint32_t i = 0; i < m_FrameDescriptorBindings.size(); i++)
 	{
-		switch (bindingValues[i].Type)
+		switch (m_FrameDescriptorBindings[i].Type)
 		{
 		case DescriptorType::UniformBuffer:
-			for (uint32_t j = 0; j < bindingValues[i].RenderBuffers.size(); j++)
+			for (uint32_t j = 0; j < m_FrameDescriptorBindings[i].Count; j++)
 			{
+				RgBufferDesc bufferDesc{};
+				bufferDesc.Type = RgBufferType::Uniform;
+				bufferDesc.Size = bindingValues[i].Size;
+
+				uint32_t idx = GetOrCreateBuffer(bufferDesc);
+				const auto& pooled = m_PhysicalBufferPool[idx];
+
+				void* mapped = pooled.MappedMemory;
+				if (!pooled.IsMapped)
+				{
+					VkResult result = vmaMapMemory(m_Device->GetAllocator(), pooled.Allocation, &mapped);
+					if (result != VK_SUCCESS)
+					{
+						HY_ENGINE_FATAL("VMA failed to map and vma buffer memory.");
+					}
+				}
+				UploadDataToBuffer(bindingValues[i].Data, bindingValues[i].Size, mapped);
+				if (!pooled.IsMapped)
+				{
+					vmaUnmapMemory(m_Device->GetAllocator(), pooled.Allocation);
+				}
+
 				VkDescriptorBufferInfo bufferInfo{};
-				bufferInfo.buffer = bindingValues[i].RenderBuffers[j]->GetBuffer();
+				bufferInfo.buffer = pooled.Buffer;
 				bufferInfo.offset = 0;
-				bufferInfo.range = bindingValues[i].RenderBuffers[j]->GetSize();
+				bufferInfo.range = bindingValues[i].Size;
 
 				VkWriteDescriptorSet descriptorWrite{};
 				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -731,7 +734,7 @@ void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<Descripto
 		}
 	}
 
-	m_CommandList.InitFrame(cmdBuffer, &m_PhysicalViews, m_FrameDescriptorSet);
+	m_CommandList.InitFrame(cmdBuffer, &m_PhysicalTextureViews, m_FrameDescriptorSet);
 
 	for (const auto& pass : m_CompiledPasses)
 	{
@@ -973,7 +976,6 @@ VkImage RenderGraph::CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsage
 	VmaAllocationCreateInfo allocInfo{};
 	allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
 	allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
 	allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
 	VkImage image = VK_NULL_HANDLE;
@@ -1034,6 +1036,81 @@ VkImageView RenderGraph::CreatePhysicalImageView(VkImage image, const RgTextureD
 	}
 
 	return imageView;
+}
+
+uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
+{
+	size_t hash = HashBufferDesc(desc);
+	for (uint32_t i = 0; i < m_PhysicalBufferPool.size(); i++)
+	{
+		if (m_PhysicalBufferPool[i].Hash == hash && m_PhysicalBufferPool[i].IsFree)
+		{
+			return i;
+		}
+	}
+
+	PooledBuffer pooled;
+	pooled.IsFree = false;
+	pooled.Hash = hash;
+
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = desc.Size;
+
+	switch (desc.Type)
+	{
+	case RgBufferType::Uniform: bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; break;
+	case RgBufferType::Storage: bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
+	}
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	VmaAllocationCreateInfo allocInfo{};
+	allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+
+	if (desc.Type == RgBufferType::Uniform)
+	{
+		allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+	}
+	else
+	{
+		allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+		allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+	}
+
+	VmaAllocationInfo allocationInfo{};
+	VkResult result = vmaCreateBuffer(
+		m_Device->GetAllocator(),
+		&bufferInfo,
+		&allocInfo,
+		&pooled.Buffer,
+		&pooled.Allocation,
+		&allocationInfo
+	);
+
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("VMA failed to allocate and create transient physical VkBuffer.");
+	}
+
+	if (desc.Type == RgBufferType::Uniform)
+	{
+		pooled.MappedMemory = allocationInfo.pMappedData;
+		pooled.IsMapped = true;
+	}
+	else
+	{
+		pooled.MappedMemory = nullptr;
+		pooled.IsMapped = false;
+	}
+
+	m_PhysicalBufferPool.push_back(pooled);
+
+	return m_PhysicalBufferPool.size()-1;
+}
+
+void RenderGraph::UploadDataToBuffer(void* data, size_t size, void* mapped)
+{
+	std::memcpy(mapped, data, size);
 }
 
 uint32_t RenderGraph::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)

@@ -33,7 +33,7 @@ namespace Hydrogen
 		SwapChain(RenderDevice* device, VkSurfaceKHR surface, const SwapChainSpec& spec);
 		~SwapChain();
 
-		struct RgTextureHandle AcquireNextImage(class RenderGraph* renderGraph, VkSemaphore semaphore);
+		struct RgResourceHandle AcquireNextImage(class RenderGraph* renderGraph, VkSemaphore semaphore);
 		uint32_t GetCurrentImageIndex() const { return m_CurrentImageIndex; }
 
 		VkExtent2D GetExtent() const { return m_Extent; }

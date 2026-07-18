@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
@@ -254,7 +254,7 @@ namespace Hydrogen
 		void Save() const;
 		void ClearScene();
 
-		const std::shared_ptr<class Scene>& GetScene() { return m_Scene; }
+		class Scene* GetScene() { return m_Scene.get(); }
 
 	private:
 		std::string m_Content;
@@ -359,6 +359,10 @@ namespace Hydrogen
 
 		void Clear()
 		{
+			for (auto& [_, asset] : m_Assets)
+			{
+				asset.reset();
+			}
 			m_Assets.clear();
 		}
 

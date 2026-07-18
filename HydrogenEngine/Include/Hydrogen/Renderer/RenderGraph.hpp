@@ -10,7 +10,7 @@
 
 namespace Hydrogen
 {
-	struct RgTextureHandle { size_t Id = uint64_t(-1); bool IsValid() const { return Id != uint64_t(-1); } };
+	struct RgResourceHandle { size_t Id = uint64_t(-1); bool IsValid() const { return Id != uint64_t(-1); } };
 
 	struct RgTextureDesc
 	{
@@ -19,7 +19,19 @@ namespace Hydrogen
 		TextureFormat Format = TextureFormat::RGBA8_SRGB;
 	};
 
-	struct RgResourceView
+	enum class RgBufferType
+	{
+		Uniform,
+		Storage
+	};
+	
+	struct RgBufferDesc
+	{
+		uint32_t Size = 0;
+		RgBufferType Type = RgBufferType::Uniform;
+	};
+
+	struct RgTextureView
 	{
 		VkImage Image = VK_NULL_HANDLE;
 		VkImageView ImageView = VK_NULL_HANDLE;
@@ -28,13 +40,18 @@ namespace Hydrogen
 		bool IsOutput = false;
 	};
 
+	//struct RgBufferView
+	//{
+	//	VkBuffer Buffer = VK_NULL_HANDLE;
+	//};
+
 	class RgCommandList
 	{
 	public:
 		RgCommandList(RenderDevice* device)
 			: m_Device(device) {}
 
-		void InitFrame(VkCommandBuffer cmdBuf, const std::vector<RgResourceView>* physicalViews, VkDescriptorSet frameDescriptorSet)
+		void InitFrame(VkCommandBuffer cmdBuf, const std::vector<RgTextureView>* physicalViews, VkDescriptorSet frameDescriptorSet)
 		{
 			m_CmdBuf = cmdBuf;
 			m_PhysicalViews = physicalViews;
@@ -50,13 +67,12 @@ namespace Hydrogen
 
 		VkCommandBuffer GetCommandBuffer() const { return m_CmdBuf; }
 
-		RgResourceView GetTextureView(RgTextureHandle handle) const
+		RgTextureView GetTextureView(RgResourceHandle handle) const
 		{
 			return (*m_PhysicalViews)[handle.Id];
 		}
 
 		void PushConstants(const void* data, uint32_t size, uint32_t offset, ShaderStage stageFlags);
-		void UpdateDescriptorSet(const std::vector<DescriptorBindingValue>& bindingValues);
 		void BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec);
 		void BindVertexBuffer(const RenderBuffer* vertexBuffer);
 		void BindIndexBuffer(const RenderBuffer* indexBuffer);
@@ -67,14 +83,13 @@ namespace Hydrogen
 		RenderDevice* m_Device;
 
 		VkCommandBuffer m_CmdBuf = VK_NULL_HANDLE;
-		const std::vector<RgResourceView>* m_PhysicalViews = nullptr;
+		const std::vector<RgTextureView>* m_PhysicalViews = nullptr;
+		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
+		std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
 		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
 		VkDescriptorSet m_PassDescriptorSet = VK_NULL_HANDLE;
 
 		Pipeline* m_BoundPipeline = nullptr;
-
-		VkRenderPass m_RenderPass = VK_NULL_HANDLE;
-		std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
 
 		std::unordered_map<size_t, std::unique_ptr<Pipeline>> m_PipelineCache;
 	};
@@ -84,7 +99,7 @@ namespace Hydrogen
 		enum class Type { ColorWrite, DepthWrite, ShaderRead };
 
 		Type UsageType;
-		RgTextureHandle Handle;
+		RgResourceHandle Handle;
 	};
 
 	struct RgPassNode
@@ -102,9 +117,9 @@ namespace Hydrogen
 			: m_PassNode(node) {}
 		~RgPassBuilder() = default;
 
-		RgTextureHandle WriteColor(RgTextureHandle texture);
-		RgTextureHandle WriteDepth(RgTextureHandle texture);
-		RgTextureHandle ReadTexture(RgTextureHandle texture);
+		RgResourceHandle WriteColor(RgResourceHandle texture);
+		RgResourceHandle WriteDepth(RgResourceHandle texture);
+		RgResourceHandle ReadTexture(RgResourceHandle texture);
 
 		RgPassNode GetNode() const { return m_PassNode; }
 
@@ -157,16 +172,16 @@ namespace Hydrogen
 		void Reset();
 		void ClearCache();
 
-		RgTextureHandle CreateTexture(const RgTextureDesc& desc);
-		RgTextureHandle ImportTexture(VkImage image, VkImageView imageView, const RgTextureDesc& desc);
+		RgResourceHandle CreateTexture(const RgTextureDesc& desc);
+		RgResourceHandle ImportTexture(VkImage image, VkImageView imageView, const RgTextureDesc& desc);
 
 		void AddPass(const std::string& name,
 			const std::vector<DescriptorBinding>& bindings, // set 1
 			std::function<void(RgPassBuilder&)> setup,
 			std::function<void(RgCommandList&)> execute);
 
-		void AddOutput(const RgTextureHandle& handle);
-		std::vector<RgResourceView> GetOutputs();
+		void AddOutput(const RgResourceHandle& handle);
+		std::vector<RgTextureView> GetOutputs();
 
 		void Compile(const std::vector<DescriptorBinding>& frameBindings); // set 0
 		void Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues);
@@ -194,6 +209,9 @@ namespace Hydrogen
 		VkImage CreatePhysicalImage(const RgTextureDesc& desc, VkImageUsageFlags usage, VmaAllocation* outAllocation);
 		VkImageView CreatePhysicalImageView(VkImage image, const RgTextureDesc& desc, VkImageUsageFlags usage);
 
+		uint32_t GetOrCreateBuffer(const RgBufferDesc& desc);
+		void UploadDataToBuffer(void* data, size_t size, void* mapped);
+
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 		RenderDevice* m_Device;
@@ -204,7 +222,8 @@ namespace Hydrogen
 		VkDescriptorSet m_FrameDescriptorSet = VK_NULL_HANDLE;
 
 		std::vector<RgTextureDesc> m_TextureDescs;
-		std::vector<RgResourceView> m_PhysicalViews;
+		std::vector<RgTextureView> m_PhysicalTextureViews;
+
 		std::vector<RgPassNode> m_PassNodes;
 		std::vector<CompiledPass> m_CompiledPasses;
 		std::vector<VkBarrierCommand> m_PostRenderBarriers;
@@ -232,5 +251,18 @@ namespace Hydrogen
 		};
 
 		std::vector<PooledTexture> m_PhysicalTexturePool;
+
+		struct PooledBuffer
+		{
+			VkBuffer Buffer = VK_NULL_HANDLE;
+			VmaAllocation Allocation = VK_NULL_HANDLE;
+			size_t Hash = 0;
+			void* MappedMemory = nullptr;
+			bool IsMapped = false;
+			bool IsFree = true;
+		};
+
+		std::vector<PooledBuffer> m_PhysicalBufferPool;
+		std::vector<DescriptorBinding> m_FrameDescriptorBindings;
 	};
 }

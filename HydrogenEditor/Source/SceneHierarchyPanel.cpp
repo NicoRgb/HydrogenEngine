@@ -3,7 +3,7 @@
 
 SceneHierarchyPanel::SceneHierarchyPanel() : m_SelectedEntityUUID(0) {}
 
-void SceneHierarchyPanel::SetContext(const std::shared_ptr<Hydrogen::Scene>& scene)
+void SceneHierarchyPanel::SetContext(Hydrogen::Scene* scene)
 {
 	m_Scene = scene;
 }

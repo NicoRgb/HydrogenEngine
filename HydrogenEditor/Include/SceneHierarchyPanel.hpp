@@ -10,7 +10,7 @@ class SceneHierarchyPanel : public Panel
 public:
     SceneHierarchyPanel();
 
-    void SetContext(const std::shared_ptr<Hydrogen::Scene>& scene);
+    void SetContext(Hydrogen::Scene* scene);
     Hydrogen::Entity GetSelectedEntity() const;
 
     void OnImGuiRender() override;
@@ -19,6 +19,6 @@ public:
 	void SetSelectedEntity(uint64_t uuid) { m_SelectedEntityUUID = uuid; }
 
 private:
-    std::shared_ptr<Hydrogen::Scene> m_Scene;
+    Hydrogen::Scene* m_Scene;
     uint64_t m_SelectedEntityUUID;
 };

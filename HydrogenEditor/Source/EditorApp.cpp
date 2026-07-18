@@ -47,7 +47,6 @@ private:
 	ImVec2 m_ViewportContentRegion = ImVec2(1920, 1080);
 
 	std::unique_ptr<Renderer> m_Renderer;
-	std::unique_ptr<RenderBuffer> m_UniformBuffer;
 
 	struct UniformBuffer
 	{
@@ -291,7 +290,6 @@ public:
 		}
 
 		BufferDescription desc = { sizeof(UniformBuffer), BufferType::Uniform, true, true };
-		m_UniformBuffer = std::make_unique<RenderBuffer>(ActiveRenderDevice.get(), desc);
 
 		//const auto& cubeMapAsset = MainAssetManager.GetAsset<CubeMapAsset>("sky.hycube");
 		//cubeMapAsset->Parse(cubeMapAsset->GetPath());
@@ -302,8 +300,8 @@ public:
 
 	virtual void OnShutdown() override
 	{
+		_BrowserPanel.Shutdown();
 		TextureCache.Clear();
-		m_UniformBuffer.reset();
 		m_Renderer.reset();
 	}
 
@@ -636,7 +634,6 @@ public:
 
 	virtual void OnRenderDeviceChangeStart() override
 	{
-		m_UniformBuffer.reset();
 		TextureCache.Clear();
 		m_Renderer.reset();
 	}
@@ -644,7 +641,6 @@ public:
 	virtual void OnRenderDeviceChangeFinish() override
 	{
 		BufferDescription desc = { sizeof(UniformBuffer), BufferType::Uniform, true, true };
-		m_UniformBuffer = std::make_unique<RenderBuffer>(ActiveRenderDevice.get(), desc);
 
 		m_Renderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
 	}
@@ -662,10 +658,15 @@ private:
 		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
 		const auto& scene = CurrentScene->GetScene();
 
+		UniformBuffer cameraInfo = {};
+		cameraInfo.View = camera.View;
+		cameraInfo.Proj = camera.Proj;
+		cameraInfo.ViewPos = cameraPos;
+
 		bool viewportChanged = false;
 
 		m_Renderer->Render(
-			[this, camera, cameraPos, scene, &viewportChanged](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
+			[this, cameraInfo, scene, &viewportChanged](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
 			{
 				if (m_ViewportContentRegion.x != m_OldViewportContentRegion.x || m_ViewportContentRegion.y != m_OldViewportContentRegion.y)
 				{
@@ -680,20 +681,7 @@ private:
 				auto finalTexture = graph->CreateTexture(finalSceneDesc);
 
 				auto swapChainImage = ActiveSwapChain->AcquireNextImage(graph, m_Renderer->GetImageAvailableSemaphore());
-
-				auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
-				auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
-
 				VkSampler viewportSampler = m_Renderer->GetImguiSampler();
-
-				UniformBuffer cameraInfo = {};
-				cameraInfo.View = camera.View;
-				cameraInfo.Proj = camera.Proj;
-				cameraInfo.ViewPos = cameraPos;
-
-				m_UniformBuffer->UploadData((void*)&cameraInfo, sizeof(UniformBuffer), 0);
-
-				RenderDevice* renderDevice = ActiveRenderDevice.get();
 				auto wireframeMode = m_WireframeMode;
 
 				graph->AddPass("Triangle", {},
@@ -701,8 +689,11 @@ private:
 					{
 						builder.WriteColor(finalTexture);
 					},
-					[renderDevice, scene, vertexShader, fragmentShader, wireframeMode](RgCommandList& cmd)
+					[scene, wireframeMode](RgCommandList& cmd)
 					{
+						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleVertexShader.glsl");
+						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("TriangleFragmentShader.glsl");
+
 						PipelineSpec trianglePipeline = {};
 						trianglePipeline.VertexBufferLayout = { { VertexElementType::Float3 }, { VertexElementType::Float2 }, { VertexElementType::Float3 }, { VertexElementType::Float3 } };
 						trianglePipeline.ColorBlending = { BlendMode::None };
@@ -713,7 +704,7 @@ private:
 						}
 						cmd.BindPipeline(vertexShader, fragmentShader, trianglePipeline);
 
-						scene->IterateComponents<MeshRendererComponent>([&cmd, renderDevice](Entity e, MeshRendererComponent mesh)
+						scene->IterateComponents<MeshRendererComponent>([&cmd](Entity e, MeshRendererComponent mesh)
 							{
 								PushConstants pc = {};
 								pc.Model = e.GetComponent<TransformComponent>().Transform;
@@ -722,8 +713,8 @@ private:
 
 								cmd.PushConstants(&pc, sizeof(PushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
 
-								cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(renderDevice));
-								cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(renderDevice));
+								cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->ActiveRenderDevice.get()));
+								cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->ActiveRenderDevice.get()));
 								cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
 							});
 					});
@@ -736,7 +727,7 @@ private:
 						builder.WriteColor(swapChainImage);
 						builder.ReadTexture(finalTexture);
 					},
-					[viewportSampler, finalSceneDesc, finalTexture, vertexShader, fragmentShader, &contentRegion](RgCommandList& cmd)
+					[viewportSampler, finalSceneDesc, finalTexture, &contentRegion](RgCommandList& cmd)
 					{
 						ImGui::Begin("Viewport");
 						contentRegion = ImGui::GetContentRegionAvail();
@@ -751,11 +742,7 @@ private:
 
 				graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
 
-				DescriptorBindingValue value;
-				value.Type = DescriptorType::UniformBuffer;
-				value.RenderBuffers.push_back(m_UniformBuffer.get());
-
-				return { value };
+				return { { sizeof(UniformBuffer), (uint32_t*) &cameraInfo}};
 			}, true);
 
 		if (viewportChanged)

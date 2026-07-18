@@ -60,7 +60,7 @@ void ScriptSystem::OnUpdate(float dt)
 		});
 }
 
-Entity::Entity(const std::shared_ptr<Scene>& scene, std::string name)
+Entity::Entity(Scene* scene, std::string name)
 	: m_Scene(scene)
 {
 	m_Entity = m_Scene->m_Registry.create();
@@ -200,7 +200,7 @@ Entity Hydrogen::Scene::GetEntityByEntityID(uint32_t id)
 {
 	Entity e;
 	e.m_Entity = entt::entity(id);
-	e.m_Scene = shared_from_this();
+	e.m_Scene = this;
 
 	if (e.IsValid())
 		return e;
@@ -284,7 +284,7 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 
 		Entity e;
 		e.m_Entity = entity;
-		e.m_Scene = shared_from_this();
+		e.m_Scene = this;
 
 		e.AddComponent<UUIDComponent>(std::stoull(key));
 

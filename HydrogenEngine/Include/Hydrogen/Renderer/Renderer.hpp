@@ -51,7 +51,7 @@ namespace Hydrogen
 
 		void BeginImGuiFrame();
 
-		std::vector<RgResourceView> Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present);
+		std::vector<RgTextureView> Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present);
 
 		void UpdateSwapChain(SwapChain* swapChain);
 		void ClearCache();
@@ -79,7 +79,7 @@ namespace Hydrogen
 		RendererSettingsManager m_SettingsManager;
 		std::unique_ptr<RenderGraph> m_RenderGraph;
 
-		VkDescriptorPool m_ImGuiDescriptorPool;
+		VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE;
 
 		VkSampler m_ImguiSampler;
 	};

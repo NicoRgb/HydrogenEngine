@@ -25,7 +25,7 @@ SwapChain::~SwapChain()
 	vkDestroySwapchainKHR(m_Device->GetVulkanDevice(), m_SwapChain, nullptr);
 }
 
-RgTextureHandle SwapChain::AcquireNextImage(RenderGraph* renderGraph, VkSemaphore semaphore)
+RgResourceHandle SwapChain::AcquireNextImage(RenderGraph* renderGraph, VkSemaphore semaphore)
 {
 	VkResult result = vkAcquireNextImageKHR(m_Device->GetVulkanDevice(), m_SwapChain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &m_CurrentImageIndex);
 	if (result != VK_SUCCESS)
