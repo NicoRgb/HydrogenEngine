@@ -66,6 +66,14 @@ namespace Hydrogen
 		DebugSettings Debug;
 	};
 
+	struct DirectionalLight
+	{
+		glm::vec3 Color;
+		float Intensity;
+		glm::vec3 Direction;
+		float Padding;
+	};
+
 	class DefaultRenderer
 	{
 	public:
@@ -80,6 +88,8 @@ namespace Hydrogen
 			std::vector<const Texture*>& normalTextures,
 			std::vector<const Texture*>& ORMTextures,
 			std::vector<const Texture*>& emissiveTextures);
+
+		static std::vector<DirectionalLight> GetDirectionalLights(Scene* scene);
 	};
 
 	class ImGuiTextureCache

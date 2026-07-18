@@ -103,6 +103,7 @@ namespace Hydrogen
 		uint32_t* Data;
 
 		std::vector<const Texture*> Textures;
+		std::vector<struct RgResourceHandle> Resources;
 	};
 
 	struct PipelineSpec

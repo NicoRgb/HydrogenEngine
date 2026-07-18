@@ -180,6 +180,8 @@ public:
 			PhysicsUpdate(deltaTime);
 
 		// Update Game Viewport
+		m_ViewportFinalScene = VK_NULL_HANDLE;
+
 		Entity cameraEntity;
 		if (m_GameViewportVisible && UpdateCamera(CurrentScene->GetScene(), cameraEntity, m_GameViewportSize.x, m_GameViewportSize.y))
 		{
@@ -190,6 +192,8 @@ public:
 		}
 
 		// Update Scene Viewport
+		m_SceneViewportFinalScene = VK_NULL_HANDLE;
+
 		if (m_SceneViewportVisible)
 		{
 			if (Input::IsMouseButtonDown(KeyCode::MouseRight) && m_SceneViewportHovered)

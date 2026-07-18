@@ -1,6 +1,8 @@
 #include "Hydrogen/Renderer/RenderGraph.hpp"
 #include "Hydrogen/Core.hpp"
 
+#include <deque>
+
 using namespace Hydrogen;
 
 static size_t HashTextureDesc(const RgTextureDesc& desc, VkImageUsageFlags usage)
@@ -16,7 +18,6 @@ static size_t HashTextureDesc(const RgTextureDesc& desc, VkImageUsageFlags usage
 static size_t HashBufferDesc(const RgBufferDesc& desc)
 {
 	size_t seed = 0;
-	HashCombine(seed, desc.Size);
 	HashCombine(seed, static_cast<size_t>(desc.Type));
 	return seed;
 }
@@ -212,6 +213,11 @@ RenderGraph::~RenderGraph()
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
+		if (!pooled.Active)
+		{
+			continue;
+		}
+
 		vkDestroyImageView(device, pooled.View, nullptr);
 		vmaDestroyImage(m_Device->GetAllocator(), pooled.Image, pooled.Allocation);
 	}
@@ -219,6 +225,11 @@ RenderGraph::~RenderGraph()
 
 	for (auto& pooled : m_PhysicalBufferPool)
 	{
+		if (!pooled.Active)
+		{
+			continue;
+		}
+
 		vmaDestroyBuffer(m_Device->GetAllocator(), pooled.Buffer, pooled.Allocation);
 	}
 	m_PhysicalBufferPool.clear();
@@ -242,12 +253,81 @@ void RenderGraph::Reset()
 
 	for (auto& pooled : m_PhysicalTexturePool)
 	{
+		if (!pooled.Active)
+		{
+			continue;
+		}
+
+		if (pooled.IsFree)
+		{
+			pooled.FramesUnsued++;
+		}
+		else
+		{
+			pooled.FramesUnsued = 0;
+		}
+
+		if (pooled.FramesUnsued >= FREE_AFTER_UNUSED_FRAMES)
+		{
+			pooled.Active = false;
+			vkDestroyImageView(m_Device->GetVulkanDevice(), pooled.View, nullptr);
+			vmaDestroyImage(m_Device->GetAllocator(), pooled.Image, pooled.Allocation);
+		}
+
 		pooled.IsFree = true;
+	}
+
+	if (m_PhysicalTexturePool.size() >= CLEAR_INACTIVE_THREASHHOLD)
+	{
+		std::vector<PooledTexture> newBuffer;
+		newBuffer.reserve(CLEAR_INACTIVE_THREASHHOLD);
+
+		for (auto& pooled : m_PhysicalTexturePool)
+		{
+			if (pooled.Active)
+				newBuffer.push_back(pooled);
+		}
+
+		m_PhysicalTexturePool = newBuffer;
 	}
 
 	for (auto& pooled : m_PhysicalBufferPool)
 	{
+		if (!pooled.Active)
+		{
+			continue;
+		}
+
+		if (pooled.IsFree)
+		{
+			pooled.FramesUnsued++;
+		}
+		else
+		{
+			pooled.FramesUnsued = 0;
+		}
+
+		if (pooled.FramesUnsued >= FREE_AFTER_UNUSED_FRAMES)
+		{
+			pooled.Active = false;
+			vmaDestroyBuffer(m_Device->GetAllocator(), pooled.Buffer, pooled.Allocation);
+		}
+
 		pooled.IsFree = true;
+	}
+
+	if (m_PhysicalBufferPool.size() >= CLEAR_INACTIVE_THREASHHOLD)
+	{
+		std::vector<PooledBuffer> newBuffer;
+		newBuffer.reserve(CLEAR_INACTIVE_THREASHHOLD);
+		
+		for (auto& pooled : m_PhysicalBufferPool)
+		{
+			if (pooled.Active)
+				newBuffer.push_back(pooled);
+		}
+
+		m_PhysicalBufferPool = newBuffer;
 	}
 }
 
@@ -418,7 +498,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 			for (auto& pooled : m_PhysicalTexturePool)
 			{
-				if (pooled.IsFree && pooled.Hash == descHash)
+				if (pooled.IsFree && pooled.Active && pooled.Hash == descHash)
 				{
 					m_PhysicalTextureViews[i].Image = pooled.Image;
 					m_PhysicalTextureViews[i].ImageView = pooled.View;
@@ -505,7 +585,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 				compiledPass.DescriptorSet = pooled.DescriptorSet;
 			}
 
-			UpdatePassDescriptorSet(recordedPass, compiledPass);
+			UpdateDescriptorSet(recordedPass.DescriptorBindings, recordedPass.DescriptorBindingValues, compiledPass.DescriptorSet);
 		}
 
 		std::optional<RenderPassAttachment> passDepthAttachment = std::nullopt;
@@ -707,65 +787,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues)
 {
-	for (uint32_t i = 0; i < m_FrameDescriptorBindings.size(); i++)
-	{
-		switch (m_FrameDescriptorBindings[i].Type)
-		{
-		case DescriptorType::UniformBuffer:
-			for (uint32_t j = 0; j < m_FrameDescriptorBindings[i].Count; j++)
-			{
-				RgBufferDesc bufferDesc{};
-				bufferDesc.Type = RgBufferType::Uniform;
-				bufferDesc.Size = bindingValues[i].Size;
-
-				uint32_t idx = GetOrCreateBuffer(bufferDesc);
-				const auto& pooled = m_PhysicalBufferPool[idx];
-
-				void* mapped = pooled.MappedMemory;
-				if (!pooled.IsMapped)
-				{
-					VkResult result = vmaMapMemory(m_Device->GetAllocator(), pooled.Allocation, &mapped);
-					if (result != VK_SUCCESS)
-					{
-						HY_ENGINE_FATAL("VMA failed to map and vma buffer memory.");
-					}
-				}
-				UploadDataToBuffer(bindingValues[i].Data, bindingValues[i].Size, mapped);
-				if (!pooled.IsMapped)
-				{
-					vmaUnmapMemory(m_Device->GetAllocator(), pooled.Allocation);
-				}
-
-				VkDescriptorBufferInfo bufferInfo{};
-				bufferInfo.buffer = pooled.Buffer;
-				bufferInfo.offset = 0;
-				bufferInfo.range = bindingValues[i].Size;
-
-				VkWriteDescriptorSet descriptorWrite{};
-				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrite.dstSet = m_FrameDescriptorSet;
-				descriptorWrite.dstBinding = i;
-				descriptorWrite.dstArrayElement = j;
-
-				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrite.descriptorCount = 1;
-
-				descriptorWrite.pBufferInfo = &bufferInfo;
-				descriptorWrite.pImageInfo = nullptr;
-
-				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
-			}
-			break;
-
-		case DescriptorType::StorageBuffer:
-			HY_ASSERT(false, "Not implemented");
-			break;
-
-		case DescriptorType::CombinedImageSampler:
-			HY_ASSERT(false, "Not implemented");
-			break;
-		}
-	}
+	UpdateDescriptorSet(m_FrameDescriptorBindings, bindingValues, m_FrameDescriptorSet);
 
 	m_CommandList.InitFrame(cmdBuffer, &m_PhysicalTextureViews, m_FrameDescriptorSet);
 
@@ -1073,18 +1095,36 @@ VkImageView RenderGraph::CreatePhysicalImageView(VkImage image, const RgTextureD
 
 uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
 {
+	uint32_t bestCandidate = UINT32_MAX;
+	uint32_t bestCandidateSize = 0;
+
 	size_t hash = HashBufferDesc(desc);
 	for (uint32_t i = 0; i < m_PhysicalBufferPool.size(); i++)
 	{
-		if (m_PhysicalBufferPool[i].Hash == hash && m_PhysicalBufferPool[i].IsFree)
+		if (m_PhysicalBufferPool[i].Active &&
+			m_PhysicalBufferPool[i].Hash == hash &&
+			m_PhysicalBufferPool[i].IsFree &&
+			m_PhysicalBufferPool[i].Size >= desc.Size)
 		{
-			return i;
+			if (bestCandidate != UINT32_MAX && bestCandidateSize < m_PhysicalBufferPool[i].Size)
+			{
+				continue;
+			}
+
+			bestCandidate = i;
+			bestCandidateSize = m_PhysicalBufferPool[i].Size;
 		}
+	}
+
+	if (bestCandidate != UINT32_MAX)
+	{
+		return bestCandidate;
 	}
 
 	PooledBuffer pooled;
 	pooled.IsFree = false;
 	pooled.Hash = hash;
+	pooled.Size = desc.Size;
 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1093,22 +1133,13 @@ uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
 	switch (desc.Type)
 	{
 	case RgBufferType::Uniform: bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; break;
-	case RgBufferType::Storage: bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
+	case RgBufferType::Storage: bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT; break;
 	}
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	VmaAllocationCreateInfo allocInfo{};
 	allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
-	if (desc.Type == RgBufferType::Uniform)
-	{
-		allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-	}
-	else
-	{
-		allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-		allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-	}
+	allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
 	VmaAllocationInfo allocationInfo{};
 	VkResult result = vmaCreateBuffer(
@@ -1125,16 +1156,8 @@ uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
 		HY_ENGINE_FATAL("VMA failed to allocate and create transient physical VkBuffer.");
 	}
 
-	if (desc.Type == RgBufferType::Uniform)
-	{
-		pooled.MappedMemory = allocationInfo.pMappedData;
-		pooled.IsMapped = true;
-	}
-	else
-	{
-		pooled.MappedMemory = nullptr;
-		pooled.IsMapped = false;
-	}
+	pooled.MappedMemory = allocationInfo.pMappedData;
+	pooled.IsMapped = true;
 
 	m_PhysicalBufferPool.push_back(pooled);
 
@@ -1146,87 +1169,108 @@ void RenderGraph::UploadDataToBuffer(void* data, size_t size, void* mapped)
 	std::memcpy(mapped, data, size);
 }
 
-void RenderGraph::UpdatePassDescriptorSet(const RgPassNode& passNode, const CompiledPass& compiledPass)
+void RenderGraph::UpdateDescriptorSet(const std::vector<DescriptorBinding>& descriptorBindings, const std::vector<DescriptorBindingValue>& bindingValues, VkDescriptorSet descriptorSet)
 {
-	for (uint32_t i = 0; i < passNode.DescriptorBindings.size(); i++)
+	std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+	std::deque<VkDescriptorBufferInfo> bufferInfos;
+	std::deque<VkDescriptorImageInfo> imageInfos;
+
+	for (uint32_t i = 0; i < descriptorBindings.size(); i++)
 	{
-		switch (passNode.DescriptorBindings[i].Type)
+		const auto& binding = descriptorBindings[i];
+		const auto& value = bindingValues[i];
+
+		switch (binding.Type)
 		{
 		case DescriptorType::UniformBuffer:
-			for (uint32_t j = 0; j < passNode.DescriptorBindings[i].Count; j++)
-			{
-				RgBufferDesc bufferDesc{};
-				bufferDesc.Type = RgBufferType::Uniform;
-				bufferDesc.Size = passNode.DescriptorBindingValues[i].Size;
-
-				uint32_t idx = GetOrCreateBuffer(bufferDesc);
-				const auto& pooled = m_PhysicalBufferPool[idx];
-
-				void* mapped = pooled.MappedMemory;
-				if (!pooled.IsMapped)
-				{
-					VkResult result = vmaMapMemory(m_Device->GetAllocator(), pooled.Allocation, &mapped);
-					if (result != VK_SUCCESS)
-					{
-						HY_ENGINE_FATAL("VMA failed to map and vma buffer memory.");
-					}
-				}
-				UploadDataToBuffer(passNode.DescriptorBindingValues[i].Data, passNode.DescriptorBindingValues[i].Size, mapped);
-				if (!pooled.IsMapped)
-				{
-					vmaUnmapMemory(m_Device->GetAllocator(), pooled.Allocation);
-				}
-
-				VkDescriptorBufferInfo bufferInfo{};
-				bufferInfo.buffer = pooled.Buffer;
-				bufferInfo.offset = 0;
-				bufferInfo.range = passNode.DescriptorBindingValues[i].Size;
-
-				VkWriteDescriptorSet descriptorWrite{};
-				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrite.dstSet = compiledPass.DescriptorSet;
-				descriptorWrite.dstBinding = i;
-				descriptorWrite.dstArrayElement = j;
-
-				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-				descriptorWrite.descriptorCount = 1;
-
-				descriptorWrite.pBufferInfo = &bufferInfo;
-				descriptorWrite.pImageInfo = nullptr;
-
-				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
-			}
-			break;
-
 		case DescriptorType::StorageBuffer:
-			HY_ASSERT(false, "Not implemented");
-			break;
+		{
+			RgBufferType bufType = (binding.Type == DescriptorType::UniformBuffer)
+				? RgBufferType::Uniform : RgBufferType::Storage;
+			VkDescriptorType vkDescType = (binding.Type == DescriptorType::UniformBuffer)
+				? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
-		case DescriptorType::CombinedImageSampler:
-			for (uint32_t j = 0; j < passNode.DescriptorBindingValues[i].Textures.size(); j++)
+			for (uint32_t j = 0; j < binding.Count; j++)
 			{
-				VkDescriptorImageInfo imageInfo{};
-				imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				imageInfo.imageView = passNode.DescriptorBindingValues[i].Textures[j]->GetImageView();
-				imageInfo.sampler = m_Sampler;
+				bufferInfos.push_back(PrepareAndUploadBuffer(value, bufType));
 
-				VkWriteDescriptorSet descriptorWrite{};
-				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrite.dstSet = compiledPass.DescriptorSet;
-				descriptorWrite.dstBinding = i;
-				descriptorWrite.dstArrayElement = j;
+				VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+				write.dstSet = descriptorSet;
+				write.dstBinding = i;
+				write.dstArrayElement = j;
+				write.descriptorType = vkDescType;
+				write.descriptorCount = 1;
+				write.pBufferInfo = &bufferInfos.back();
 
-				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				descriptorWrite.descriptorCount = 1;
-
-				descriptorWrite.pBufferInfo = nullptr;
-				descriptorWrite.pImageInfo = &imageInfo;
-
-				vkUpdateDescriptorSets(m_Device->GetVulkanDevice(), 1, &descriptorWrite, 0, nullptr);
+				descriptorWrites.push_back(write);
 			}
 			break;
 		}
+
+		case DescriptorType::CombinedImageSampler:
+		{
+			size_t size = !value.Textures.empty() ? value.Textures.size() : value.Resources.size();
+
+			for (uint32_t j = 0; j < size; j++)
+			{
+				VkImageView imageView = !value.Textures.empty()
+					? value.Textures[j]->GetImageView()
+					: m_PhysicalTextureViews[value.Resources[j].Id].ImageView;
+
+				VkDescriptorImageInfo imgInfo{};
+				imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				imgInfo.imageView = imageView;
+				imgInfo.sampler = m_Sampler;
+
+				imageInfos.push_back(imgInfo);
+
+				VkWriteDescriptorSet write{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+				write.dstSet = descriptorSet;
+				write.dstBinding = i;
+				write.dstArrayElement = j;
+				write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				write.descriptorCount = 1;
+				write.pImageInfo = &imageInfos.back();
+
+				descriptorWrites.push_back(write);
+			}
+			break;
+		}
+		}
 	}
+
+	if (!descriptorWrites.empty())
+	{
+		vkUpdateDescriptorSets(
+			m_Device->GetVulkanDevice(),
+			static_cast<uint32_t>(descriptorWrites.size()),
+			descriptorWrites.data(),
+			0,
+			nullptr
+		);
+	}
+}
+
+VkDescriptorBufferInfo RenderGraph::PrepareAndUploadBuffer(const DescriptorBindingValue& val, RgBufferType type)
+{
+	RgBufferDesc bufferDesc{};
+	bufferDesc.Type = type;
+	bufferDesc.Size = val.Size;
+
+	uint32_t idx = GetOrCreateBuffer(bufferDesc);
+	const auto& pooled = m_PhysicalBufferPool[idx];
+
+	if (pooled.MappedMemory && val.Data)
+	{
+		std::memcpy(pooled.MappedMemory, val.Data, val.Size);
+	}
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = pooled.Buffer;
+	bufferInfo.offset = 0;
+	bufferInfo.range = val.Size;
+	return bufferInfo;
 }
 
 uint32_t RenderGraph::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)

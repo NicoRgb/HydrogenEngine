@@ -443,6 +443,15 @@ struct GeometryPassPushConstants
 	glm::vec4 Emissive;
 };
 
+struct LightingPassPushConstants
+{
+	alignas(16) glm::mat4 Model;
+	alignas(16) glm::vec3 Color;
+	float Intensity;
+	alignas(16) glm::vec3 Position;
+	float Radius;
+};
+
 RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
 	std::vector<const Texture*> AlbedoTextures;
@@ -568,9 +577,61 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 						});
 				});
 
-			graph->AddOutput(gBufferAlbedoRoughness);
+			auto sceneColor = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			auto sceneBright = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
 
-			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, ShaderStage::Vertex } });
+			const auto directionalLights = GetDirectionalLights(scene);
+
+			graph->AddPass("Lighting",
+				{
+					{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
+					{ 1, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
+					{ 2, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
+					{ 3, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
+					{ 4, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment },
+					{ 5, DescriptorType::StorageBuffer, 1, ShaderStage::Fragment }
+				},
+
+				{
+					{ .Resources = {gBufferPosition} },
+					{ .Resources = {gBufferNormal} },
+					{ .Resources = {gBufferAlbedoRoughness} },
+					{ .Resources = {gBufferMetallicAO} },
+					{ .Resources = {gBufferEmissive} },
+					{ .Size = directionalLights.size() * sizeof(DirectionalLight), .Data = (uint32_t*)directionalLights.data()},
+				},
+
+				[&](RgPassBuilder& builder)
+				{
+					builder.WriteColor(sceneColor);
+					builder.WriteColor(sceneBright);
+					//builder.WriteDepth(gBufferDepth);
+
+					builder.ReadTexture(gBufferPosition);
+					builder.ReadTexture(gBufferNormal);
+					builder.ReadTexture(gBufferAlbedoRoughness);
+					builder.ReadTexture(gBufferMetallicAO);
+					builder.ReadTexture(gBufferEmissive);
+				},
+				[&](RgCommandList& cmd)
+				{
+					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("DirectionalLightsVertexShader.glsl");
+					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("DirectionalLightsPBRFragmentShader.glsl");
+
+					PipelineSpec gBufferPipeline = {};
+					gBufferPipeline.VertexBufferLayout = {};
+					gBufferPipeline.PushConstants = { { sizeof(GeometryPassPushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
+					gBufferPipeline.CullMode = ShaderCullMode::None;
+					gBufferPipeline.ColorBlending = { BlendMode::None, BlendMode::None };
+					gBufferPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
+
+					cmd.BindPipeline(vertexShader, fragmentShader, gBufferPipeline);
+					cmd.Draw(3);
+				});
+
+			graph->AddOutput(sceneColor);
+
+			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, (ShaderStage)((uint32_t)ShaderStage::Vertex | (uint32_t)ShaderStage::Fragment) } });
 
 			return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
 		}, false);
@@ -635,4 +696,17 @@ void DefaultRenderer::UploadMaterialTextures(Scene* scene, std::vector<const Tex
 				emissiveTextures.push_back(emissive->GetTexture(Application::Get()->GetRenderDevice()));
 			}
 		});
+}
+
+std::vector<DirectionalLight> DefaultRenderer::GetDirectionalLights(Scene* scene)
+{
+	std::vector<DirectionalLight> directionalLights;
+	scene->IterateComponents<DirectionalLightComponent>(
+		[&](Entity e, const DirectionalLightComponent& l)
+		{
+			const auto& transform = e.GetComponent<TransformComponent>().Transform;
+			directionalLights.push_back({ l.Color, l.Intensity, glm::vec3(transform[2]), 0.0f });
+		});
+
+	return directionalLights;
 }

@@ -1,13 +1,15 @@
 #version 450
 
+#extension GL_KHR_vulkan_glsl : enable
+
 #define MAX_TEXTURES 128
 #define MAX_LIGHTS 16
 
-layout(binding = 0) uniform sampler2D gPosition;
-layout(binding = 1) uniform sampler2D gNormal;
-layout(binding = 2) uniform sampler2D gAlbedoRough;
-layout(binding = 3) uniform sampler2D gMaterial;
-layout(binding = 4) uniform sampler2D gEmissive;
+layout(binding = 0, set = 1) uniform sampler2D gPosition;
+layout(binding = 1, set = 1) uniform sampler2D gNormal;
+layout(binding = 2, set = 1) uniform sampler2D gAlbedoRough;
+layout(binding = 3, set = 1) uniform sampler2D gMaterial;
+layout(binding = 4, set = 1) uniform sampler2D gEmissive;
 
 struct DirectionalLight
 {
@@ -15,19 +17,20 @@ struct DirectionalLight
     vec4 direction;
 };
 
-layout(std430, binding = 5) readonly buffer SceneLights
+layout(std430, binding = 5, set = 1) readonly buffer DirectionalLights
 {
-    uint lightCount;
-    DirectionalLight lights[];
-} lightInfo;
+    DirectionalLight directionalLights[];
+};
 
-layout(binding = 6) uniform UniformBufferObject
+layout(binding = 0, set = 0) uniform UniformBufferObject
 {
-    mat4 viewProj;
+    mat4 view;
+    mat4 proj;
     vec3 viewPos;
+    float pad;
 } ubo;
 
-layout(location = 0) in vec2 fragUV;
+layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outBright;
@@ -76,10 +79,10 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 
 vec3 CalculateDirectionalLight(vec3 N, vec3 V, int lightIndex, vec3 albedo, float roughness, float metallic)
 {
-    vec3 L = normalize(-lightInfo.lights[lightIndex].direction.xyz);
+    vec3 L = normalize(-directionalLights[lightIndex].direction.xyz);
     vec3 H = normalize(V + L);
 
-    vec3 radiance = lightInfo.lights[lightIndex].color.rgb * lightInfo.lights[lightIndex].color.a;
+    vec3 radiance = directionalLights[lightIndex].color.rgb * directionalLights[lightIndex].color.a;
 
     vec3 F0 = vec3(0.04); 
     F0 = mix(F0, albedo, metallic);
@@ -105,25 +108,25 @@ vec3 CalculateDirectionalLight(vec3 N, vec3 V, int lightIndex, vec3 albedo, floa
 
 void main()
 {
-    vec3 fragPos = texture(gPosition, fragUV).rgb;
-    vec3 normal = texture(gNormal, fragUV).rgb;
+    vec3 fragPos = texture(gPosition, inUV).rgb;
+    vec3 normal = texture(gNormal, inUV).rgb;
     vec3 N = normalize(normal);
     
-    vec4 albedoRough = texture(gAlbedoRough, fragUV);
+    vec4 albedoRough = texture(gAlbedoRough, inUV);
     vec3 albedo = albedoRough.rgb;
     float roughness = albedoRough.a;
 
-    vec4 material = texture(gMaterial, fragUV);
+    vec4 material = texture(gMaterial, inUV);
     float metallic = material.r;
     float ao = material.g;
     
-    vec4 emissiveSample = texture(gEmissive, fragUV);
+    vec4 emissiveSample = texture(gEmissive, inUV);
     vec3 emissive = emissiveSample.rgb * emissiveSample.a;
 
     vec3 viewDir = normalize(ubo.viewPos - fragPos);
 
     vec3 lighting = vec3(0.0);
-    for (uint i = 0; i < lightInfo.lightCount; ++i)
+    for (uint i = 0; i < directionalLights.length(); ++i)
     {
         lighting += CalculateDirectionalLight(N, viewDir, int(i), albedo, roughness, metallic);
     }

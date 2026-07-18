@@ -40,11 +40,6 @@ namespace Hydrogen
 		bool IsOutput = false;
 	};
 
-	//struct RgBufferView
-	//{
-	//	VkBuffer Buffer = VK_NULL_HANDLE;
-	//};
-
 	class RgCommandList
 	{
 	public:
@@ -164,6 +159,9 @@ namespace Hydrogen
 		std::vector<VkClearValue> ClearValues;
 	};
 
+	#define FREE_AFTER_UNUSED_FRAMES 500
+	#define CLEAR_INACTIVE_THREASHHOLD 50
+
 	class RenderGraph
 	{
 	public:
@@ -214,7 +212,8 @@ namespace Hydrogen
 		uint32_t GetOrCreateBuffer(const RgBufferDesc& desc);
 		void UploadDataToBuffer(void* data, size_t size, void* mapped);
 
-		void UpdatePassDescriptorSet(const RgPassNode& passNode, const CompiledPass& compiledPass);
+		void UpdateDescriptorSet(const std::vector<DescriptorBinding>& descriptorBindings, const std::vector<DescriptorBindingValue>& bindingValues, VkDescriptorSet descriptorSet);
+		VkDescriptorBufferInfo PrepareAndUploadBuffer(const DescriptorBindingValue& val, RgBufferType type);
 
 		uint32_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -254,6 +253,9 @@ namespace Hydrogen
 			VmaAllocation Allocation = VK_NULL_HANDLE;
 			size_t Hash = 0;
 			bool IsFree = true;
+			
+			size_t FramesUnsued = 0;
+			bool Active = true;
 		};
 
 		std::vector<PooledTexture> m_PhysicalTexturePool;
@@ -263,9 +265,13 @@ namespace Hydrogen
 			VkBuffer Buffer = VK_NULL_HANDLE;
 			VmaAllocation Allocation = VK_NULL_HANDLE;
 			size_t Hash = 0;
+			uint32_t Size = 0;
 			void* MappedMemory = nullptr;
 			bool IsMapped = false;
 			bool IsFree = true;
+
+			size_t FramesUnsued = 0;
+			bool Active = true;
 		};
 
 		std::vector<PooledBuffer> m_PhysicalBufferPool;
