@@ -11,8 +11,8 @@ namespace Hydrogen
 	class Renderer
 	{
 	public:
-		Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain);
-		Renderer(RenderDevice* device);
+		Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain, uint32_t maxFIF=3);
+		Renderer(RenderDevice* device, uint32_t maxFIF=3);
 		~Renderer();
 
 		void BeginImGuiFrame();
@@ -23,7 +23,7 @@ namespace Hydrogen
 		void ClearCache();
 
 		VkSampler GetImguiSampler() const { return m_ImguiSampler; }
-		VkSemaphore GetImageAvailableSemaphore() const { return m_ImageAvailableSemaphore; }
+		VkSemaphore GetImageAvailableSemaphore() const { return m_ImageAvailableSemaphores[m_FrameIndex]; }
 
 		RenderGraph* GetRenderGraph() { return m_RenderGraph.get(); }
 
@@ -32,20 +32,22 @@ namespace Hydrogen
 		void CreateSyncObjects();
 		void InitImGui();
 
+		uint32_t m_MaxFIF;
+		uint32_t m_FrameIndex = 0;
+
 		std::shared_ptr<Viewport> m_Viewport;
 		RenderDevice* m_Device;
 		SwapChain* m_SwapChain;
 
-		VkCommandBuffer m_CommandBuffer;
+		std::vector<VkCommandBuffer> m_CommandBuffers;
 
-		VkSemaphore m_ImageAvailableSemaphore;
-		VkSemaphore m_PresentFinishedSemaphore;
-		VkFence m_WaitFence;
+		std::vector<VkSemaphore> m_ImageAvailableSemaphores;
+		std::vector<VkSemaphore> m_PresentFinishedSemaphores;
+		std::vector<VkFence> m_WaitFences;
 
 		std::unique_ptr<RenderGraph> m_RenderGraph;
 
 		VkDescriptorPool m_ImGuiDescriptorPool = VK_NULL_HANDLE;
-
 		VkSampler m_ImguiSampler;
 	};
 

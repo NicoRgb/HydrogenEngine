@@ -7,10 +7,10 @@
 
 using namespace Hydrogen;
 
-Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain)
-	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain)
+Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain, uint32_t maxFIF)
+	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain), m_MaxFIF(maxFIF)
 {
-	m_RenderGraph = std::make_unique<RenderGraph>(device);
+	m_RenderGraph = std::make_unique<RenderGraph>(device, m_MaxFIF);
 
 	CreateCommandBuffer();
 	CreateSyncObjects();
@@ -45,10 +45,10 @@ Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* devi
 	}
 }
 
-Renderer::Renderer(RenderDevice* device)
-	: m_Viewport(nullptr), m_Device(device), m_SwapChain(nullptr)
+Renderer::Renderer(RenderDevice* device, uint32_t maxFIF)
+	: m_Viewport(nullptr), m_Device(device), m_SwapChain(nullptr), m_MaxFIF(maxFIF)
 {
-	m_RenderGraph = std::make_unique<RenderGraph>(device);
+	m_RenderGraph = std::make_unique<RenderGraph>(device, m_MaxFIF);
 
 	CreateCommandBuffer();
 	CreateSyncObjects();
@@ -96,11 +96,14 @@ Renderer::~Renderer()
 
 	vkDestroyDescriptorPool(m_Device->GetVulkanDevice(), m_ImGuiDescriptorPool, nullptr);
 
-	vkDestroySemaphore(m_Device->GetVulkanDevice(), m_ImageAvailableSemaphore, nullptr);
-	vkDestroySemaphore(m_Device->GetVulkanDevice(), m_PresentFinishedSemaphore, nullptr);
-	vkDestroyFence(m_Device->GetVulkanDevice(), m_WaitFence, nullptr);
+	for (uint32_t i = 0; i < m_MaxFIF; i++)
+	{
+		vkDestroySemaphore(m_Device->GetVulkanDevice(), m_ImageAvailableSemaphores[i], nullptr);
+		vkDestroySemaphore(m_Device->GetVulkanDevice(), m_PresentFinishedSemaphores[i], nullptr);
+		vkDestroyFence(m_Device->GetVulkanDevice(), m_WaitFences[i], nullptr);
 
-	vkFreeCommandBuffers(m_Device->GetVulkanDevice(), m_Device->GetCommandPool(), 1, &m_CommandBuffer);
+		vkFreeCommandBuffers(m_Device->GetVulkanDevice(), m_Device->GetCommandPool(), 1, &m_CommandBuffers[i]);
+	}
 }
 
 void Renderer::BeginImGuiFrame()
@@ -123,35 +126,35 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 
 	{
 		ZoneScopedN("Wait for GPU");
-		vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence, VK_TRUE, UINT64_MAX);
-		vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence);
+		vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_FrameIndex], VK_TRUE, UINT64_MAX);
+		vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_FrameIndex]);
 	}
 
 	m_RenderGraph->Reset();
 
 	const auto descriptorBindingValues = setupPasses(m_RenderGraph.get());
 
-	vkResetCommandBuffer(m_CommandBuffer, 0);
+	vkResetCommandBuffer(m_CommandBuffers[m_FrameIndex], 0);
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	beginInfo.flags = 0;
 	beginInfo.pInheritanceInfo = nullptr;
 
-	VkResult result = vkBeginCommandBuffer(m_CommandBuffer, &beginInfo);
+	VkResult result = vkBeginCommandBuffer(m_CommandBuffers[m_FrameIndex], &beginInfo);
 	if (result != VK_SUCCESS)
 	{
 		HY_ENGINE_FATAL("Failed to begin Vulkan command buffer... vkBeginCommandBuffer returned {}", (uint16_t)result);
 	}
 
-	m_RenderGraph->Execute(m_CommandBuffer, descriptorBindingValues);
+	m_RenderGraph->Execute(m_CommandBuffers[m_FrameIndex], descriptorBindingValues);
 
-	result = vkEndCommandBuffer(m_CommandBuffer);
+	result = vkEndCommandBuffer(m_CommandBuffers[m_FrameIndex]);
 	if (result != VK_SUCCESS)
 	{
 		HY_ENGINE_FATAL("Failed to end Vulkan command buffer... vkEndCommandBuffer returned {}", (uint16_t)result);
 	}
 
-	VkCommandBuffer commandBuffers[] = { m_CommandBuffer };
+	VkCommandBuffer commandBuffers[] = { m_CommandBuffers[m_FrameIndex] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
 	VkSubmitInfo submitInfo{};
@@ -160,7 +163,7 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 	if (present)
 	{
 		submitInfo.waitSemaphoreCount = 1;
-		submitInfo.pWaitSemaphores = &m_ImageAvailableSemaphore;
+		submitInfo.pWaitSemaphores = &m_ImageAvailableSemaphores[m_FrameIndex];
 	}
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.pCommandBuffers = commandBuffers;
@@ -168,10 +171,10 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 	if (present)
 	{
 		submitInfo.signalSemaphoreCount = 1;
-		submitInfo.pSignalSemaphores = &m_PresentFinishedSemaphore;
+		submitInfo.pSignalSemaphores = &m_PresentFinishedSemaphores[m_FrameIndex];
 	}
 
-	vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_WaitFence);
+	vkQueueSubmit(m_Device->GetGraphicsQueue(), 1, &submitInfo, m_WaitFences[m_FrameIndex]);
 
 	if (!present)
 	{
@@ -182,7 +185,7 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	
 	presentInfo.waitSemaphoreCount = 1;
-	presentInfo.pWaitSemaphores = &m_PresentFinishedSemaphore;
+	presentInfo.pWaitSemaphores = &m_PresentFinishedSemaphores[m_FrameIndex];
 	
 	VkSwapchainKHR swapChains[] = { m_SwapChain->GetVulkanSwapchain() };
 	uint32_t imageIndices[] = { m_SwapChain->GetCurrentImageIndex() };
@@ -190,6 +193,9 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = imageIndices;
 	vkQueuePresentKHR(m_Device->GetPresentQueue(), &presentInfo);
+
+	m_FrameIndex++;
+	m_FrameIndex = m_FrameIndex % m_MaxFIF;
 
 	return m_RenderGraph->GetOutputs();
 }
@@ -207,13 +213,15 @@ void Renderer::ClearCache()
 
 void Renderer::CreateCommandBuffer()
 {
+	m_CommandBuffers.resize(m_MaxFIF);
+
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.commandPool = m_Device->GetCommandPool();
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandBufferCount = 1;
+	allocInfo.commandBufferCount = m_MaxFIF;
 
-	VkResult result = vkAllocateCommandBuffers(m_Device->GetVulkanDevice(), &allocInfo, &m_CommandBuffer);
+	VkResult result = vkAllocateCommandBuffers(m_Device->GetVulkanDevice(), &allocInfo, m_CommandBuffers.data());
 	if (result != VK_SUCCESS)
 	{
 		HY_ENGINE_FATAL("Failed to allocate Vulkan command buffer... vkAllocateCommandBuffers returned {}", (uint16_t)result);
@@ -222,6 +230,10 @@ void Renderer::CreateCommandBuffer()
 
 void Renderer::CreateSyncObjects()
 {
+	m_ImageAvailableSemaphores.resize(m_MaxFIF);
+	m_PresentFinishedSemaphores.resize(m_MaxFIF);
+	m_WaitFences.resize(m_MaxFIF);
+
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -229,22 +241,25 @@ void Renderer::CreateSyncObjects()
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	VkResult result = vkCreateSemaphore(m_Device->GetVulkanDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphore);
-	if (result != VK_SUCCESS)
+	for (uint32_t i = 0; i < m_MaxFIF; i++)
 	{
-		HY_ENGINE_FATAL("Failed to create Vulkan semaphore... vkCreateSemaphore returned {}", (uint16_t)result);
-	}
+		VkResult result = vkCreateSemaphore(m_Device->GetVulkanDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]);
+		if (result != VK_SUCCESS)
+		{
+			HY_ENGINE_FATAL("Failed to create Vulkan semaphore... vkCreateSemaphore returned {}", (uint16_t)result);
+		}
 
-	result = vkCreateSemaphore(m_Device->GetVulkanDevice(), &semaphoreInfo, nullptr, &m_PresentFinishedSemaphore);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to create Vulkan semaphore... vkCreateSemaphore returned {}", (uint16_t)result);
-	}
+		result = vkCreateSemaphore(m_Device->GetVulkanDevice(), &semaphoreInfo, nullptr, &m_PresentFinishedSemaphores[i]);
+		if (result != VK_SUCCESS)
+		{
+			HY_ENGINE_FATAL("Failed to create Vulkan semaphore... vkCreateSemaphore returned {}", (uint16_t)result);
+		}
 
-	result = vkCreateFence(m_Device->GetVulkanDevice(), &fenceInfo, nullptr, &m_WaitFence);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to create Vulkan fence... vkCreateFence returned {}", (uint16_t)result);
+		result = vkCreateFence(m_Device->GetVulkanDevice(), &fenceInfo, nullptr, &m_WaitFences[i]);
+		if (result != VK_SUCCESS)
+		{
+			HY_ENGINE_FATAL("Failed to create Vulkan fence... vkCreateFence returned {}", (uint16_t)result);
+		}
 	}
 }
 

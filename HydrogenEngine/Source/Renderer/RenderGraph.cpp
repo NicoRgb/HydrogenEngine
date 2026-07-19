@@ -6,12 +6,17 @@
 
 using namespace Hydrogen;
 
-static size_t HashTextureDesc(const RgTextureDesc& desc, VkImageUsageFlags usage)
+static size_t HashTextureDesc(const RgTextureDesc& desc)
 {
 	size_t seed = 0;
 	HashCombine(seed, static_cast<size_t>(desc.Width));
 	HashCombine(seed, static_cast<size_t>(desc.Height));
-	HashCombine(seed, static_cast<size_t>(desc.Format));
+	HashCombine(seed, static_cast<size_t>(desc.Format));	return seed;
+}
+
+static size_t HashTextureDescUsage(const RgTextureDesc& desc, VkImageUsageFlags usage)
+{
+	size_t seed = HashTextureDesc(desc);
 	HashCombine(seed, static_cast<size_t>(usage));
 	return seed;
 }
@@ -31,6 +36,50 @@ static size_t HashDescriptorBindings(const std::vector<DescriptorBinding>& bindi
 		HashCombine(seed, binding.Binding);
 		HashCombine(seed, static_cast<size_t>(binding.Type));
 	}
+	return seed;
+}
+
+static size_t HashTextureView(const RgTextureView& view)
+{
+	size_t seed = 0;
+	HashCombine(seed, reinterpret_cast<size_t>(view.Image));
+	HashCombine(seed, reinterpret_cast<size_t>(view.ImageView));
+	HashCombine(seed, static_cast<size_t>(view.UsageFlags));
+	HashCombine(seed, static_cast<size_t>(view.IsImported));
+	HashCombine(seed, static_cast<size_t>(view.IsOutput));
+	return seed;
+}
+
+static size_t HashPassNode(const RgPassNode& node)
+{
+	size_t seed = 0;
+	HashCombine(seed, std::hash<std::string>{}(node.Name));
+	for (auto usage : node.Usages)
+	{
+		HashCombine(seed, static_cast<size_t>(usage.UsageType));
+		HashCombine(seed, usage.Handle.Id);
+	}
+	for (const auto& binding : node.DescriptorBindings)
+	{
+		HashCombine(seed, binding.Binding);
+		HashCombine(seed, static_cast<size_t>(binding.Type));
+		HashCombine(seed, binding.Count);
+		HashCombine(seed, static_cast<size_t>(binding.StageFlags));
+		HashCombine(seed, static_cast<size_t>(binding.BindingFlags));
+	}
+
+	return seed;
+}
+
+static size_t HashFrame(const std::vector<RgTextureDesc>& textureDescs, const std::vector<RgTextureView>& textureViews, const std::vector<RgPassNode>& passNodes)
+{
+	size_t seed = 0;
+	for (const auto& desc : textureDescs)
+		HashCombine(seed, HashTextureDesc(desc));
+	for (const auto& view : textureViews)
+		HashCombine(seed, HashTextureView(view));
+	for (const auto& node : passNodes)
+		HashCombine(seed, HashPassNode(node));
 	return seed;
 }
 
@@ -134,68 +183,16 @@ RgResourceHandle RgPassBuilder::ReadTexture(RgResourceHandle texture)
 	return texture;
 }
 
-RenderGraph::RenderGraph(RenderDevice* device)
-	: m_Device(device), m_CommandList(device)
+RenderGraph::RenderGraph(RenderDevice* device, uint32_t maxFIF)
+	: m_Device(device), m_CommandList(device), m_MaxFIF(maxFIF)
 {
 	m_TextureDescs.reserve(64);
 	m_PhysicalTextureViews.reserve(64);
 	m_PassNodes.reserve(32);
 	m_CompiledPasses.reserve(32);
 
-	VkDescriptorPoolSize poolSizes[] = {
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo = {};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	poolInfo.maxSets = 1000 * IM_ARRAYSIZE(poolSizes);
-	poolInfo.poolSizeCount = (uint32_t)IM_ARRAYSIZE(poolSizes);
-	poolInfo.pPoolSizes = poolSizes;
-
-	VkResult result = vkCreateDescriptorPool(m_Device->GetVulkanDevice(), &poolInfo, nullptr, &m_DescriptorPool);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to create Vulkan descriptor pool... vkCreateDescriptorPool returned {}", (uint16_t)result);
-	}
-
-	VkSamplerCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	createInfo.magFilter = VK_FILTER_LINEAR;
-	createInfo.minFilter = VK_FILTER_LINEAR;
-
-	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-
-	createInfo.anisotropyEnable = VK_FALSE;
-	createInfo.maxAnisotropy = 1.0f;
-	createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	createInfo.unnormalizedCoordinates = VK_FALSE;
-
-	createInfo.compareEnable = VK_FALSE;
-	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-
-	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	createInfo.mipLodBias = 0.0f;
-	createInfo.minLod = 0.0f;
-	createInfo.maxLod = 1.0f;
-
-	result = vkCreateSampler(m_Device->GetVulkanDevice(), &createInfo, nullptr, &m_Sampler);
-	if (result != VK_SUCCESS)
-	{
-		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
-	}
+	CreateDescriptorPool();
+	CreateSampler();
 }
 
 RenderGraph::~RenderGraph()
@@ -240,15 +237,31 @@ RenderGraph::~RenderGraph()
 
 void RenderGraph::Reset()
 {
+	ResetRecording();
+	ResetCompilation();
+
+	m_FrameIndex++;
+	m_FrameIndex = m_FrameIndex % m_MaxFIF;
+}
+
+void RenderGraph::ResetRecording()
+{
 	m_FrameDescriptorBindings.clear();
 	m_TextureDescs.clear();
 	m_PhysicalTextureViews.clear();
 	m_PassNodes.clear();
+}
+
+void RenderGraph::ResetCompilation()
+{
 	m_CompiledPasses.clear();
 	m_PostRenderBarriers.clear();
 
 	for (auto& pooled : m_DescriptorSetPool)
 	{
+		if (pooled.FrameIndex != m_FrameIndex)
+			continue;
+
 		pooled.IsFree = true;
 	}
 
@@ -294,6 +307,9 @@ void RenderGraph::Reset()
 
 	for (auto& pooled : m_PhysicalBufferPool)
 	{
+		if (pooled.FrameIndex != m_FrameIndex)
+			continue;
+
 		if (!pooled.Active)
 		{
 			continue;
@@ -334,7 +350,7 @@ void RenderGraph::Reset()
 
 void RenderGraph::ClearCache()
 {
-	Reset();
+	ResetCompilation();
 
 	VkDevice device = m_Device->GetVulkanDevice();
 
@@ -444,6 +460,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 				m_FrameDescriptorSetLayout = pooled.DescriptorSetLayout;
 				m_FrameDescriptorSet = pooled.DescriptorSet;
 				pooled.IsFree = false;
+				pooled.FrameIndex = m_FrameIndex;
 				break;
 			}
 		}
@@ -501,7 +518,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 		if (!m_PhysicalTextureViews[i].IsImported)
 		{
-			size_t descHash = HashTextureDesc(m_TextureDescs[i], m_PhysicalTextureViews[i].UsageFlags);
+			size_t descHash = HashTextureDescUsage(m_TextureDescs[i], m_PhysicalTextureViews[i].UsageFlags);
 			bool foundCachedResource = false;
 
 			for (auto& pooled : m_PhysicalTexturePool)
@@ -560,6 +577,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 					compiledPass.DescriptorSetLayout = pooled.DescriptorSetLayout;
 					compiledPass.DescriptorSet = pooled.DescriptorSet;
 					pooled.IsFree = false;
+					pooled.FrameIndex = m_FrameIndex;
 					break;
 				}
 			}
@@ -862,6 +880,67 @@ void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<Descripto
 	}
 }
 
+void RenderGraph::CreateDescriptorPool()
+{
+	VkDescriptorPoolSize poolSizes[] = {
+	{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+	{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+	{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+	{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+	{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+	{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+	{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+	{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+	{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.maxSets = 1000 * IM_ARRAYSIZE(poolSizes);
+	poolInfo.poolSizeCount = (uint32_t)IM_ARRAYSIZE(poolSizes);
+	poolInfo.pPoolSizes = poolSizes;
+
+	VkResult result = vkCreateDescriptorPool(m_Device->GetVulkanDevice(), &poolInfo, nullptr, &m_DescriptorPool);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan descriptor pool... vkCreateDescriptorPool returned {}", (uint16_t)result);
+	}
+}
+
+void RenderGraph::CreateSampler()
+{
+	VkSamplerCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	createInfo.magFilter = VK_FILTER_LINEAR;
+	createInfo.minFilter = VK_FILTER_LINEAR;
+
+	createInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	createInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	createInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+	createInfo.anisotropyEnable = VK_FALSE;
+	createInfo.maxAnisotropy = 1.0f;
+	createInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	createInfo.unnormalizedCoordinates = VK_FALSE;
+
+	createInfo.compareEnable = VK_FALSE;
+	createInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+	createInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	createInfo.mipLodBias = 0.0f;
+	createInfo.minLod = 0.0f;
+	createInfo.maxLod = 1.0f;
+
+	VkResult result = vkCreateSampler(m_Device->GetVulkanDevice(), &createInfo, nullptr, &m_Sampler);
+	if (result != VK_SUCCESS)
+	{
+		HY_ENGINE_FATAL("Failed to create Vulkan sampler... vkCreateSampler returned {}", (uint16_t)result);
+	}
+}
+
 VkRenderPass RenderGraph::GetOrCreateRenderPass(const std::vector<RenderPassAttachment>& colors, std::optional<RenderPassAttachment> depth)
 {
 	size_t hash = 0;
@@ -1126,6 +1205,8 @@ uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
 
 	if (bestCandidate != UINT32_MAX)
 	{
+		m_PhysicalBufferPool[bestCandidate].IsFree = false;
+		m_PhysicalBufferPool[bestCandidate].FrameIndex = m_FrameIndex;
 		return bestCandidate;
 	}
 
@@ -1179,6 +1260,8 @@ void RenderGraph::UploadDataToBuffer(void* data, size_t size, void* mapped)
 
 void RenderGraph::UpdateDescriptorSet(const std::vector<DescriptorBinding>& descriptorBindings, const std::vector<DescriptorBindingValue>& bindingValues, VkDescriptorSet descriptorSet)
 {
+	ZoneScoped;
+
 	std::vector<VkWriteDescriptorSet> descriptorWrites;
 
 	std::deque<VkDescriptorBufferInfo> bufferInfos;

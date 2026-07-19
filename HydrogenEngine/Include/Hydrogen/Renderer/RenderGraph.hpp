@@ -165,10 +165,11 @@ namespace Hydrogen
 	class RenderGraph
 	{
 	public:
-		RenderGraph(RenderDevice* device);
+		RenderGraph(RenderDevice* device, uint32_t maxFIF);
 		~RenderGraph();
 
 		void Reset();
+
 		void ClearCache();
 
 		RgResourceHandle CreateTexture(const RgTextureDesc& desc);
@@ -197,6 +198,15 @@ namespace Hydrogen
 		}
 
 	private:
+		uint32_t m_MaxFIF;
+		uint32_t m_FrameIndex;
+
+		void ResetRecording();
+		void ResetCompilation();
+
+		void CreateDescriptorPool();
+		void CreateSampler();
+
 		struct RenderPassAttachment
 		{
 			VkFormat Format;
@@ -228,8 +238,8 @@ namespace Hydrogen
 
 		std::vector<RgTextureDesc> m_TextureDescs;
 		std::vector<RgTextureView> m_PhysicalTextureViews;
-
 		std::vector<RgPassNode> m_PassNodes;
+
 		std::vector<CompiledPass> m_CompiledPasses;
 		std::vector<VkBarrierCommand> m_PostRenderBarriers;
 
@@ -238,10 +248,12 @@ namespace Hydrogen
 
 		struct PooledDescriptorSet
 		{
-			VkDescriptorSet DescriptorSet;
-			VkDescriptorSetLayout DescriptorSetLayout;
+			VkDescriptorSet DescriptorSet = VK_NULL_HANDLE;
+			VkDescriptorSetLayout DescriptorSetLayout = VK_NULL_HANDLE;
 			size_t Hash = 0;
 			bool IsFree = true;
+
+			uint32_t FrameIndex = 0;
 		};
 
 		std::vector<PooledDescriptorSet> m_DescriptorSetPool;
@@ -269,6 +281,8 @@ namespace Hydrogen
 			void* MappedMemory = nullptr;
 			bool IsMapped = false;
 			bool IsFree = true;
+
+			uint32_t FrameIndex = 0;
 
 			size_t FramesUnsued = 0;
 			bool Active = true;

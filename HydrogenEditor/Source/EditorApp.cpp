@@ -219,6 +219,7 @@ public:
 	virtual void OnImGuiRender() override
 	{
 		m_ImGuiRenderer->BeginImGuiFrame();
+		ImGuizmo::BeginFrame();
 
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
 		float toolbarHeight = 38.0f;
