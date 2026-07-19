@@ -1,6 +1,7 @@
 #include "Hydrogen/Renderer/Renderer.hpp"
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/ProceduralMesh.hpp"
+#include "Tracy/Tracy.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
 
@@ -113,13 +114,18 @@ void Renderer::BeginImGuiFrame()
 
 std::vector<RgTextureView> Renderer::Render(const std::function<const std::vector<DescriptorBindingValue>(RenderGraph* graph)>& setupPasses, bool present)
 {
+	ZoneScoped;
+
 	if (present)
 	{
 		HY_ASSERT(m_SwapChain, "Renderer initialized without swapchain does not have present capabilities");
 	}
 
-	vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence);
+	{
+		ZoneScopedN("Wait for GPU");
+		vkWaitForFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence, VK_TRUE, UINT64_MAX);
+		vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFence);
+	}
 
 	m_RenderGraph->Reset();
 
@@ -393,6 +399,8 @@ struct BlurPushConstants
 
 RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
+	ZoneScoped;
+
 	if (!s_SphereVertexBuffer)
 	{
 		auto sphereData = GenerateUVSphere(16, 16);
@@ -466,6 +474,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 				},
 				[&](RgCommandList& cmd)
 				{
+					ZoneScopedN("GBuffer Pass");
+
 					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GBufferVertexShader.glsl");
 					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GBufferFragmentShader.glsl");
 
@@ -574,6 +584,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 				},
 				[&](RgCommandList& cmd)
 				{
+					ZoneScopedN("Lighting Pass");
+
 					// directional lights
 					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("DirectionalLightsVertexShader.glsl");
 					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("DirectionalLightsPBRFragmentShader.glsl");
@@ -653,6 +665,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 						},
 						[horizontal](RgCommandList& cmd)
 						{
+							ZoneScopedN("Bloom Blur Pass");
+
 							auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurVertexShader.glsl");
 							auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BlurFragmentShader.glsl");
 
@@ -696,6 +710,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					builder.ReadTexture(bloomInput);
 				},
 				[settings](RgCommandList& cmd) {
+					ZoneScopedN("Post Processing Composite Pass");
+
 					auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingVertexShader.glsl");
 					auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("PostProcessingFragmentShader.glsl");
 
@@ -720,6 +736,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 
 void DefaultRenderer::RenderImGui(Renderer* renderer, SwapChain* swapChain)
 {
+	ZoneScoped;
 	renderer->Render(
 		[renderer, swapChain](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
 		{
@@ -732,6 +749,8 @@ void DefaultRenderer::RenderImGui(Renderer* renderer, SwapChain* swapChain)
 				},
 				[](RgCommandList& cmd)
 				{
+					ZoneScopedN("ImGui Pass");
+
 					ImGui::Render();
 					ImDrawData* drawData = ImGui::GetDrawData();
 

@@ -1,5 +1,6 @@
 #include "Hydrogen/Renderer/RenderGraph.hpp"
 #include "Hydrogen/Core.hpp"
+#include "Tracy/Tracy.hpp"
 
 #include <deque>
 
@@ -427,6 +428,8 @@ struct TextureStateTracker
 
 void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 {
+	ZoneScoped;
+
 	m_FrameDescriptorBindings = frameBindings;
 
 	m_FrameDescriptorSetLayout = VK_NULL_HANDLE;
@@ -791,6 +794,7 @@ void RenderGraph::Compile(const std::vector<DescriptorBinding>& frameBindings)
 
 void RenderGraph::Execute(VkCommandBuffer cmdBuffer, const std::vector<DescriptorBindingValue>& bindingValues)
 {
+	ZoneScoped;
 	UpdateDescriptorSet(m_FrameDescriptorBindings, bindingValues, m_FrameDescriptorSet);
 
 	m_CommandList.InitFrame(cmdBuffer, &m_PhysicalTextureViews, m_FrameDescriptorSet);

@@ -4,6 +4,7 @@
 #include "AssetEditorPanel.hpp"
 #include "InspectorPanel.hpp"
 #include "SceneHierarchyPanel.hpp"
+#include "LaunchTracy.hpp"
 #include "ImGuizmo.h"
 
 #include <imgui_internal.h>
@@ -540,6 +541,13 @@ private:
 		ImGui::Text("Memory Usage:");
 		ImGui::Text("  Allocations: %zu", stats.total.statistics.allocationCount);
 		ImGui::Text("  Allocated: %.2f MB", static_cast<double>(stats.total.statistics.allocationBytes) / (1024.0 * 1024.0));
+
+		ImGui::Separator();
+		ImGui::Text("For advanced profiling use Tracy");
+		if (ImGui::Button("Launch Tracy"))
+		{
+			LaunchAndConnectTracy();
+		}
 		ImGui::End();
 	}
 

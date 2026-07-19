@@ -7,10 +7,6 @@
 #include <ImGuizmo.h>
 #include <reactphysics3d/reactphysics3d.h>
 
-#ifdef HY_DEBUG
-//#define TRACY_ENABLE
-#endif
-
 #include "tracy/Tracy.hpp"
 
 using namespace Hydrogen;
@@ -76,6 +72,8 @@ void Application::Run()
 
 	while (MainViewport->IsOpen())
 	{
+		ZoneScopedN("Frame");
+
 		auto currentTime = clock::now();
 		std::chrono::duration<float> elapsed = currentTime - lastTime;
 		float deltaTime = elapsed.count();
