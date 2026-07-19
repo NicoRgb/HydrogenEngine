@@ -379,7 +379,7 @@ namespace Hydrogen
 	{
 		MeshRendererComponent(Entity entity);
 
-		std::shared_ptr<MeshAsset> Mesh;
+		std::shared_ptr<StaticMeshAsset> Mesh;
 		std::shared_ptr<MaterialAsset> Material;
 		std::shared_ptr<ShaderAsset> VertexShader;
 		std::shared_ptr<ShaderAsset> FragmentShader;
@@ -416,7 +416,7 @@ namespace Hydrogen
 			}
 			if (!meshPath.empty())
 			{
-				t.Mesh = assetManager->GetAsset<MeshAsset>(meshPath);
+				t.Mesh = assetManager->GetAsset<StaticMeshAsset>(meshPath);
 			}
 			if (!vertexShaderPath.empty())
 			{

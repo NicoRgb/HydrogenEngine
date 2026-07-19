@@ -158,16 +158,83 @@ namespace Hydrogen
 		//std::shared_ptr<CubeMap> m_CubeMap;
 	};
 
-	class MeshAsset : public Asset
+#pragma pack(push, 1)
+	struct StaticVertex
+	{
+		glm::vec3 Position;
+		glm::vec2 UV;
+		glm::vec3 Normal;
+		glm::vec3 Tangent;
+	};
+
+	struct SkinnedVertex
+	{
+		glm::vec3 Position;
+		glm::vec2 UV;
+		glm::vec3 Normal;
+		glm::vec3 Tangent;
+		glm::ivec4 BoneIDs = glm::ivec4(-1);
+		glm::vec4 Weights = glm::vec4(0.0f);
+	};
+
+	struct Joint
+	{
+		std::string Name;
+		int ParentIndex = -1;
+		glm::mat4 InverseBindMatrix;
+	};
+
+	struct VectorKey { float Time; glm::vec3 Value; };
+	struct QuatKey { float Time; glm::quat Value; };
+
+	struct BoneChannel
+	{
+		std::string BoneName;
+		std::vector<VectorKey> PositionKeys;
+		std::vector<QuatKey>   RotationKeys;
+		std::vector<VectorKey> ScaleKeys;
+	};
+#pragma pack(pop)
+
+	class SkeletonAsset : public Asset
 	{
 	public:
-		MeshAsset(std::string path, json config)
+		SkeletonAsset(std::string path, json config)
 			: Asset(path, config)
 		{
-			Parse(path);
+			ReadAssetFile(path);
+		}
+	
+		~SkeletonAsset() = default;
+	
+		void LoadCache(std::string cachePath) override
+		{
+		}
+	
+		void Cache() override
+		{
+		}
+	
+		const std::vector<Joint>& GetJoints() const { return m_Joints; }
+		int FindJointIndex(const std::string& name) const;
+	
+		void WriteAssetFile(const std::string& path);
+		void ReadAssetFile(const std::string& path);
+	
+	private:
+		std::vector<Joint> m_Joints;
+	};
+
+	class StaticMeshAsset : public Asset
+	{
+	public:
+		StaticMeshAsset(std::string path, json config)
+			: Asset(path, config)
+		{
+			ReadAssetFile(path);
 		}
 
-		~MeshAsset() = default;
+		~StaticMeshAsset() = default;
 
 		void LoadCache(std::string cachePath) override
 		{
@@ -177,19 +244,87 @@ namespace Hydrogen
 		{
 		}
 
-		const RenderBuffer* GetVertexBuffer(RenderDevice* device);
-		const RenderBuffer* GetIndexBuffer(RenderDevice* device);
+		uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
+
+		RenderBuffer* GetVertexBuffer();
+		RenderBuffer* GetIndexBuffer();
+
+		void WriteAssetFile(const std::string& path);
+		void ReadAssetFile(const std::string& path);
+
+	private:
+		std::vector<StaticVertex> m_Vertices;
+		std::vector<uint32_t> m_Indices;
+
+		std::unique_ptr<RenderBuffer> m_VertexBuffer;
+		std::unique_ptr<RenderBuffer> m_IndexBuffer;
+	};
+
+	class SkeletalMeshAsset : public Asset
+	{
+	public:
+		SkeletalMeshAsset(std::string path, json config)
+			: Asset(path, config)
+		{
+			ReadAssetFile(path);
+		}
+
+		~SkeletalMeshAsset() = default;
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
 
 		uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
 
-	private:
-		void Parse(std::string path);
+		RenderBuffer* GetVertexBuffer();
+		RenderBuffer* GetIndexBuffer();
 
-		std::vector<float> m_Vertices;
+		void WriteAssetFile(const std::string& path);
+		void ReadAssetFile(const std::string& path);
+
+	private:
+		std::vector<SkinnedVertex> m_Vertices;
 		std::vector<uint32_t> m_Indices;
 
-		std::unique_ptr<RenderBuffer> m_VertexBuffer = nullptr;
-		std::unique_ptr<RenderBuffer> m_IndexBuffer = nullptr;
+		std::unique_ptr<RenderBuffer> m_VertexBuffer;
+		std::unique_ptr<RenderBuffer> m_IndexBuffer;
+	};
+
+	class AnimationAsset : public Asset
+	{
+	public:
+		AnimationAsset(std::string path, json config)
+			: Asset(path, config)
+		{
+			ReadAssetFile(path);
+		}
+
+		~AnimationAsset() = default;
+
+		void LoadCache(std::string cachePath) override
+		{
+		}
+
+		void Cache() override
+		{
+		}
+
+		float GetDuration() const { return m_Duration; }
+		float GetTicksPerSecond() const { return m_TicksPerSecond; }
+		const std::vector<BoneChannel>& GetChannels() const { return m_Channels; }
+
+		void WriteAssetFile(const std::string& path);
+		void ReadAssetFile(const std::string& path);
+
+	private:
+		float m_Duration = 0.0f;
+		float m_TicksPerSecond = 0.0f;
+		std::vector<BoneChannel> m_Channels;
 	};
 
 	class ScriptAsset : public Asset

@@ -112,7 +112,7 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
 			{
 				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<MeshAsset>(newPath.filename().string());
+				auto asset = Application::Get()->MainAssetManager.GetAsset<StaticMeshAsset>(newPath.filename().string());
 				if (asset)
 				{
 					t.Mesh = asset;

@@ -70,7 +70,7 @@
     "MeshRendererComponent": {
       "FragmentShader": "FragmentShader.glsl",
       "Material": "DefaultMaterial.hymat",
-      "Mesh": "sphere.obj",
+      "Mesh": "sphere.hymesh",
       "VertexShader": "VertexShader.glsl"
     },
     "TagComponent": {

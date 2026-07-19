@@ -19,7 +19,7 @@ static InspectorPanel    _Inspector;
 ImGuiTextureCache TextureCache;
 std::shared_ptr<Scene> SavedScene;
 
-class EditorApp : public Application
+class ToolApp : public Application
 {
 private:
 	// ============================================================
@@ -786,5 +786,5 @@ private:
 
 extern std::shared_ptr<Application> GetApplication()
 {
-	return std::make_shared<EditorApp>();
+	return std::make_shared<ToolApp>();
 }

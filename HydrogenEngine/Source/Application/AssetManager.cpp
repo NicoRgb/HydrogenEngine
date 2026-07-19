@@ -5,9 +5,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
-
 #include <shaderc/shaderc.hpp>
 
 using namespace Hydrogen;
@@ -89,9 +86,21 @@ void AssetManager::LoadAssets(const std::string& directory)
 			{
 				assetType = "Texture";
 			}
-			else if (ext == ".obj")
+			else if (ext == ".hymesh")
 			{
-				assetType = "Mesh";
+				assetType = "StaticMesh";
+			}
+			else if (ext == ".hydynmesh")
+			{
+				assetType = "SkeletalMesh";
+			}
+			else if (ext == ".hyskel")
+			{
+				assetType = "Skeleton";
+			}
+			else if (ext == ".hyanim")
+			{
+				assetType = "Animation";
 			}
 			else if (ext == ".lua")
 			{
@@ -144,10 +153,25 @@ void AssetManager::LoadAssets(const std::string& directory)
 			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(texture);
 		}
-		else if (assetConfig["type"] == "Mesh")
+		else if (assetConfig["type"] == "StaticMesh")
 		{
-			auto mesh = std::make_shared<MeshAsset>(filePath, assetConfig);
+			auto mesh = std::make_shared<StaticMeshAsset>(filePath, assetConfig);
 			m_Assets[entry.path().filename().string()] = std::move(mesh);
+		}
+		else if (assetConfig["type"] == "SkeletalMesh")
+		{
+			auto mesh = std::make_shared<SkeletalMeshAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(mesh);
+		}
+		else if (assetConfig["type"] == "Skeleton")
+		{
+			auto sekleton = std::make_shared<SkeletonAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(sekleton);
+		}
+		else if (assetConfig["type"] == "Animation")
+		{
+			auto animation = std::make_shared<AnimationAsset>(filePath, assetConfig);
+			m_Assets[entry.path().filename().string()] = std::move(animation);
 		}
 		else if (assetConfig["type"] == "Script")
 		{
@@ -210,28 +234,85 @@ void TextureAsset::Parse(std::string path)
 
 	memcpy(m_Image.data(), data, m_Width * m_Height * 4);
 	stbi_image_free(data);
-
-	//m_Texture = Texture::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, m_Width, m_Height);
-	//m_Texture->UploadData((void*)m_Image.data());
 }
 
-const RenderBuffer* MeshAsset::GetVertexBuffer(RenderDevice* device)
+int SkeletonAsset::FindJointIndex(const std::string& name) const
+{
+	for (size_t i = 0; i < m_Joints.size(); ++i)
+	{
+		if (m_Joints[i].Name == name) return static_cast<int>(i);
+	}
+	return -1;
+}
+
+void SkeletonAsset::WriteAssetFile(const std::string& path)
+{
+	std::ofstream fout(path, std::ios::binary);
+	if (!fout.is_open())
+	{
+		HY_APP_ERROR("Failed to open file for writing: {}", path);
+		return;
+	}
+
+	size_t jointsSize = m_Joints.size();
+	fout.write(reinterpret_cast<const char*>(&jointsSize), sizeof(size_t));
+
+	for (const auto& joint : m_Joints)
+	{
+		size_t nameSize = joint.Name.size();
+		fout.write(reinterpret_cast<const char*>(&nameSize), sizeof(size_t));
+		fout.write(joint.Name.data(), nameSize);
+
+		fout.write(reinterpret_cast<const char*>(&joint.ParentIndex), sizeof(int));
+		fout.write(reinterpret_cast<const char*>(&joint.InverseBindMatrix), sizeof(glm::mat4));
+	}
+	fout.close();
+}
+
+void SkeletonAsset::ReadAssetFile(const std::string& path)
+{
+	std::ifstream fin(path, std::ios::binary);
+	if (!fin.is_open())
+	{
+		HY_APP_ERROR("Failed to open file for reading: {}", path);
+		return;
+	}
+
+	size_t jointsSize = 0;
+	fin.read(reinterpret_cast<char*>(&jointsSize), sizeof(size_t));
+
+	m_Joints.resize(jointsSize);
+	for (size_t i = 0; i < jointsSize; ++i)
+	{
+		size_t nameSize = 0;
+		fin.read(reinterpret_cast<char*>(&nameSize), sizeof(size_t));
+
+		m_Joints[i].Name.resize(nameSize);
+		fin.read(&m_Joints[i].Name[0], nameSize);
+
+		fin.read(reinterpret_cast<char*>(&m_Joints[i].ParentIndex), sizeof(int));
+		fin.read(reinterpret_cast<char*>(&m_Joints[i].InverseBindMatrix), sizeof(glm::mat4));
+	}
+	fin.close();
+}
+
+RenderBuffer* StaticMeshAsset::GetVertexBuffer()
 {
 	if (!m_VertexBuffer)
 	{
 		BufferDescription vertexBufferDesc;
 		vertexBufferDesc.cpuVisible = false;
-		vertexBufferDesc.size = m_Vertices.size() * sizeof(float);
+		vertexBufferDesc.size = m_Vertices.size() * sizeof(StaticVertex);
 		vertexBufferDesc.type = BufferType::Vertex;
 
-		m_VertexBuffer = std::make_unique<RenderBuffer>(device, vertexBufferDesc);
+		m_VertexBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), vertexBufferDesc);
 		m_VertexBuffer->UploadDataStaging(m_Vertices.data(), vertexBufferDesc.size);
 	}
 
 	return m_VertexBuffer.get();
 }
 
-const RenderBuffer* MeshAsset::GetIndexBuffer(RenderDevice* device)
+RenderBuffer* StaticMeshAsset::GetIndexBuffer()
 {
 	if (!m_IndexBuffer)
 	{
@@ -240,109 +321,211 @@ const RenderBuffer* MeshAsset::GetIndexBuffer(RenderDevice* device)
 		indexBufferDesc.size = m_Indices.size() * sizeof(uint32_t);
 		indexBufferDesc.type = BufferType::Index;
 
-		m_IndexBuffer = std::make_unique<RenderBuffer>(device, indexBufferDesc);
+		m_IndexBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), indexBufferDesc);
 		m_IndexBuffer->UploadDataStaging(m_Indices.data(), indexBufferDesc.size);
 	}
 
 	return m_IndexBuffer.get();
 }
 
-void MeshAsset::Parse(std::string path)
+void StaticMeshAsset::WriteAssetFile(const std::string& path)
 {
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string warn, err;
-
-	HY_ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str()), "Failed to load object {}", err);
-
-	for (const auto& shape : shapes)
+	std::ofstream fout(path, std::ios::binary);
+	if (!fout.is_open())
 	{
-		for (size_t i = 0; i < shape.mesh.indices.size(); i += 3)
-		{
-			tinyobj::index_t idx0 = shape.mesh.indices[i + 0];
-			tinyobj::index_t idx1 = shape.mesh.indices[i + 1];
-			tinyobj::index_t idx2 = shape.mesh.indices[i + 2];
-
-			// positions
-			glm::vec3 p0(attrib.vertices[3 * idx0.vertex_index + 0], attrib.vertices[3 * idx0.vertex_index + 1], attrib.vertices[3 * idx0.vertex_index + 2]);
-			glm::vec3 p1(attrib.vertices[3 * idx1.vertex_index + 0], attrib.vertices[3 * idx1.vertex_index + 1], attrib.vertices[3 * idx1.vertex_index + 2]);
-			glm::vec3 p2(attrib.vertices[3 * idx2.vertex_index + 0], attrib.vertices[3 * idx2.vertex_index + 1], attrib.vertices[3 * idx2.vertex_index + 2]);
-
-			// UVs
-			glm::vec2 uv0(attrib.texcoords[2 * idx0.texcoord_index + 0], 1.0f - attrib.texcoords[2 * idx0.texcoord_index + 1]);
-			glm::vec2 uv1(attrib.texcoords[2 * idx1.texcoord_index + 0], 1.0f - attrib.texcoords[2 * idx1.texcoord_index + 1]);
-			glm::vec2 uv2(attrib.texcoords[2 * idx2.texcoord_index + 0], 1.0f - attrib.texcoords[2 * idx2.texcoord_index + 1]);
-
-			// tangents
-			glm::vec3 edge1 = p1 - p0;
-			glm::vec3 edge2 = p2 - p0;
-			glm::vec2 deltaUV1 = uv1 - uv0;
-			glm::vec2 deltaUV2 = uv2 - uv0;
-
-			float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-			glm::vec3 tangent;
-			if (std::isinf(f) || std::isnan(f))
-			{
-				tangent = glm::vec3(1.0f, 0.0f, 0.0f);
-			}
-			else
-			{
-				tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-				tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-				tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-				tangent = glm::normalize(tangent);
-			}
-
-			auto PushVertex = [&](const tinyobj::index_t& index, const glm::vec3& tng) {
-				// position
-				m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 0]);
-				m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 1]);
-				m_Vertices.push_back(attrib.vertices[3 * index.vertex_index + 2]);
-
-				// UVs
-				m_Vertices.push_back(attrib.texcoords[2 * index.texcoord_index + 0]);
-				m_Vertices.push_back(1.0f - attrib.texcoords[2 * index.texcoord_index + 1]);
-
-				// normals
-				if (index.normal_index >= 0) {
-					m_Vertices.push_back(attrib.normals[3 * index.normal_index + 0]);
-					m_Vertices.push_back(attrib.normals[3 * index.normal_index + 1]);
-					m_Vertices.push_back(attrib.normals[3 * index.normal_index + 2]);
-				}
-				else {
-					m_Vertices.push_back(0.0f);
-					m_Vertices.push_back(0.0f);
-					m_Vertices.push_back(1.0f);
-				}
-
-				// tangents
-				m_Vertices.push_back(tng.x);
-				m_Vertices.push_back(tng.y);
-				m_Vertices.push_back(tng.z);
-
-				m_Indices.push_back((uint32_t)m_Indices.size());
-				};
-
-			PushVertex(idx0, tangent);
-			PushVertex(idx1, tangent);
-			PushVertex(idx2, tangent);
-		}
+		HY_APP_ERROR("Failed to open file for writing: {}", path);
+		return;
 	}
 
-	//m_VertexBuffer = VertexBuffer::Create(m_RenderContext,
-	//	{
-	//		{VertexElementType::Float3}, // position
-	//		{VertexElementType::Float2}, // UV
-	//		{VertexElementType::Float3}, // normal
-	//		{VertexElementType::Float3}  // tangent
-	//	},
-	//	(void*)m_Vertices.data(),
-	//	m_Vertices.size() / 11
-	//);
-	
-	//m_IndexBuffer = IndexBuffer::Create(m_RenderContext, m_Indices);
+	size_t vertexCount = m_Vertices.size();
+	size_t indexCount = m_Indices.size();
+
+	fout.write(reinterpret_cast<const char*>(&vertexCount), sizeof(size_t));
+	fout.write(reinterpret_cast<const char*>(&indexCount), sizeof(size_t));
+
+	fout.write(reinterpret_cast<const char*>(m_Vertices.data()), vertexCount * sizeof(StaticVertex));
+	fout.write(reinterpret_cast<const char*>(m_Indices.data()), indexCount * sizeof(uint32_t));
+
+	fout.close();
+}
+
+void StaticMeshAsset::ReadAssetFile(const std::string& path)
+{
+	std::ifstream fin(path, std::ios::binary);
+	if (!fin.is_open())
+	{
+		HY_APP_ERROR("Failed to open file for reading: {}", path);
+		return;
+	}
+
+	size_t vertexCount = 0;
+	size_t indexCount = 0;
+
+	fin.read(reinterpret_cast<char*>(&vertexCount), sizeof(size_t));
+	fin.read(reinterpret_cast<char*>(&indexCount), sizeof(size_t));
+
+	m_Vertices.resize(vertexCount);
+	m_Indices.resize(indexCount);
+
+	fin.read(reinterpret_cast<char*>(m_Vertices.data()), vertexCount * sizeof(StaticVertex));
+	fin.read(reinterpret_cast<char*>(m_Indices.data()), indexCount * sizeof(uint32_t));
+
+	fin.close();
+}
+
+RenderBuffer* SkeletalMeshAsset::GetVertexBuffer()
+{
+	if (!m_VertexBuffer)
+	{
+		BufferDescription vertexBufferDesc;
+		vertexBufferDesc.cpuVisible = false;
+		vertexBufferDesc.size = m_Vertices.size() * sizeof(SkinnedVertex);
+		vertexBufferDesc.type = BufferType::Vertex;
+
+		m_VertexBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), vertexBufferDesc);
+		m_VertexBuffer->UploadDataStaging(m_Vertices.data(), vertexBufferDesc.size);
+	}
+
+	return m_VertexBuffer.get();
+}
+
+RenderBuffer* SkeletalMeshAsset::GetIndexBuffer()
+{
+	if (!m_IndexBuffer)
+	{
+		BufferDescription indexBufferDesc;
+		indexBufferDesc.cpuVisible = false;
+		indexBufferDesc.size = m_Indices.size() * sizeof(uint32_t);
+		indexBufferDesc.type = BufferType::Index;
+
+		m_IndexBuffer = std::make_unique<RenderBuffer>(Application::Get()->GetRenderDevice(), indexBufferDesc);
+		m_IndexBuffer->UploadDataStaging(m_Indices.data(), indexBufferDesc.size);
+	}
+
+	return m_IndexBuffer.get();
+}
+
+void SkeletalMeshAsset::WriteAssetFile(const std::string& path)
+{
+	std::ofstream fout(path, std::ios::binary);
+	if (!fout.is_open())
+	{
+		HY_APP_ERROR("Failed to open file for writing: {}", path);
+		return;
+	}
+
+	size_t vertexCount = m_Vertices.size();
+	size_t indexCount = m_Indices.size();
+
+	fout.write(reinterpret_cast<const char*>(&vertexCount), sizeof(size_t));
+	fout.write(reinterpret_cast<const char*>(&indexCount), sizeof(size_t));
+
+	fout.write(reinterpret_cast<const char*>(m_Vertices.data()), vertexCount * sizeof(SkinnedVertex));
+	fout.write(reinterpret_cast<const char*>(m_Indices.data()), indexCount * sizeof(uint32_t));
+
+	fout.close();
+}
+
+void SkeletalMeshAsset::ReadAssetFile(const std::string& path)
+{
+	std::ifstream fin(path, std::ios::binary);
+	if (!fin.is_open()) {
+		HY_APP_ERROR("Failed to open file for reading: {}", path);
+		return;
+	}
+
+	size_t vertexCount = 0;
+	size_t indexCount = 0;
+
+	fin.read(reinterpret_cast<char*>(&vertexCount), sizeof(size_t));
+	fin.read(reinterpret_cast<char*>(&indexCount), sizeof(size_t));
+
+	m_Vertices.resize(vertexCount);
+	m_Indices.resize(indexCount);
+
+	fin.read(reinterpret_cast<char*>(m_Vertices.data()), vertexCount * sizeof(SkinnedVertex));
+	fin.read(reinterpret_cast<char*>(m_Indices.data()), indexCount * sizeof(uint32_t));
+
+	fin.close();
+}
+
+void AnimationAsset::WriteAssetFile(const std::string& path)
+{
+	std::ofstream fout(path, std::ios::binary);
+	if (!fout.is_open())
+	{
+		HY_APP_ERROR("Failed to open file for writing: {}", path);
+		return;
+	}
+
+	fout.write(reinterpret_cast<const char*>(&m_Duration), sizeof(float));
+	fout.write(reinterpret_cast<const char*>(&m_TicksPerSecond), sizeof(float));
+
+	size_t channelCount = m_Channels.size();
+	fout.write(reinterpret_cast<const char*>(&channelCount), sizeof(size_t));
+
+	for (const auto& channel : m_Channels)
+	{
+		size_t nameSize = channel.BoneName.size();
+		fout.write(reinterpret_cast<const char*>(&nameSize), sizeof(size_t));
+		fout.write(channel.BoneName.data(), nameSize);
+
+		size_t posSize = channel.PositionKeys.size();
+		fout.write(reinterpret_cast<const char*>(&posSize), sizeof(size_t));
+		fout.write(reinterpret_cast<const char*>(channel.PositionKeys.data()), posSize * sizeof(VectorKey));
+
+		size_t rotSize = channel.RotationKeys.size();
+		fout.write(reinterpret_cast<const char*>(&rotSize), sizeof(size_t));
+		fout.write(reinterpret_cast<const char*>(channel.RotationKeys.data()), rotSize * sizeof(QuatKey));
+
+		size_t scaleSize = channel.ScaleKeys.size();
+		fout.write(reinterpret_cast<const char*>(&scaleSize), sizeof(size_t));
+		fout.write(reinterpret_cast<const char*>(channel.ScaleKeys.data()), scaleSize * sizeof(VectorKey));
+	}
+	fout.close();
+}
+
+void AnimationAsset::ReadAssetFile(const std::string& path)
+{
+	std::ifstream fin(path, std::ios::binary);
+	if (!fin.is_open())
+	{
+		HY_APP_ERROR("Failed to open file for reading: {}", path);
+		return;
+	}
+
+	fin.read(reinterpret_cast<char*>(&m_Duration), sizeof(float));
+	fin.read(reinterpret_cast<char*>(&m_TicksPerSecond), sizeof(float));
+
+	size_t channelCount = 0;
+	fin.read(reinterpret_cast<char*>(&channelCount), sizeof(size_t));
+
+	m_Channels.resize(channelCount);
+	for (size_t i = 0; i < channelCount; ++i)
+	{
+		auto& channel = m_Channels[i];
+
+		size_t nameSize = 0;
+		fin.read(reinterpret_cast<char*>(&nameSize), sizeof(size_t));
+		channel.BoneName.resize(nameSize);
+		fin.read(&channel.BoneName[0], nameSize);
+
+		size_t posSize = 0;
+		fin.read(reinterpret_cast<char*>(&posSize), sizeof(size_t));
+		channel.PositionKeys.resize(posSize);
+		fin.read(reinterpret_cast<char*>(channel.PositionKeys.data()), posSize * sizeof(VectorKey));
+
+		size_t rotSize = 0;
+		fin.read(reinterpret_cast<char*>(&rotSize), sizeof(size_t));
+		channel.RotationKeys.resize(rotSize);
+		fin.read(reinterpret_cast<char*>(channel.RotationKeys.data()), rotSize * sizeof(QuatKey));
+
+		size_t scaleSize = 0;
+		fin.read(reinterpret_cast<char*>(&scaleSize), sizeof(size_t));
+		channel.ScaleKeys.resize(scaleSize);
+		fin.read(reinterpret_cast<char*>(channel.ScaleKeys.data()), scaleSize * sizeof(VectorKey));
+	}
+	fin.close();
 }
 
 void SceneAsset::Load(AssetManager* assetManager)

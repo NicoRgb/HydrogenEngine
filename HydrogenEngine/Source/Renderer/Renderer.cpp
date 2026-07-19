@@ -556,8 +556,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 
 							cmd.PushConstants(&pushConstants, sizeof(GeometryPassPushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
 
-							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer(Application::Get()->GetRenderDevice()));
-							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer(Application::Get()->GetRenderDevice()));
+							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer());
+							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer());
 							cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
 						});
 				});
@@ -646,7 +646,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 
 							cmd.BindVertexBuffer(s_SphereVertexBuffer.get());
 							cmd.BindIndexBuffer(s_SphereIndexBuffer.get());
-							cmd.DrawIndexed(s_SphereIndexBuffer->GetSize() / sizeof(uint32_t));
+							cmd.DrawIndexed((uint32_t)(s_SphereIndexBuffer->GetSize() / sizeof(uint32_t)));
 						});
 				});
 

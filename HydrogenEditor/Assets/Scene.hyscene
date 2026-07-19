@@ -1,1 +1,125 @@
-{"1001":{"CameraComponent":{"Active":true,"FOV":60.0,"FarPlane":1000.0,"NearPlane":0.10000000149011612},"TagComponent":{"name":"Main Camera"},"TransformComponent":{"rotation":{"x":150.0000762939453,"y":-40.0,"z":-4.458088824321749e-06},"scale":{"x":1.0000003576278687,"y":1.0000022649765015,"z":1.0000033378601074},"translation":{"x":2.9000000953674316,"y":5.5,"z":5.300000190734863}}},"1002":{"DirectionalLightComponent":{"Color":{"b":1.0,"g":1.0,"r":1.0},"Intensity":0.3059999942779541},"TagComponent":{"name":"Sun Light"},"TransformComponent":{"rotation":{"x":-90.98322296142578,"y":48.83663558959961,"z":161.0393829345703},"scale":{"x":0.9999993443489075,"y":0.9999992847442627,"z":1.0},"translation":{"x":4.393446445465088,"y":3.6316399574279785,"z":-0.6160761117935181}}},"15025973543738608336":{"MeshRendererComponent":{"FragmentShader":"UnlitFragmentShader.glsl","Material":"EmissiveMaterial.hymat","Mesh":"cube.obj","VertexShader":"UnlitVertexShader.glsl"},"PointLightComponent":{"Color":{"b":0.0,"g":0.0,"r":1.0},"Intensity":1.6319999694824219,"Radius":11.312999725341797},"TagComponent":{"name":"PointLight"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.10000000149011612,"y":0.10000000149011612,"z":0.10000000149011612},"translation":{"x":-0.5,"y":1.7999999523162842,"z":2.299999952316284}}},"1758862224133103574":{"TagComponent":{"name":"NewLight"},"TransformComponent":{"rotation":{"x":70.95171356201172,"y":64.85371398925781,"z":-16.89366912841797},"scale":{"x":1.0000003576278687,"y":1.000000238418579,"z":1.0000014305114746},"translation":{"x":-3.9419946670532227,"y":4.122828483581543,"z":0.0}}},"2000":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-2_-2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-2.0,"y":-2.0,"z":-2.0}}},"2001":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-1_-2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-1.0,"y":-2.0,"z":-2.0}}},"2002":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_0_-2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":0.0,"y":-2.0,"z":-2.0}}},"2003":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_1_-2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":1.0,"y":-2.0,"z":-2.0}}},"2004":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_2_-2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":2.0,"y":-2.0,"z":-2.0}}},"2005":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-2_-1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-2.0,"y":-2.0,"z":-1.0}}},"2006":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-1_-1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-1.0,"y":-2.0,"z":-1.0}}},"2007":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_0_-1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":0.0,"y":-2.0,"z":-1.0}}},"2008":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_1_-1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":1.0,"y":-2.0,"z":-1.0}}},"2009":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_2_-1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":2.0,"y":-2.0,"z":-1.0}}},"2010":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-2_0"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-2.0,"y":-2.0,"z":0.0}}},"2011":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-1_0"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-1.0,"y":-2.0,"z":0.0}}},"2012":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_0_0"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":0.0,"y":-2.0,"z":0.0}}},"2013":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_1_0"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":1.0,"y":-2.0,"z":0.0}}},"2014":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_2_0"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":2.0,"y":-2.0,"z":0.0}}},"2015":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-2_1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-2.0,"y":-2.0,"z":1.0}}},"2016":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-1_1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-1.0,"y":-2.0,"z":1.0}}},"2017":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_0_1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":0.0,"y":-2.0,"z":1.0}}},"2018":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_1_1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":1.0,"y":-2.0,"z":1.0}}},"2019":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_2_1"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":2.0,"y":-2.0,"z":1.0}}},"2020":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-2_2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-2.0,"y":-2.0,"z":2.0}}},"2021":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_-1_2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":-1.0,"y":-2.0,"z":2.0}}},"2022":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_0_2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":0.0,"y":-2.0,"z":2.0}}},"2023":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_1_2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":1.0,"y":-2.0,"z":2.0}}},"2024":{"ColliderComponent":{"size":[1.0,0.10000000149011612,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"Wood.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"RigidbodyComponent":{"angularDampening":0.0,"gravity":false,"linearDampening":0.0,"mass":1.0,"type":0},"TagComponent":{"name":"Floor_2_2"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.5,"y":0.10000000149011612,"z":0.5},"translation":{"x":2.0,"y":-2.0,"z":2.0}}},"3000":{"ColliderComponent":{"size":[1.0,1.0,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"DefaultMaterial.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"TagComponent":{"name":"FloatingCube1"},"TransformComponent":{"rotation":{"x":15.000007629394531,"y":30.000001907348633,"z":10.000001907348633},"scale":{"x":0.5,"y":0.4999999403953552,"z":0.5},"translation":{"x":0.0,"y":1.5,"z":0.0}}},"3001":{"ColliderComponent":{"size":[1.0,1.0,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"DefaultMaterial.hymat","Mesh":"sphere.obj","VertexShader":"VertexShader.glsl"},"TagComponent":{"name":"FloatingCube2"},"TransformComponent":{"rotation":{"x":0.0,"y":1.2722218874358041e-14,"z":4.5428345174514106e-07},"scale":{"x":1.0,"y":1.0,"z":1.0},"translation":{"x":1.0,"y":1.0,"z":1.0}}},"3002":{"ColliderComponent":{"size":[1.0,1.0,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"DefaultMaterial.hymat","Mesh":"cube.obj","VertexShader":"VertexShader.glsl"},"TagComponent":{"name":"FloatingCube3"},"TransformComponent":{"rotation":{"x":44.99998474121094,"y":9.999996185302734,"z":-15.000001907348633},"scale":{"x":0.6000000238418579,"y":0.6000000238418579,"z":0.6000000238418579},"translation":{"x":-2.55033802986145,"y":-1.0923972129821777,"z":0.3490086495876312}}}}
+{
+  "1001": {
+    "CameraComponent": {
+      "Active": true,
+      "FOV": 60.0,
+      "FarPlane": 1000.0,
+      "NearPlane": 0.1
+    },
+    "TagComponent": {
+      "name": "Main Camera"
+    },
+    "TransformComponent": {
+      "rotation": {
+        "x": -0.7,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "translation": {
+        "x": -3,
+        "y": 2.5,
+        "z": 0
+      }
+    }
+  },
+  "15025973543738608336": {
+    "PointLightComponent": {
+      "Color": {
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+      },
+      "Intensity": 1.1449999809265137,
+      "Radius": 100.0
+    },
+    "TagComponent": {
+      "name": "PointLight"
+    },
+    "TransformComponent": {
+      "rotation": {
+        "x": 0.0,
+        "y": -0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 0.10000000149011612,
+        "y": 0.10000000149011612,
+        "z": 0.10000000149011612
+      },
+      "translation": {
+        "x": -2.2,
+        "y": 11,
+        "z": 9.6
+      }
+    }
+  },
+  "3001": {
+    "ColliderComponent": {
+      "size": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": 0
+    },
+    "MeshRendererComponent": {
+      "FragmentShader": "FragmentShader.glsl",
+      "Material": "DefaultMaterial.hymat",
+      "Mesh": "sphere.hymesh",
+      "VertexShader": "VertexShader.glsl"
+    },
+    "TagComponent": {
+      "name": "FloatingCube2"
+    },
+    "TransformComponent": {
+      "rotation": {
+        "x": 0.0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "translation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    }
+  },
+  "1002": {
+    "DirectionalLightComponent": {
+      "Color": {
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+      },
+      "Intensity": 0.3059999942779541
+    },
+    "TagComponent": { "name": "Sun Light" },
+    "TransformComponent": {
+      "rotation": {
+        "x": -90.98322296142578,
+        "y": 48.83663558959961,
+        "z": 161.0393829345703
+      },
+      "scale": {
+        "x": 0.9999993443489075,
+        "y": 0.9999992847442627,
+        "z": 1.0
+      },
+      "translation": {
+        "x": 4.393446445465088,
+        "y": 3.6316399574279785,
+        "z": -0.6160761117935181
+      }
+    }
+  }
+}
