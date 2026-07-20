@@ -1,0 +1,7 @@
+{
+  "name": "ShadowVertexShader.glsl",
+  "preferences": {
+    "stage": "vertex"
+  },
+  "type": "Shader"
+}

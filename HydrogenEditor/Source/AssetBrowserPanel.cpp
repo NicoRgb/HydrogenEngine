@@ -230,6 +230,7 @@ void AssetBrowserPanel::DrawFileConfig(std::filesystem::path path, json& j) {
 			RenderSettings renderSettings;
 			renderSettings.Display.Width = 256;
 			renderSettings.Display.Height = 256;
+			renderSettings.Display.RenderToSwapChain = false;
 
 			VkImageView finalImage =
 				DefaultRenderer::RenderSceneDeferred(m_MaterialPreviewRenderer.get(), renderSettings, activeCameraEntity.GetComponent<CameraComponent>(),

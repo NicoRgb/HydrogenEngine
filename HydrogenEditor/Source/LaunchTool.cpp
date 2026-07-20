@@ -34,4 +34,17 @@ void LaunchTool(const std::string& path, const std::string& arguments, const std
 		HY_APP_ERROR("Failed to launch process.");
 	}
 }
+
+std::filesystem::path GetCurrentExecutablePath()
+{
+	char buffer[MAX_PATH];
+	DWORD size = GetModuleFileNameA(NULL, buffer, MAX_PATH);
+
+	if (size == 0)
+	{
+		return "";
+	}
+
+	return std::filesystem::path(std::string(buffer, size));
+}
 #endif

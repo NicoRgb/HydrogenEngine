@@ -329,7 +329,7 @@ private:
 		ImGui::SameLine();
 
 		if (ImGui::Button("Launch Hydrogen Tools", ImVec2(0.0f, buttonHeight)))
-			LaunchTool("HydrogenTools.exe", "", (std::filesystem::current_path() / "../HydrogenTools").string());
+			LaunchTool("HydrogenTools.exe", "", (GetCurrentExecutablePath().parent_path()).string());
 
 		ImGui::SameLine();
 		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);

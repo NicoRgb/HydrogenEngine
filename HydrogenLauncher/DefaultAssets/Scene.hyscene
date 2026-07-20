@@ -1,0 +1,113 @@
+{
+  "1001": {
+    "CameraComponent": {
+      "Active": true,
+      "FOV": 60.0,
+      "FarPlane": 1000.0,
+      "NearPlane": 0.1
+    },
+    "TagComponent": { "name": "Main Camera" },
+    "TransformComponent": {
+      "rotation": {
+        "x": -0.3,
+        "y": -0.9,
+        "z": 2.9
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "translation": {
+        "x": -1.4,
+        "y": 1.7,
+        "z": 2.5
+      }
+    }
+  },
+  "1002": {
+    "DirectionalLightComponent": {
+      "Color": {
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+      },
+      "Intensity": 0.3
+    },
+    "TagComponent": { "name": "Sun Light" },
+    "TransformComponent": {
+      "rotation": {
+        "x": -90.0,
+        "y": 50.0,
+        "z": 160.0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "translation": {
+        "x": 4.5,
+        "y": 3.5,
+        "z": 0.0
+      }
+    }
+  },
+  "1003": {
+    "ColliderComponent": {
+      "size": [ 1.0, 1.0, 1.0 ],
+      "type": 0
+    },
+    "MeshRendererComponent": {
+      "Material": "DefaultMaterial.hymat",
+      "Mesh": "Fox.hymesh"
+    },
+    "TagComponent": { "name": "Fox" },
+    "TransformComponent": {
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 0.02,
+        "y": 0.02,
+        "z": 0.02
+      },
+      "translation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    }
+  },
+  "1004": {
+    "PointLightComponent": {
+      "Color": {
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+      },
+      "Intensity": 1.1,
+      "Radius": 100.0
+    },
+    "TagComponent": { "name": "PointLight" },
+    "TransformComponent": {
+      "rotation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 0.1,
+        "y": 0.1,
+        "z": 0.1
+      },
+      "translation": {
+        "x": -2.2,
+        "y": 11.0,
+        "z": 9.6
+      }
+    }
+  }
+}

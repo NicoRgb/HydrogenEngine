@@ -3,10 +3,21 @@
 #include <filesystem>
 #include <commdlg.h>
 #include <windows.h>
+#include <shlobj.h>
 #include <vector>
 #include <string>
+#include <chrono>
 
 using namespace Hydrogen;
+
+template <typename TP>
+static std::time_t to_time_t(TP tp)
+{
+	using namespace std::chrono;
+	auto sctp = time_point_cast<system_clock::duration>(tp - TP::clock::now()
+		+ system_clock::now());
+	return system_clock::to_time_t(sctp);
+}
 
 struct ProjectInfo
 {
@@ -21,11 +32,11 @@ private:
 	std::unique_ptr<Renderer> m_ImGuiRenderer;
 	std::vector<ProjectInfo> m_RecentProjects;
 
-	// Creation State Variables
-	char m_NewProjectName[128] = "MyNewHydrogenProject";
+	char m_NewProjectName[128] = "NewProject";
 	std::string m_NewProjectPath = "";
-	int m_SelectedTemplateIdx = 0;
-	const char* m_Templates[2] = { "3D Standard (Deferred)", "2D Stylized (Forward+)" };
+	int m_SelectedPipelineIdx = 0;
+	const char* m_Pipelines[2] = { "3D Standard PBR (Deferred)" };
+	const char* m_PipelineInternalNames[2] = { "3D_PBR_Deferred" };
 
 	std::string m_StatusMessage = "Ready";
 
@@ -35,7 +46,7 @@ public:
 		ApplicationSpec.Name = "Hydrogen Launcher";
 		ApplicationSpec.Version = { 1, 0 };
 		ApplicationSpec.ViewportTitle = "Hydrogen Launcher";
-		ApplicationSpec.ViewportSize = { 1280, 720 }; // Launcher doesn't need to be fullscreen by default
+		ApplicationSpec.ViewportSize = { 1280, 720 };
 		ApplicationSpec.UseDebugGUI = true;
 	}
 
@@ -62,9 +73,8 @@ public:
 		ApplyHydrogenTheme();
 		m_ImGuiRenderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
 
-		// Seed dummy data for visualization testing
-		m_RecentProjects.push_back({ "HorrorGame3D", "C:\\Projects\\Hydrogen\\HorrorGame3D", "2 hours ago" });
-		m_RecentProjects.push_back({ "PhysicsSandbox", "C:\\Projects\\Hydrogen\\PhysicsSandbox", "Yesterday" });
+		m_NewProjectPath = GetProjectsPath().string();
+		ScanProjectsDirectory();
 	}
 
 	virtual void OnShutdown() override
@@ -112,7 +122,7 @@ private:
 		ofn.lStructSize = sizeof(ofn);
 		ofn.hwndOwner = NULL;
 		ofn.lpstrFile = szFile;
-		ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
+		ofn.nMaxFile = sizeof(szFile);
 		ofn.lpstrFilter = "Folder Selection\0*.*\0";
 		ofn.Flags = OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST;
 
@@ -130,7 +140,6 @@ private:
 
 		std::string editorExecutable = "HydrogenEditor.exe";
 		std::string commandLine = editorExecutable;
-		std::string workingDir = "..\\HydrogenEditor";
 
 		STARTUPINFOA si;
 		PROCESS_INFORMATION pi;
@@ -138,13 +147,12 @@ private:
 		si.cb = sizeof(si);
 		ZeroMemory(&pi, sizeof(pi));
 
-		// Fire execution handle out into standard OS process context
 		if (CreateProcessA(
 			NULL,
 			&commandLine[0],
 			NULL, NULL, FALSE,
 			CREATE_NEW_CONSOLE,
-			NULL, &workingDir[0],
+			NULL, &projectPath[0],
 			&si, &pi))
 		{
 			CloseHandle(pi.hProcess);
@@ -155,6 +163,66 @@ private:
 		{
 			m_StatusMessage = "Failed to launch editor executable. Ensure path alignment is valid.";
 			HY_APP_ERROR("Process initialization fault occurred handling main editor context execution loops.");
+		}
+	}
+
+	std::filesystem::path GetProjectsPath()
+	{
+		char my_documents[MAX_PATH];
+		HRESULT result = SHGetFolderPathA(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, my_documents);
+
+		if (result != S_OK)
+		{
+			HY_APP_ERROR("Failed to get documents folder path");
+			return "";
+		}
+
+		std::filesystem::path projectsPath = std::filesystem::path(my_documents) / "HydrogenProjects";
+
+		if (!std::filesystem::exists(projectsPath))
+		{
+			std::filesystem::create_directories(projectsPath);
+		}
+
+		return projectsPath;
+	}
+
+	void ScanProjectsDirectory()
+	{
+		m_RecentProjects.clear();
+
+		std::filesystem::path projectsDir = GetProjectsPath();
+		if (!std::filesystem::exists(projectsDir))
+			return;
+
+		for (const auto& entry : std::filesystem::directory_iterator(projectsDir))
+		{
+			if (entry.is_directory())
+			{
+				for (const auto& subEntry : std::filesystem::directory_iterator(entry.path()))
+				{
+					if (subEntry.is_regular_file() && subEntry.path().extension() == ".hyproj")
+					{
+						ProjectInfo info;
+						info.Name = subEntry.path().stem().string();
+						info.Path = entry.path().string();
+
+						auto lastWriteTime = std::filesystem::last_write_time(subEntry);
+
+						auto fileTime = to_time_t<decltype(lastWriteTime)>(lastWriteTime);
+
+						char timeBuffer[26];
+						ctime_s(timeBuffer, sizeof(timeBuffer), &fileTime);
+						std::string timeStr(timeBuffer);
+						if (!timeStr.empty() && timeStr.back() == '\n') timeStr.pop_back();
+
+						info.LastModified = timeStr;
+
+						m_RecentProjects.push_back(info);
+						break;
+					}
+				}
+			}
 		}
 	}
 
@@ -169,21 +237,42 @@ private:
 		std::filesystem::path rootDir(m_NewProjectPath);
 		rootDir /= m_NewProjectName;
 
-		try {
-			// Generate standard structural layout directory configurations
-			std::filesystem::create_directories(rootDir / "Assets");
+		try
+		{
 			std::filesystem::create_directories(rootDir / "Cache");
 			std::filesystem::create_directories(rootDir / "Config");
 
-			// Inject a dummy project structural config context data block
 			std::ofstream projectFile(rootDir / (std::string(m_NewProjectName) + ".hyproj"));
-			projectFile << "{\n\t\"ProjectName\": \"" << m_NewProjectName << "\",\n\t\"EngineVersion\": \"1.0\"\n}";
+			projectFile <<
+				"{\n\t\"ProjectName\": \"" << m_NewProjectName <<
+				"\",\n\t\"EngineVersion\": \"1.0\"" <<
+				",\n\t\"Pipeline\": \"" << m_PipelineInternalNames[m_SelectedPipelineIdx] << "\"\n}";
+			
 			projectFile.close();
+
+			if (!std::filesystem::exists("DefaultAssets"))
+			{
+				m_StatusMessage = "Error: DefaultAssets folder is missing!";
+				HY_APP_ERROR("DefaultAssets folder is missing");
+				return;
+			}
+
+			std::filesystem::copy("DefaultAssets", rootDir / "Assets", fs::copy_options::recursive);
+
+			if (!std::filesystem::exists("editor-imgui.ini"))
+			{
+				m_StatusMessage = "Error: editor-imgui.ini folder is missing!";
+				HY_APP_ERROR("editor-imgui.ini folder is missing");
+				return;
+			}
+
+			std::filesystem::copy_file("editor-imgui.ini", rootDir / "imgui.ini");
 
 			m_StatusMessage = "Project file trees constructed smoothly!";
 			m_RecentProjects.push_back({ m_NewProjectName, rootDir.string(), "Just Now" });
 		}
-		catch (const std::exception& e) {
+		catch (const std::exception& e)
+		{
 			m_StatusMessage = std::string("Directory creation failed: ") + e.what();
 		}
 	}
@@ -215,11 +304,13 @@ private:
 	{
 		ImGui::Begin("Recent Projects Workspace");
 
-		ImGui::Text("Select a project workspace template context below to access deployment trees.");
+		ImGui::Text("Select a project workspace context below to launch.");
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		if (ImGui::Button("Import Existing Project Folder Path", ImVec2(-1, 35)))
+		float buttonWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+		if (ImGui::Button("Import Folder...", ImVec2(buttonWidth, 35)))
 		{
 			std::string selectedFolder = OpenFolderDialog();
 			if (!selectedFolder.empty())
@@ -227,6 +318,14 @@ private:
 				std::filesystem::path p(selectedFolder);
 				m_RecentProjects.push_back({ p.filename().string(), selectedFolder, "Loaded" });
 			}
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Refresh Directory", ImVec2(buttonWidth, 35)))
+		{
+			ScanProjectsDirectory();
+			m_StatusMessage = "Project list refreshed.";
 		}
 
 		ImGui::Spacing();
@@ -241,7 +340,7 @@ private:
 			ImGui::TextDisabled("Modified: %s", project.LastModified.c_str());
 
 			ImGui::SameLine(ImGui::GetWindowWidth() - 120);
-			if (ImGui::Button("Launch Engine", ImVec2(100, 40)))
+			if (ImGui::Button("Launch Engine", ImVec2(0, 40)))
 			{
 				LaunchEditor(project.Path);
 			}
@@ -262,7 +361,7 @@ private:
 
 		ImGui::Text("Pipeline Template Framework Selection");
 		ImGui::Separator();
-		ImGui::Combo("Engine Pipeline Paradigm", &m_SelectedTemplateIdx, m_Templates, IM_ARRAYSIZE(m_Templates));
+		ImGui::Combo("Engine Pipeline", &m_SelectedPipelineIdx, m_Pipelines, IM_ARRAYSIZE(m_Pipelines));
 
 		ImGui::Spacing();
 		ImGui::Text("Filesystem Paths Target Configuration");
@@ -275,7 +374,7 @@ private:
 		strncpy_s(pathBuf, pathStr.c_str(), sizeof(pathBuf));
 		ImGui::InputText("Directory Root Base", pathBuf, sizeof(pathBuf), ImGuiInputTextFlags_ReadOnly);
 		ImGui::SameLine();
-		if (ImGui::Button("Browse Location..."))
+		if (ImGui::Button("Browse"))
 		{
 			m_NewProjectPath = OpenFolderDialog();
 		}
