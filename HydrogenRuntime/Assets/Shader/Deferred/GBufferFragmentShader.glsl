@@ -1,10 +1,8 @@
 #version 450
+#extension GL_KHR_vulkan_glsl : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
-#define MAX_TEXTURES 128
-layout(binding = 1) uniform sampler2D albedoMaps[MAX_TEXTURES];
-layout(binding = 2) uniform sampler2D normalMaps[MAX_TEXTURES];
-layout(binding = 3) uniform sampler2D ormMaps[MAX_TEXTURES];
-layout(binding = 4) uniform sampler2D emissiveMaps[MAX_TEXTURES];
+layout(binding = 0, set = 1) uniform sampler2D materialTextures[];
 
 layout(push_constant) uniform constants
 {
@@ -16,10 +14,12 @@ layout(push_constant) uniform constants
     int emissiveIndex;
     
     vec4 tint;
+    
     float roughness;
     float metallic;
     float padding0;
     float padding1;
+    
     vec4 emissive;
 } PushConstants;
 
@@ -39,13 +39,13 @@ void main()
     outPosition = vec4(fragPos, 1.0);
     outMaterial = vec4(0.0, 1.0, 0.0, 0.0);
 
-    if (PushConstants.normalIndex > MAX_TEXTURES)
+    if (PushConstants.normalIndex == -1)
     {
         outNormal = vec4(normalize(fragNormal), 1.0);
     }
     else
     {
-        vec3 localNormal = texture(normalMaps[PushConstants.normalIndex], fragUV).rgb * 2.0 - 1.0;
+        vec3 localNormal = texture(materialTextures[nonuniformEXT(PushConstants.normalIndex)], fragUV).rgb * 2.0 - 1.0;
         
         vec3 N = normalize(fragNormal);
         vec3 T = normalize(fragTangent);
@@ -56,16 +56,16 @@ void main()
         outNormal = vec4(normalize(TBN * localNormal), 1.0);
     }
 
-    if (PushConstants.albedoIndex > MAX_TEXTURES)
+    if (PushConstants.albedoIndex == -1)
     {
         outAlbedoRough.rgb = PushConstants.tint.rgb;
     }
     else
     {
-        outAlbedoRough.rgb = texture(albedoMaps[PushConstants.albedoIndex], fragUV).rgb * PushConstants.tint.rgb;
+        outAlbedoRough.rgb = texture(materialTextures[nonuniformEXT(PushConstants.albedoIndex)], fragUV).rgb * PushConstants.tint.rgb;
     }
 
-    if (PushConstants.ormIndex > MAX_TEXTURES)
+    if (PushConstants.ormIndex == -1)
     {
         outAlbedoRough.a = PushConstants.roughness;
         outMaterial.r = PushConstants.metallic;
@@ -73,18 +73,18 @@ void main()
     }
     else
     {
-        vec4 orm = texture(ormMaps[PushConstants.ormIndex], fragUV);
+        vec4 orm = texture(materialTextures[nonuniformEXT(PushConstants.ormIndex)], fragUV);
         outAlbedoRough.a = orm.g;
         outMaterial.r = orm.b;
         outMaterial.g = orm.r;
     }
 
-    if (PushConstants.emissiveIndex > MAX_TEXTURES)
+    if (PushConstants.emissiveIndex == -1)
     {
         outEmissive = PushConstants.emissive;
     }
     else
     {
-        outEmissive = texture(emissiveMaps[PushConstants.emissiveIndex], fragUV);
+        outEmissive = texture(materialTextures[nonuniformEXT(PushConstants.emissiveIndex)], fragUV);
     }
 }

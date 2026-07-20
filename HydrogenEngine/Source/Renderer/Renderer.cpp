@@ -10,11 +10,13 @@ using namespace Hydrogen;
 Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* device, SwapChain* swapChain, uint32_t maxFIF)
 	: m_Viewport(viewport), m_Device(device), m_SwapChain(swapChain), m_MaxFIF(maxFIF)
 {
-	m_RenderGraph = std::make_unique<RenderGraph>(device, m_MaxFIF);
+	m_RenderGraph = std::make_unique<RenderGraph>(device);
 
 	CreateCommandBuffer();
 	CreateSyncObjects();
-	InitImGui();
+
+	if (Application::Get()->ApplicationSpec.UseDebugGUI)
+		InitImGui();
 
 	VkSamplerCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -48,7 +50,7 @@ Renderer::Renderer(const std::shared_ptr<Viewport>& viewport, RenderDevice* devi
 Renderer::Renderer(RenderDevice* device, uint32_t maxFIF)
 	: m_Viewport(nullptr), m_Device(device), m_SwapChain(nullptr), m_MaxFIF(maxFIF)
 {
-	m_RenderGraph = std::make_unique<RenderGraph>(device, m_MaxFIF);
+	m_RenderGraph = std::make_unique<RenderGraph>(device);
 
 	CreateCommandBuffer();
 	CreateSyncObjects();
@@ -130,7 +132,7 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 		vkResetFences(m_Device->GetVulkanDevice(), 1, &m_WaitFences[m_FrameIndex]);
 	}
 
-	m_RenderGraph->Reset();
+	m_RenderGraph->Reset(m_FrameIndex);
 
 	const auto descriptorBindingValues = setupPasses(m_RenderGraph.get());
 
@@ -178,6 +180,8 @@ std::vector<RgTextureView> Renderer::Render(const std::function<const std::vecto
 
 	if (!present)
 	{
+		m_FrameIndex++;
+		m_FrameIndex = m_FrameIndex % m_MaxFIF;
 		return m_RenderGraph->GetOutputs();
 	}
 
@@ -707,7 +711,12 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 				}
 			}
 
-			RgResourceHandle sceneFinal = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			RgResourceHandle sceneFinal;
+			if (settings.Display.RenderToSwapChain)
+				sceneFinal = renderer->GetSwapChain()->AcquireNextImage(graph, renderer->GetImageAvailableSemaphore());
+			else
+				sceneFinal = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+
 			RgResourceHandle bloomInput = (finalBloomTarget.IsValid()) ? finalBloomTarget : sceneBright;
 
 			graph->AddPass("Post Processing Composite",
@@ -741,10 +750,15 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					cmd.Draw(3);
 				});
 
-			graph->AddOutput(sceneFinal);
+			if (!settings.Display.RenderToSwapChain)
+				graph->AddOutput(sceneFinal);
+
 			graph->Compile({ { 0, DescriptorType::UniformBuffer, 1, (ShaderStage)((uint32_t)ShaderStage::Vertex | (uint32_t)ShaderStage::Fragment) } });
 			return { { sizeof(UniformBuffer), (uint32_t*)&cameraInfo } };
-		}, false);
+		}, settings.Display.RenderToSwapChain);
+
+	if (settings.Display.RenderToSwapChain)
+		return RgTextureView{};
 
 	return outputs[0];
 }

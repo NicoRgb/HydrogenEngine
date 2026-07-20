@@ -1,0 +1,5 @@
+{
+	"name": "VertexShader.glsl",
+	"preferences": { "stage": "fragment" },
+	"type": "Shader"
+}

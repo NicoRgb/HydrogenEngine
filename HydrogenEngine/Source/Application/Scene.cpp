@@ -90,6 +90,86 @@ void Entity::Delete()
 	m_Scene->m_Registry.destroy(m_Entity);
 }
 
+
+SkeletalMeshRendererComponent::SkeletalMeshRendererComponent(Entity entity)
+{
+	Material = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>("DefaultMaterial.hymat");
+}
+
+void SkeletalMeshRendererComponent::OnImGuiRender(SkeletalMeshRendererComponent& t)
+{
+	if (ImGui::TreeNode("Skeletal Mesh Renderer"))
+	{
+		if (t.SkeletalMesh)
+		{
+			ImGui::Text(t.SkeletalMesh->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<SkeletalMeshAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.SkeletalMesh = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (t.Material)
+		{
+			ImGui::Text(t.Material->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.Material = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		if (t.Skeleton)
+		{
+			ImGui::Text(t.Skeleton->GetPath().c_str());
+		}
+		else
+		{
+			ImGui::Text("NULL");
+		}
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				std::filesystem::path newPath((const char*)payload->Data);
+				auto asset = Application::Get()->MainAssetManager.GetAsset<SkeletonAsset>(newPath.filename().string());
+				if (asset)
+				{
+					t.Skeleton = asset;
+				}
+			}
+			ImGui::EndDragDropTarget();
+		}
+
+		ImGui::TreePop();
+	}
+}
+
 MeshRendererComponent::MeshRendererComponent(Entity entity)
 {
 	Material = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>("DefaultMaterial.hymat");
@@ -138,50 +218,6 @@ void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
 				if (asset)
 				{
 					t.Material = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.VertexShader)
-		{
-			ImGui::Text(t.VertexShader->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.VertexShader = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.FragmentShader)
-		{
-			ImGui::Text(t.FragmentShader->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.FragmentShader = asset;
 				}
 			}
 			ImGui::EndDragDropTarget();
@@ -241,6 +277,10 @@ json Scene::SerializeScene()
 		{
 			TransformComponent::ToJson(entityJson["TransformComponent"], m_Registry.get<TransformComponent>(entity));
 		}
+		if (m_Registry.all_of<SkeletalMeshRendererComponent>(entity))
+		{
+			SkeletalMeshRendererComponent::ToJson(entityJson["SkeletalMeshRendererComponent"], m_Registry.get<SkeletalMeshRendererComponent>(entity));
+		}
 		if (m_Registry.all_of<MeshRendererComponent>(entity))
 		{
 			MeshRendererComponent::ToJson(entityJson["MeshRendererComponent"], m_Registry.get<MeshRendererComponent>(entity));
@@ -297,6 +337,11 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 		{
 			TransformComponent& component = m_Registry.emplace<TransformComponent>(entity, e);
 			TransformComponent::FromJson(value["TransformComponent"], component, assetManager);
+		}
+		if (value.contains("SkeletalMeshRendererComponent"))
+		{
+			SkeletalMeshRendererComponent& component = m_Registry.emplace<SkeletalMeshRendererComponent>(entity, e);
+			SkeletalMeshRendererComponent::FromJson(value["SkeletalMeshRendererComponent"], component, assetManager);
 		}
 		if (value.contains("MeshRendererComponent"))
 		{

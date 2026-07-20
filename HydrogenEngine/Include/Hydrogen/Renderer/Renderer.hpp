@@ -26,6 +26,7 @@ namespace Hydrogen
 		VkSemaphore GetImageAvailableSemaphore() const { return m_ImageAvailableSemaphores[m_FrameIndex]; }
 
 		RenderGraph* GetRenderGraph() { return m_RenderGraph.get(); }
+		SwapChain* GetSwapChain() { return m_SwapChain; }
 
 	private:
 		void CreateCommandBuffer();
@@ -55,6 +56,8 @@ namespace Hydrogen
 	{
 		uint64_t Width = 1920;
 		uint64_t Height = 1080;
+
+		bool RenderToSwapChain = true;
 	};
 
 	struct DebugSettings

@@ -4,7 +4,7 @@
 #include "AssetEditorPanel.hpp"
 #include "InspectorPanel.hpp"
 #include "SceneHierarchyPanel.hpp"
-#include "LaunchTracy.hpp"
+#include "LaunchTool.hpp"
 #include "ImGuizmo.h"
 
 #include <imgui_internal.h>
@@ -171,6 +171,7 @@ public:
 
 		m_RenderSettings.Display.Width = m_GameViewportSize.x;
 		m_RenderSettings.Display.Height = m_GameViewportSize.y;
+		m_RenderSettings.Display.RenderToSwapChain = false;
 
 		CurrentScene->GetScene()->RenderPhysicsDebug();
 
@@ -316,6 +317,19 @@ private:
 		// --- Simulation Controls ---
 		if (ImGui::Button(m_IsSimulating ? "STOP" : "PLAY", ImVec2(buttonHeight * 2.0f, buttonHeight)))
 			ToggleSimulation();
+
+		ImGui::SameLine();
+		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+		ImGui::SameLine();
+
+		// --- External Tools ---
+		if (ImGui::Button("Launch Tracy", ImVec2(0.0f, buttonHeight)))
+			LaunchTool("tracy-profiler.exe", "-a 127.0.0.1", std::filesystem::current_path().string());
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Launch Hydrogen Tools", ImVec2(0.0f, buttonHeight)))
+			LaunchTool("HydrogenTools.exe", "", (std::filesystem::current_path() / "../HydrogenTools").string());
 
 		ImGui::SameLine();
 		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
@@ -547,7 +561,7 @@ private:
 		ImGui::Text("For advanced profiling use Tracy");
 		if (ImGui::Button("Launch Tracy"))
 		{
-			LaunchAndConnectTracy();
+			LaunchTool("tracy-profiler.exe", "-a 127.0.0.1", std::filesystem::current_path().string());
 		}
 		ImGui::End();
 	}

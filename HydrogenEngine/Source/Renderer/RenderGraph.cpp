@@ -183,8 +183,8 @@ RgResourceHandle RgPassBuilder::ReadTexture(RgResourceHandle texture)
 	return texture;
 }
 
-RenderGraph::RenderGraph(RenderDevice* device, uint32_t maxFIF)
-	: m_Device(device), m_CommandList(device), m_MaxFIF(maxFIF)
+RenderGraph::RenderGraph(RenderDevice* device)
+	: m_Device(device), m_CommandList(device), m_FrameIndex(0)
 {
 	m_TextureDescs.reserve(64);
 	m_PhysicalTextureViews.reserve(64);
@@ -235,13 +235,12 @@ RenderGraph::~RenderGraph()
 	vkDestroyDescriptorPool(device, m_DescriptorPool, nullptr);
 }
 
-void RenderGraph::Reset()
+void RenderGraph::Reset(uint32_t frameIndex)
 {
+	m_FrameIndex = frameIndex;
+
 	ResetRecording();
 	ResetCompilation();
-
-	m_FrameIndex++;
-	m_FrameIndex = m_FrameIndex % m_MaxFIF;
 }
 
 void RenderGraph::ResetRecording()

@@ -1,3 +1,1 @@
-{
-  "Albedo": "wood.png"
-}
+{"Albedo":"wood.png","Emissive":{"b":0.0,"g":0.0,"intensity":0.0,"r":0.0},"EmissiveMap":"","Metallic":0.0,"Normal":"","ORM":"","Roughness":0.5,"Tint":{"b":1.0,"g":1.0,"r":1.0}}

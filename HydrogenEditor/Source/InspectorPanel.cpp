@@ -6,7 +6,8 @@ using namespace Hydrogen;
 template<typename T>
 const char* GetComponentName()
 {
-	if constexpr (std::is_same_v<T, MeshRendererComponent>) return "Mesh Renderer";
+	if constexpr (std::is_same_v<T, SkeletalMeshRendererComponent>) return "Skeletal Mesh Renderer";
+	else if constexpr (std::is_same_v<T, MeshRendererComponent>) return "Mesh Renderer";
 	else if constexpr (std::is_same_v<T, DirectionalLightComponent>) return "Directional Light";
 	else if constexpr (std::is_same_v<T, PointLightComponent>) return "Point Light";
 	else if constexpr (std::is_same_v<T, RigidbodyComponent>) return "Rigidbody";
@@ -96,10 +97,10 @@ void InspectorPanel::OnImGuiRender()
 		}
 
 		ImGui::Separator();
-		DrawAllComponents<TagComponent, TransformComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
+		DrawAllComponents<TagComponent, TransformComponent, SkeletalMeshRendererComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
 			(m_SelectedEntity);
 		ImGui::Separator();
-		DrawAddComponentMenu<MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
+		DrawAddComponentMenu<SkeletalMeshRendererComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
 			(m_Scene, m_SelectedEntity);
 	}
 	else

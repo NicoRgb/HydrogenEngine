@@ -165,10 +165,10 @@ namespace Hydrogen
 	class RenderGraph
 	{
 	public:
-		RenderGraph(RenderDevice* device, uint32_t maxFIF);
+		RenderGraph(RenderDevice* device);
 		~RenderGraph();
 
-		void Reset();
+		void Reset(uint32_t frameIndex);
 
 		void ClearCache();
 
@@ -198,7 +198,6 @@ namespace Hydrogen
 		}
 
 	private:
-		uint32_t m_MaxFIF;
 		uint32_t m_FrameIndex;
 
 		void ResetRecording();

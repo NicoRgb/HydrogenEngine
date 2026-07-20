@@ -18,6 +18,8 @@ project "HydrogenEditor"
 
 	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
 
+	postbuildcommands { "{COPY} %{wks.location}Extern/bin/tracy/tracy-profiler.exe ." }
+
 	filter "%{wks.location}/Extern/**.h"
 		warnings "Off"
 

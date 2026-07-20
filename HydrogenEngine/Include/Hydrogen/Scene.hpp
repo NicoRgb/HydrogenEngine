@@ -11,9 +11,6 @@
 #include <sol/sol.hpp>
 
 #include "AssetManager.hpp"
-//#include "Renderer/Texture.hpp"
-//#include "Renderer/VertexBuffer.hpp"
-//#include "Renderer/IndexBuffer.hpp"
 #include "Hydrogen/Physics.hpp"
 
 #include <random>
@@ -375,14 +372,58 @@ namespace Hydrogen
 		}
 	};
 
+	struct SkeletalMeshRendererComponent
+	{
+		SkeletalMeshRendererComponent(Entity entity);
+
+		std::shared_ptr<SkeletonAsset> Skeleton;
+		std::shared_ptr<SkeletalMeshAsset> SkeletalMesh;
+		std::shared_ptr<MaterialAsset> Material;
+
+		static void OnImGuiRender(SkeletalMeshRendererComponent& t);
+
+		static void ToJson(json& j, const SkeletalMeshRendererComponent& t)
+		{
+			j = json();
+			if (t.Material)
+				j["Material"] = std::filesystem::path(t.Material->GetPath()).filename().string();
+			if (t.SkeletalMesh)
+				j["SkeletalMesh"] = std::filesystem::path(t.SkeletalMesh->GetPath()).filename().string();
+			if (t.Skeleton)
+				j["Skeleton"] = std::filesystem::path(t.Skeleton->GetPath()).filename().string();
+		}
+
+		static void FromJson(const json& j, SkeletalMeshRendererComponent& t, AssetManager* assetManager)
+		{
+			auto materialPath = j.value("Material", "");
+			auto meshPath = j.value("SkeletalMesh", "");
+			auto skeletonPath = j.value("Skeleton", "");
+
+			if (!materialPath.empty())
+			{
+				t.Material = assetManager->GetAsset<MaterialAsset>(materialPath);
+			}
+			else
+			{
+				t.Material = assetManager->GetAsset<MaterialAsset>("DefaultMaterial.hymat");
+			}
+			if (!meshPath.empty())
+			{
+				t.SkeletalMesh = assetManager->GetAsset<SkeletalMeshAsset>(meshPath);
+			}
+			if (!skeletonPath.empty())
+			{
+				t.Skeleton = assetManager->GetAsset<SkeletonAsset>(skeletonPath);
+			}
+		}
+	};
+
 	struct MeshRendererComponent
 	{
 		MeshRendererComponent(Entity entity);
 
 		std::shared_ptr<StaticMeshAsset> Mesh;
 		std::shared_ptr<MaterialAsset> Material;
-		std::shared_ptr<ShaderAsset> VertexShader;
-		std::shared_ptr<ShaderAsset> FragmentShader;
 
 		static void OnImGuiRender(MeshRendererComponent& t);
 
@@ -393,18 +434,12 @@ namespace Hydrogen
 				j["Material"] = std::filesystem::path(t.Material->GetPath()).filename().string();
 			if (t.Mesh)
 				j["Mesh"] = std::filesystem::path(t.Mesh->GetPath()).filename().string();
-			if (t.VertexShader)
-				j["VertexShader"] = std::filesystem::path(t.VertexShader->GetPath()).filename().string();
-			if (t.FragmentShader)
-				j["FragmentShader"] = std::filesystem::path(t.FragmentShader->GetPath()).filename().string();
 		}
 
 		static void FromJson(const json& j, MeshRendererComponent& t, AssetManager* assetManager)
 		{
 			auto materialPath = j.value("Material", "");
 			auto meshPath = j.value("Mesh", "");
-			auto vertexShaderPath = j.value("VertexShader", "");
-			auto fragmentShaderPath = j.value("FragmentShader", "");
 
 			if (!materialPath.empty())
 			{
@@ -417,14 +452,6 @@ namespace Hydrogen
 			if (!meshPath.empty())
 			{
 				t.Mesh = assetManager->GetAsset<StaticMeshAsset>(meshPath);
-			}
-			if (!vertexShaderPath.empty())
-			{
-				t.VertexShader = assetManager->GetAsset<ShaderAsset>(vertexShaderPath);
-			}
-			if (!fragmentShaderPath.empty())
-			{
-				t.FragmentShader = assetManager->GetAsset<ShaderAsset>(fragmentShaderPath);
 			}
 		}
 	};
