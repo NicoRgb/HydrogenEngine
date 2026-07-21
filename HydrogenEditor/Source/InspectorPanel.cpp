@@ -78,15 +78,19 @@ void DrawAddComponentMenu(Scene* scene, Entity entity)
 	}
 }
 
-void InspectorPanel::SetContext(Scene* scene, Entity selected)
+void InspectorPanel::OnAttach()
 {
-	m_Scene = scene;
-	m_SelectedEntity = selected;
+	Dockspace->GetEventBus().Subscribe<SceneChangeEvent>([this](const SceneChangeEvent& e) {
+		m_Scene = e.Scene;
+		});
+
+	Dockspace->GetEventBus().Subscribe<EntitySelectedEvent>([this](const EntitySelectedEvent& e) {
+		m_SelectedEntity = e.SelectedEntity;
+		});
 }
 
 void InspectorPanel::OnImGuiRender()
 {
-	ImGui::Begin(GetName());
 	if (m_SelectedEntity.IsValid())
 	{
 		if (ImGui::Button("Remove"))
@@ -109,5 +113,4 @@ void InspectorPanel::OnImGuiRender()
 	{
 		ImGui::Text("No entity selected");
 	}
-	ImGui::End();
 }

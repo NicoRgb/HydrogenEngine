@@ -640,7 +640,9 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 			auto sceneColor = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
 			auto sceneBright = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
 
-			const auto directionalLights = GetDirectionalLights(scene);
+			auto directionalLights = GetDirectionalLights(scene);
+			if (directionalLights.size() == 0)
+				directionalLights.push_back({ .Intensity = 0.0f });
 
 			graph->AddPass("Lighting",
 				{
@@ -882,6 +884,37 @@ void DefaultRenderer::UploadMaterialTextures(Scene* scene, std::vector<const Tex
 				normalTextures.push_back(normal->GetTexture(Application::Get()->GetRenderDevice()));
 			}
 			
+			auto orm = m.Material->GetORMMap();
+			if (orm)
+			{
+				ORMTextures.push_back(orm->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+
+			auto emissive = m.Material->GetEmissiveMap();
+			if (emissive)
+			{
+				emissiveTextures.push_back(emissive->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+		});
+
+	scene->IterateComponents<SkeletalMeshRendererComponent>(
+		[&](Entity e, const SkeletalMeshRendererComponent& m)
+		{
+			if (!m.SkeletalMesh)
+				return;
+
+			auto albedo = m.Material->GetAlbedoMap();
+			if (albedo)
+			{
+				albedoTextures.push_back(albedo->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+
+			auto normal = m.Material->GetNormalMap();
+			if (normal)
+			{
+				normalTextures.push_back(normal->GetTexture(Application::Get()->GetRenderDevice()));
+			}
+
 			auto orm = m.Material->GetORMMap();
 			if (orm)
 			{

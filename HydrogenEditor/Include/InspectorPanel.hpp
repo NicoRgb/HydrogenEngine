@@ -4,16 +4,21 @@
 #include <memory>
 #include <tuple>
 
-#include "Panel.hpp"
+#include "GUISystem.hpp"
 
-class InspectorPanel : public Panel
+class InspectorPanel : public EditorPanel
 {
 public:
-	void SetContext(Hydrogen::Scene* scene, Hydrogen::Entity selected);
-	void OnImGuiRender() override;
-	const char* GetName() const override { return "Inspector"; }
+	virtual void OnAttach();
+	virtual void OnDetach() {}
 
-	void SetSelectedEntity(Hydrogen::Entity entity) { m_SelectedEntity = entity; }
+	virtual void OnUpdate(float deltaTime) {}
+	virtual void OnImGuiRender();
+
+	virtual std::string GetTitle() const { return "Inspector"; }
+
+	virtual DockDirection GetDefaultDockDirection() const { return DockDirection::Left_Bottom; }
+	virtual float GetDefaultDockSplitRatio() const { return 0.25f; }
 
 private:
 	Hydrogen::Scene* m_Scene;

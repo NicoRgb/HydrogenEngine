@@ -3,22 +3,25 @@
 #include <Hydrogen/Hydrogen.hpp>
 #include <memory>
 
-#include "Panel.hpp"
+#include "GUISystem.hpp"
 
-class SceneHierarchyPanel : public Panel
+class SceneHierarchyPanel : public EditorPanel
 {
 public:
-    SceneHierarchyPanel();
+	virtual void OnAttach();
+	virtual void OnDetach() {}
 
-    void SetContext(Hydrogen::Scene* scene);
-    Hydrogen::Entity GetSelectedEntity() const;
+	virtual void OnUpdate(float deltaTime) {}
+	virtual void OnImGuiRender();
 
-    void OnImGuiRender() override;
-    const char* GetName() const override { return "Scene Hierarchy"; }
+	virtual std::string GetTitle() const { return "Scene Hierarchy"; }
 
-	void SetSelectedEntity(uint64_t uuid) { m_SelectedEntityUUID = uuid; }
+	virtual DockDirection GetDefaultDockDirection() const { return DockDirection::Left_Top; }
+	virtual float GetDefaultDockSplitRatio() const { return 0.25f; }
 
 private:
+	Hydrogen::Entity GetSelectedEntity() const;
+
     Hydrogen::Scene* m_Scene;
     uint64_t m_SelectedEntityUUID;
 };

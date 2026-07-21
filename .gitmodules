@@ -24,3 +24,6 @@
 [submodule "Extern/ImGuizmo"]
 	path = Extern/ImGuizmo
 	url = https://github.com/CedricGuillemet/ImGuizmo
+[submodule "Extern/imgui-node-editor"]
+	path = Extern/imgui-node-editor
+	url = https://github.com/thedmd/imgui-node-editor

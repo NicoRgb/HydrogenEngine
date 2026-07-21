@@ -4,35 +4,28 @@
 #include <filesystem>
 #include <json.hpp>
 
-#include "Panel.hpp"
-#include "AssetEditorPanel.hpp"
+#include "GUISystem.hpp"
 
 #include <Hydrogen/Camera.hpp>
 #include <Hydrogen/Renderer/RenderBuffer.hpp>
 
-class AssetBrowserPanel : public Panel
+class AssetBrowserPanel : public EditorPanel
 {
 public:
-    AssetBrowserPanel(const std::filesystem::path& assetDir, AssetEditorPanel& editor);
+    virtual void OnAttach();
+    virtual void OnDetach();
 
-    void Setup();
-    void Shutdown();
+    virtual void OnUpdate(float deltaTime) {}
+    virtual void OnImGuiRender();
 
-    void LoadTextures(const Hydrogen::Texture* folderTex, const Hydrogen::Texture* fileTex);
-    void OnImGuiRender() override;
-    const char* GetName() const override { return "Asset Browser"; }
+    virtual std::string GetTitle() const { return "Asset Browser"; }
+
+    virtual DockDirection GetDefaultDockDirection() const { return DockDirection::Bottom; }
+    virtual float GetDefaultDockSplitRatio() const { return 0.25f; }
 
 private:
-    void DrawFileConfig(std::filesystem::path path, nlohmann::json& j);
-
-    AssetEditorPanel& m_EditorPanel;
-    std::filesystem::path m_AssetDirectory, m_CurrentDirectory, m_CurrentFile;
-    const Hydrogen::Texture* m_FolderTexture;
-    const Hydrogen::Texture* m_FileTexture;
+    std::filesystem::path m_AssetDirectory, m_CurrentDirectory;
 
     bool showCreateFolderDialog = false, showCreateFileDialog = false;
     char inputName[256] = "";
-
-    std::unique_ptr<Hydrogen::Renderer> m_MaterialPreviewRenderer;
-    std::shared_ptr<Hydrogen::SceneAsset> m_MaterialPreviewScene;
 };

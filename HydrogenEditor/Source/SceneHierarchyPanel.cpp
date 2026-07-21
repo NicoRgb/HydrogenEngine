@@ -1,13 +1,6 @@
 #include "SceneHierarchyPanel.hpp"
 #include <imgui.h>
 
-SceneHierarchyPanel::SceneHierarchyPanel() : m_SelectedEntityUUID(0) {}
-
-void SceneHierarchyPanel::SetContext(Hydrogen::Scene* scene)
-{
-	m_Scene = scene;
-}
-
 Hydrogen::Entity SceneHierarchyPanel::GetSelectedEntity() const
 {
 	Hydrogen::Entity selectedEntity;
@@ -27,13 +20,19 @@ Hydrogen::Entity SceneHierarchyPanel::GetSelectedEntity() const
 	return selectedEntity;
 }
 
+void SceneHierarchyPanel::OnAttach()
+{
+	m_SelectedEntityUUID = 0;
+
+	Dockspace->GetEventBus().Subscribe<SceneChangeEvent>([this](const SceneChangeEvent& e) {
+		m_Scene = e.Scene;
+		});
+}
+
 void SceneHierarchyPanel::OnImGuiRender()
 {
-	ImGui::Begin(GetName());
-
 	if (!m_Scene)
 	{
-		ImGui::End();
 		return;
 	}
 
@@ -48,8 +47,10 @@ void SceneHierarchyPanel::OnImGuiRender()
 		 {
 			 bool selected = (m_SelectedEntityUUID == entity.GetUUID());
 			 if (ImGui::Selectable(tag.Name.c_str(), selected))
+			 {
 				 m_SelectedEntityUUID = entity.GetUUID();
-		 });
 
-	ImGui::End();
+				 Dockspace->GetEventBus().Publish(EntitySelectedEvent{ GetSelectedEntity() });
+			 }
+		 });
 }

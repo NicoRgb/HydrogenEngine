@@ -12,7 +12,7 @@ project "HydrogenEngine"
 
 	includedirs { "Include" }
 	externalincludedirs { "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/json/single_include/nlohmann",
-	"%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/ImTextEdit", "%{wks.location}/Extern/ImGuizmo",
+	"%{wks.location}/Extern/entt/single_include", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/imgui-node-editor", "%{wks.location}/Extern/ImTextEdit", "%{wks.location}/Extern/ImGuizmo",
 	"%{wks.location}/Extern/sol2/include", "%{wks.location}/Extern/bin/lua",
 	"%{wks.location}/Extern/bin/reactphysics3d/include", "%{wks.location}/Extern/bin/tracy/include", "$(VULKAN_SDK)/Include" }
 	
@@ -22,7 +22,11 @@ project "HydrogenEngine"
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.h", "%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.cpp",
 			"%{wks.location}/Extern/ImTextEdit/ImTextEdit.h", "%{wks.location}/Extern/ImTextEdit/ImTextEdit.cpp",
 			"%{wks.location}/Extern/ImGuizmo/GraphEditor.cpp", "%{wks.location}/Extern/ImGuizmo/ImCurveEdit.cpp", "%{wks.location}/Extern/ImGuizmo/ImGradient.cpp",
-			"%{wks.location}/Extern/ImGuizmo/ImGuizmo.cpp", "%{wks.location}/Extern/ImGuizmo/ImSequencer.cpp"}
+			"%{wks.location}/Extern/ImGuizmo/ImGuizmo.cpp", "%{wks.location}/Extern/ImGuizmo/ImSequencer.cpp",
+			"%{wks.location}/Extern/imgui-node-editor/crude_json.cpp",
+			"%{wks.location}/Extern/imgui-node-editor/imgui_canvas.cpp",
+			"%{wks.location}/Extern/imgui-node-editor/imgui_node_editor.cpp",
+			"%{wks.location}/Extern/imgui-node-editor/imgui_node_editor_api.cpp"}
 
 	libdirs { "$(VULKAN_SDK)/Lib", "%{wks.location}/Extern/bin/reactphysics3d", "%{wks.location}/Extern/bin/tracy", "%{wks.location}/Extern/bin/lua" }
 	links { "vulkan-1", "lua54" }
