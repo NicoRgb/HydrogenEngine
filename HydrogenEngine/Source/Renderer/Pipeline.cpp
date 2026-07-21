@@ -32,6 +32,8 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 	dynamicState.pDynamicStates = dynamicStates.data();
 
+	VkVertexInputBindingDescription bindingDescription{};
+
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
@@ -84,7 +86,6 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 			}
 		}
 
-		VkVertexInputBindingDescription bindingDescription{};
 		bindingDescription.binding = 0;
 		bindingDescription.stride = currentOffset;
 		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;

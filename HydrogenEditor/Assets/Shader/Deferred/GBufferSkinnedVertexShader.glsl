@@ -47,10 +47,17 @@ layout(location = 3) out vec3 fragTangent;
 
 void main()
 {
-    mat4 boneTransform = allBones[PushConstants.boneBaseIndex + inBoneIDs.x] * inWeights.x;
-    boneTransform     += allBones[PushConstants.boneBaseIndex + inBoneIDs.y] * inWeights.y;
-    boneTransform     += allBones[PushConstants.boneBaseIndex + inBoneIDs.z] * inWeights.z;
-    boneTransform     += allBones[PushConstants.boneBaseIndex + inBoneIDs.w] * inWeights.w;
+    float totalWeight = inWeights.x + inWeights.y + inWeights.z + inWeights.w;
+    
+    mat4 boneTransform = mat4(1.0);
+
+    if (totalWeight > 0.0)
+    {
+        boneTransform  = allBones[PushConstants.boneBaseIndex + inBoneIDs.x] * inWeights.x;
+        boneTransform += allBones[PushConstants.boneBaseIndex + inBoneIDs.y] * inWeights.y;
+        boneTransform += allBones[PushConstants.boneBaseIndex + inBoneIDs.z] * inWeights.z;
+        boneTransform += allBones[PushConstants.boneBaseIndex + inBoneIDs.w] * inWeights.w;
+    }
 
     vec4 skinnedPosition = boneTransform * vec4(inPosition, 1.0);
     vec4 worldPos = PushConstants.model * skinnedPosition;

@@ -372,52 +372,6 @@ namespace Hydrogen
 		}
 	};
 
-	struct SkeletalMeshRendererComponent
-	{
-		SkeletalMeshRendererComponent(Entity entity);
-
-		std::shared_ptr<SkeletonAsset> Skeleton;
-		std::shared_ptr<SkeletalMeshAsset> SkeletalMesh;
-		std::shared_ptr<MaterialAsset> Material;
-
-		static void OnImGuiRender(SkeletalMeshRendererComponent& t);
-
-		static void ToJson(json& j, const SkeletalMeshRendererComponent& t)
-		{
-			j = json();
-			if (t.Material)
-				j["Material"] = std::filesystem::path(t.Material->GetPath()).filename().string();
-			if (t.SkeletalMesh)
-				j["SkeletalMesh"] = std::filesystem::path(t.SkeletalMesh->GetPath()).filename().string();
-			if (t.Skeleton)
-				j["Skeleton"] = std::filesystem::path(t.Skeleton->GetPath()).filename().string();
-		}
-
-		static void FromJson(const json& j, SkeletalMeshRendererComponent& t, AssetManager* assetManager)
-		{
-			auto materialPath = j.value("Material", "");
-			auto meshPath = j.value("SkeletalMesh", "");
-			auto skeletonPath = j.value("Skeleton", "");
-
-			if (!materialPath.empty())
-			{
-				t.Material = assetManager->GetAsset<MaterialAsset>(materialPath);
-			}
-			else
-			{
-				t.Material = assetManager->GetAsset<MaterialAsset>("DefaultMaterial.hymat");
-			}
-			if (!meshPath.empty())
-			{
-				t.SkeletalMesh = assetManager->GetAsset<SkeletalMeshAsset>(meshPath);
-			}
-			if (!skeletonPath.empty())
-			{
-				t.Skeleton = assetManager->GetAsset<SkeletonAsset>(skeletonPath);
-			}
-		}
-	};
-
 	struct MeshRendererComponent
 	{
 		MeshRendererComponent(Entity entity);

@@ -107,6 +107,8 @@ namespace Hydrogen
 			std::vector<const Texture*>& ORMTextures,
 			std::vector<const Texture*>& emissiveTextures);
 
+		static void UploadBones(Scene* scene, std::vector<glm::mat4>& bones, std::vector<uint32_t>& boneBaseIndices);
+
 		static std::vector<DirectionalLight> GetDirectionalLights(Scene* scene);
 
 		static std::unique_ptr<RenderBuffer> s_SphereVertexBuffer;

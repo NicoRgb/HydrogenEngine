@@ -2,6 +2,7 @@
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Camera.hpp"
 #include "Hydrogen/ScriptEngine.hpp"
+#include "Hydrogen/Animation.hpp"
 
 #include <string>
 
@@ -88,86 +89,6 @@ void Entity::SetUUID(uint64_t uuid)
 void Entity::Delete()
 {
 	m_Scene->m_Registry.destroy(m_Entity);
-}
-
-
-SkeletalMeshRendererComponent::SkeletalMeshRendererComponent(Entity entity)
-{
-	Material = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>("DefaultMaterial.hymat");
-}
-
-void SkeletalMeshRendererComponent::OnImGuiRender(SkeletalMeshRendererComponent& t)
-{
-	if (ImGui::TreeNode("Skeletal Mesh Renderer"))
-	{
-		if (t.SkeletalMesh)
-		{
-			ImGui::Text(t.SkeletalMesh->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<SkeletalMeshAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.SkeletalMesh = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.Material)
-		{
-			ImGui::Text(t.Material->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.Material = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.Skeleton)
-		{
-			ImGui::Text(t.Skeleton->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<SkeletonAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.Skeleton = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		ImGui::TreePop();
-	}
 }
 
 MeshRendererComponent::MeshRendererComponent(Entity entity)
@@ -258,6 +179,11 @@ void Scene::Update(float dt)
 {
 	m_PhysicsWorld.Update();
 	m_ScriptSystem.OnUpdate(dt);
+
+	IterateComponents<AnimatorComponent>([dt](Entity e, AnimatorComponent& anim)
+		{
+			anim.UpdateAnimation(dt);
+		});
 }
 
 json Scene::SerializeScene()
@@ -280,6 +206,10 @@ json Scene::SerializeScene()
 		if (m_Registry.all_of<SkeletalMeshRendererComponent>(entity))
 		{
 			SkeletalMeshRendererComponent::ToJson(entityJson["SkeletalMeshRendererComponent"], m_Registry.get<SkeletalMeshRendererComponent>(entity));
+		}
+		if (m_Registry.all_of<AnimatorComponent>(entity))
+		{
+			AnimatorComponent::ToJson(entityJson["AnimatorComponent"], m_Registry.get<AnimatorComponent>(entity));
 		}
 		if (m_Registry.all_of<MeshRendererComponent>(entity))
 		{
@@ -342,6 +272,11 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 		{
 			SkeletalMeshRendererComponent& component = m_Registry.emplace<SkeletalMeshRendererComponent>(entity, e);
 			SkeletalMeshRendererComponent::FromJson(value["SkeletalMeshRendererComponent"], component, assetManager);
+		}
+		if (value.contains("AnimatorComponent"))
+		{
+			AnimatorComponent& component = m_Registry.emplace<AnimatorComponent>(entity, e);
+			AnimatorComponent::FromJson(value["AnimatorComponent"], component, assetManager);
 		}
 		if (value.contains("MeshRendererComponent"))
 		{

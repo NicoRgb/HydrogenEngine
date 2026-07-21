@@ -14,22 +14,20 @@ project "HydrogenRuntime"
 
 	links { "HydrogenEngine" }
 
-	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp" }
+	files { "Include/**.h", "Include/**.hpp", "Source/**.cpp", "Resources/resource.rc" }
 
 	filter "configurations:Debug"
+		kind "ConsoleApp"
 		defines { "HY_DEBUG" }
 		optimize "Off"
 		symbols "On"
 
 	filter "configurations:Release"
+		kind "WindowedApp"
+		entrypoint "mainCRTStartup"
 		defines { "HY_NDEBUG", "NDEBUG" }
 		optimize "On"
 		symbols "On"
-
-	filter "configurations:Dist"
-		defines { "HY_DIST", "HY_NDEBUG", "NDEBUG" }
-		optimize "On"
-		symbols "Off"
 
 	filter "action:vs*"
 		buildoptions { "/utf-8" }

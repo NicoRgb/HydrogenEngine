@@ -44,14 +44,24 @@ public:
 
 	static void RegisterWindowClass()
 	{
+		HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
+		if (!hIcon)
+		{
+			hIcon = LoadIcon(NULL, IDI_APPLICATION);
+		}
+
 		s_hInstance = GetModuleHandle(NULL);
 
-		WNDCLASS wc = {};
+		WNDCLASSEX wc = {};
 		wc.lpfnWndProc = WindowProc;
 		wc.hInstance = s_hInstance;
 		wc.lpszClassName = CLASS_NAME;
+		wc.cbSize = sizeof(WNDCLASSEX);
+		wc.style = CS_HREDRAW | CS_VREDRAW;
+		wc.hIcon = hIcon;
+		wc.hIconSm = hIcon;
 
-		RegisterClass(&wc);
+		RegisterClassEx(&wc);
 	}
 
 	static const char* GetWindowClassName() { return CLASS_NAME; }

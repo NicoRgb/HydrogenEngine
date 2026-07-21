@@ -1,6 +1,7 @@
 -- premake5.lua
 
 project "HydrogenEngine"
+	kind "ConsoleApp"
 	kind "StaticLib"
 	language "C++"
 	cppdialect "C++20"
@@ -33,7 +34,7 @@ project "HydrogenEngine"
 		defines { "HY_SYSTEM_WINDOWS", "_CRT_SECURE_NO_WARNINGS" }
 
 	filter "configurations:Debug"
-		defines { "HY_DEBUG", "TRACY_ENABLE" }
+		defines { "HY_DEBUG" }
 		optimize "Off"
 		symbols "On"
 		links { "shaderc_combinedd", "reactphysics3d-debug", "TracyClient" }
@@ -42,13 +43,7 @@ project "HydrogenEngine"
 		defines { "HY_NDEBUG", "NDEBUG" }
 		optimize "On"
 		symbols "On"
-		links { "shaderc_combined", "reactphysics3d-release" }
-
-	filter "configurations:Dist"
-		defines { "HY_DIST", "HY_NDEBUG", "NDEBUG" }
-		optimize "On"
-		symbols "Off"
-		links { "shaderc_combined" }
+		links { "shaderc_combined", "reactphysics3d-release", "TracyClient-Release" }
 
 	filter "action:vs*"
 		buildoptions { "/utf-8" }

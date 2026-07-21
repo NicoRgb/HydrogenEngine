@@ -16,6 +16,9 @@
 *.pdb
 *.exp
 
+# Compiled Resources
+*.res
+
 # Compiled Object files
 *.slo
 *.lo
@@ -57,6 +60,8 @@
 *.idb
 
 !*Extern/bin/*/*.lib
+!*Extern/bin/*/*.dll
+!*Extern/bin/*/*.exp
 !*Extern/bin/*/*.pdb
 !*Extern/bin/*/*.exe
 

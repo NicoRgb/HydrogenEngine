@@ -1,6 +1,7 @@
 #include "Hydrogen/Renderer/Renderer.hpp"
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/ProceduralMesh.hpp"
+#include "Hydrogen/Animation.hpp"
 #include "Tracy/Tracy.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
@@ -396,7 +397,8 @@ struct GeometryPassPushConstants
 
 	float Roughness;
 	float Metallic;
-	float Padding0;
+
+	int32_t BoneBaseIndex;
 	float Padding1;
 
 	glm::vec4 Emissive;
@@ -455,6 +457,15 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 	Textures.insert(Textures.end(), ORMTextures.begin(), ORMTextures.end());
 	Textures.insert(Textures.end(), EmissiveTextures.begin(), EmissiveTextures.end());
 
+	std::vector<glm::mat4> Bones;
+	std::vector<uint32_t> BoneBaseIndices;
+	UploadBones(scene, Bones, BoneBaseIndices);
+
+	if (Bones.size() == 0)
+	{
+		Bones.push_back({});
+	}
+
 	UniformBuffer cameraInfo = {};
 	cameraInfo.View = camera.View;
 	cameraInfo.Proj = camera.Proj;
@@ -475,11 +486,13 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 			
 			graph->AddPass("GBuffer",
 				{
-					{ 0, DescriptorType::CombinedImageSampler, 1000, ShaderStage::Fragment, DescriptorBindingFlags::VariableDescriptorCount }
+					{ 0, DescriptorType::CombinedImageSampler, 1000, ShaderStage::Fragment, DescriptorBindingFlags::VariableDescriptorCount },
+					{ 1, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex }
 				},
 
 				{
 					{ .Textures = Textures },
+					{ .Size = Bones.size() * sizeof(glm::mat4), .Data = (uint32_t*)Bones.data() }
 				},
 
 				[&](RgPassBuilder& builder)
@@ -522,7 +535,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					uint32_t emissiveOffset = (uint32_t)AlbedoTextures.size() + (uint32_t)NormalTextures.size() + (uint32_t)ORMTextures.size();
 
 					scene->IterateComponents<MeshRendererComponent>([&cmd, &albedoIndex, &normalIndex, &ORMIndex, &emissiveIndex, albedoOffset, normalOffset, ORMOffset, emissiveOffset]
-					(Entity e, MeshRendererComponent mesh)
+					(Entity e, MeshRendererComponent& mesh)
 						{
 							GeometryPassPushConstants pushConstants{};
 							pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
@@ -563,6 +576,64 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 							cmd.BindVertexBuffer(mesh.Mesh->GetVertexBuffer());
 							cmd.BindIndexBuffer(mesh.Mesh->GetIndexBuffer());
 							cmd.DrawIndexed(mesh.Mesh->GetIndexCount());
+						});
+
+					vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GBufferSkinnedVertexShader.glsl");
+					gBufferPipeline.VertexBufferLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3},
+															{VertexElementType::Float3}, {VertexElementType::Int4}, {VertexElementType::Float4} };
+					cmd.BindPipeline(vertexShader, fragmentShader, gBufferPipeline);
+
+					uint32_t boneBaseIndicesIndex = 0;
+					scene->IterateComponents<SkeletalMeshRendererComponent>([&cmd, &albedoIndex, &normalIndex, &ORMIndex, &emissiveIndex, albedoOffset, normalOffset, ORMOffset, emissiveOffset, &boneBaseIndicesIndex, BoneBaseIndices]
+					(Entity e, SkeletalMeshRendererComponent& mesh)
+						{
+							if (!mesh.SkeletalMesh || !mesh.Skeleton)
+							{
+								if (mesh.Skeleton)
+									boneBaseIndicesIndex++;
+								return;
+							}
+
+							GeometryPassPushConstants pushConstants{};
+							pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
+
+							pushConstants.AlbedoIndex = -1;
+							pushConstants.NormalIndex = -1;
+							pushConstants.ORMIndex = -1;
+							pushConstants.EmissiveIndex = -1;
+							pushConstants.BoneBaseIndex = BoneBaseIndices[boneBaseIndicesIndex++];
+
+							if (mesh.Material->GetAlbedoMap())
+							{
+								pushConstants.AlbedoIndex = albedoIndex + albedoOffset;
+								albedoIndex++;
+							}
+							if (mesh.Material->GetNormalMap())
+							{
+								pushConstants.NormalIndex = normalIndex + normalOffset;
+								normalIndex++;
+							}
+							if (mesh.Material->GetORMMap())
+							{
+								pushConstants.ORMIndex = ORMIndex + ORMOffset;
+								ORMIndex++;
+							}
+							if (mesh.Material->GetEmissiveMap())
+							{
+								pushConstants.EmissiveIndex = emissiveIndex + emissiveOffset;
+								emissiveIndex++;
+							}
+
+							pushConstants.Tint = glm::vec4(mesh.Material->GetTint(), 1.0);
+							pushConstants.Roughness = mesh.Material->GetRoughnessFactor();
+							pushConstants.Metallic = mesh.Material->GetMetallicFactor();
+							pushConstants.Emissive = mesh.Material->GetEmissive();
+
+							cmd.PushConstants(&pushConstants, sizeof(GeometryPassPushConstants), 0, (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex));
+
+							cmd.BindVertexBuffer(mesh.SkeletalMesh->GetVertexBuffer());
+							cmd.BindIndexBuffer(mesh.SkeletalMesh->GetIndexBuffer());
+							cmd.DrawIndexed(mesh.SkeletalMesh->GetIndexCount());
 						});
 				});
 
@@ -822,6 +893,19 @@ void DefaultRenderer::UploadMaterialTextures(Scene* scene, std::vector<const Tex
 			{
 				emissiveTextures.push_back(emissive->GetTexture(Application::Get()->GetRenderDevice()));
 			}
+		});
+}
+
+void DefaultRenderer::UploadBones(Scene* scene, std::vector<glm::mat4>& bones, std::vector<uint32_t>& boneBaseIndices)
+{
+	scene->IterateComponents<SkeletalMeshRendererComponent>(
+		[&](Entity e, const SkeletalMeshRendererComponent& m)
+		{
+			if (!m.Skeleton)
+				return;
+
+			boneBaseIndices.push_back(bones.size());
+			bones.insert(bones.begin(), m.Bones.begin(), m.Bones.end());
 		});
 }
 
