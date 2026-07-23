@@ -1,0 +1,16 @@
+{
+    "next_id": 8,
+    "parameters": [],
+    "states": [
+        {
+            "clip_path": "Fox.hyanim",
+            "id": 1,
+            "input_pin": 2,
+            "is_default": true,
+            "name": "Idle",
+            "output_pin": 3,
+            "speed": 1.0
+        }
+    ],
+    "transitions": []
+}

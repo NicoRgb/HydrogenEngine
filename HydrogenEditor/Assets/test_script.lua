@@ -4,4 +4,3 @@ end
 
 function on_update(entity, dt)
 end
-

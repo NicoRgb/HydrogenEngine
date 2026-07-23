@@ -150,6 +150,7 @@ public:
 	void SetDirty(bool dirty) { m_IsDirty = dirty; }
 
 	virtual void OnSave() {}
+
 protected:
 	std::string m_FilePath;
 	std::string m_FileName;
@@ -196,6 +197,7 @@ public:
 		}
 
 		auto doc = std::make_shared<T>(filePath, std::forward<Args>(args)...);
+		doc->SetDockspace(this);
 		doc->OnAttach();
 		m_DocumentTabs.push_back(doc);
 		return doc;

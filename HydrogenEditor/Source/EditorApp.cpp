@@ -230,7 +230,7 @@ public:
 		EditorGUI.OnUpdate(deltaTime);
 
 		m_SceneViewportFinalScene = VK_NULL_HANDLE;
-		if (m_SceneViewportVisible)
+		if (m_SceneViewportVisible && m_SceneViewportSize.x != 0 && m_SceneViewportSize.y != 0)
 		{
 			if (Input::IsMouseButtonDown(KeyCode::MouseRight) && m_SceneViewportHovered)
 			{
@@ -260,7 +260,7 @@ public:
 
 		m_ViewportFinalScene = VK_NULL_HANDLE;
 		Entity cameraEntity;
-		if (m_GameViewportVisible && UpdateCamera(CurrentScene->GetScene(), cameraEntity, m_GameViewportSize.x, m_GameViewportSize.y))
+		if (m_GameViewportVisible && m_GameViewportSize.x != 0 && m_GameViewportSize.y != 0 && UpdateCamera(CurrentScene->GetScene(), cameraEntity, m_GameViewportSize.x, m_GameViewportSize.y))
 		{
 			const auto& camera = cameraEntity.GetComponent<CameraComponent>();
 			const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();

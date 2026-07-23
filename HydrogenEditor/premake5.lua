@@ -12,7 +12,7 @@ project "HydrogenEditor"
 	externalincludedirs { "%{wks.location}/Extern/spdlog/include", "%{wks.location}/Extern/glm", "%{wks.location}/Extern/imgui-docking", "%{wks.location}/Extern/ImTextEdit",
 	"%{wks.location}/Extern/ImGuizmo", "%{wks.location}/Extern/json/single_include/nlohmann", "%{wks.location}/Extern/entt/single_include",
 	"%{wks.location}/Extern/sol2/include", "%{wks.location}/Extern/bin/lua", "$(VULKAN_SDK)/Include",
-	"%{wks.location}/Extern/bin/reactphysics3d/include" }
+	"%{wks.location}/Extern/bin/reactphysics3d/include", "%{wks.location}/Extern/imgui-node-editor" }
 
 	links { "HydrogenEngine" }
 

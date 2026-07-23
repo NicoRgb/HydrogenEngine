@@ -185,6 +185,7 @@ void DockspaceManager::OnImGuiRender()
 	{
 		bool open = doc->IsOpen();
 
+		ImGui::SetNextWindowDockID(m_DockspaceID, ImGuiCond_FirstUseEver);
 		if (ImGui::Begin(doc->GetID().c_str(), &open))
 		{
 			doc->OnImGuiRender();

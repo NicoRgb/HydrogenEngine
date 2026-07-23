@@ -20,7 +20,7 @@ project "HydrogenEngine"
 			"%{wks.location}/Extern/imgui-docking/imgui.cpp", "%{wks.location}/Extern/imgui-docking/imgui_draw.cpp", "%{wks.location}/Extern/imgui-docking/imgui_tables.cpp", "%{wks.location}/Extern/imgui-docking/imgui_widgets.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.h", "%{wks.location}/Extern/imgui-docking/backends/imgui_impl_win32.cpp",
 			"%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.h", "%{wks.location}/Extern/imgui-docking/backends/imgui_impl_vulkan.cpp",
-			"%{wks.location}/Extern/ImTextEdit/ImTextEdit.h", "%{wks.location}/Extern/ImTextEdit/ImTextEdit.cpp",
+			"%{wks.location}/Extern/ImTextEdit/ImTextEdit.h", "%{wks.location}/Extern/ImTextEdit/ImTextEdit.cpp","%{wks.location}/Extern/imgui-docking/misc/cpp/imgui_stdlib.cpp",
 			"%{wks.location}/Extern/ImGuizmo/GraphEditor.cpp", "%{wks.location}/Extern/ImGuizmo/ImCurveEdit.cpp", "%{wks.location}/Extern/ImGuizmo/ImGradient.cpp",
 			"%{wks.location}/Extern/ImGuizmo/ImGuizmo.cpp", "%{wks.location}/Extern/ImGuizmo/ImSequencer.cpp",
 			"%{wks.location}/Extern/imgui-node-editor/crude_json.cpp",

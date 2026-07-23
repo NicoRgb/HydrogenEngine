@@ -45,8 +45,8 @@ void AssetInspectorPanel::OnImGuiRender()
 		std::ifstream fin(m_CurrentFile.string() + ".hyasset");
 		if (!fin)
 		{
-			Application::Get()->MainAssetManager.LoadAssets("assets");
-			fin = std::ifstream(m_CurrentFile.string() + ".hyasset");
+			//Application::Get()->MainAssetManager.LoadAssets("assets");
+			//fin = std::ifstream(m_CurrentFile.string() + ".hyasset");
 		}
 
 		if (fin.is_open())

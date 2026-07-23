@@ -1,14 +1,73 @@
 #include <Hydrogen/Hydrogen.hpp>
 #include <imgui.h>
 #include <fstream>
+#include <ImTextEdit.h>
 
 #include "AssetBrowserPanel.hpp"
+#include "AnimGraphEditor.hpp"
 
 using json = nlohmann::json;
 using namespace Hydrogen;
 
 extern ImGuiTextureCache TextureCache;
 extern VkSampler ImguiSampler;
+
+class ScriptEditor : public DocumentTab
+{
+private:
+	TextEditor m_Editor;
+	TextEditor::LanguageDefinition GuessLanguage()
+	{
+		auto ext = std::filesystem::path(m_FilePath).extension().string();
+		if (ext == ".glsl" || ext == ".vert" || ext == ".frag") return TextEditor::LanguageDefinition::GLSL();
+		if (ext == ".lua") return TextEditor::LanguageDefinition::Lua();
+		return TextEditor::LanguageDefinition::Lua();
+	}
+
+public:
+	ScriptEditor(const std::string& filePath)
+		: DocumentTab(filePath)
+	{
+	}
+
+	virtual void OnAttach()
+	{
+		std::ifstream in(m_FilePath);
+		if (!in.is_open()) return;
+
+		std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+		in.close();
+
+		m_Editor.SetText(content);
+		m_Editor.SetLanguageDefinition(GuessLanguage());
+		m_Editor.SetShowWhitespaces(false);
+	}
+
+	virtual void OnImGuiRender()
+	{
+		m_Editor.Render("TextEditor");
+		if (m_Editor.IsTextChanged())
+		{
+			m_IsDirty = true;
+		}
+	}
+
+	virtual void OnSave()
+	{
+		std::ofstream out(m_FileName);
+		if (!out.is_open())
+		{
+			return;
+		}
+		out << m_Editor.GetText();
+		out.close();
+
+		auto app = Hydrogen::Application::Get();
+		app->MainAssetManager.LoadAssets("assets");
+
+		m_IsDirty = false;
+	}
+};
 
 void AssetBrowserPanel::OnAttach()
 {
@@ -76,6 +135,17 @@ void AssetBrowserPanel::OnImGuiRender()
 			if (entry.is_directory())
 			{
 				m_CurrentDirectory /= path.filename();
+			}
+			else
+			{
+				if (path.extension() == ".lua" || path.extension() == ".glsl")
+				{
+					Dockspace->OpenDocument<ScriptEditor>(path.string());
+				}
+				else if (path.extension() == ".hygraph")
+				{
+					Dockspace->OpenDocument<AnimGraphEditor>(path.string());
+				}
 			}
 		}
 
