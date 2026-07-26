@@ -1,4 +1,4 @@
-#include "SceneHierarchyPanel.hpp"
+#include "Panels/SceneHierarchyPanel.hpp"
 #include <imgui.h>
 
 Hydrogen::Entity SceneHierarchyPanel::GetSelectedEntity() const

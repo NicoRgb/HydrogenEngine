@@ -1,4 +1,4 @@
-#include "AnimGraphEditor.hpp"
+#include "Editors/AnimGraphEditor.hpp"
 #include <Hydrogen/Application.hpp>
 #include <misc/cpp/imgui_stdlib.h>
 #include <fstream>
@@ -59,8 +59,7 @@ bool AnimGraphEditor::IsPinLinked(ax::NodeEditor::PinId id) const
 void AnimGraphEditor::OnAttach()
 {
 	ed::Config config;
-	std::string nodeConfigPath = GetFilePath() + ".nodes";
-	config.SettingsFile = nodeConfigPath.c_str();
+	config.SettingsFile = nullptr;
 
 	m_NodeContext = ed::CreateEditor(&config);
 
@@ -573,10 +572,10 @@ void AnimGraphEditor::OnSave()
 		j["transitions"].push_back(transJson);
 	}
 
-	//std::ofstream file(GetFilePath());
-	//if (file.is_open())
-	//{
-	//	file << j.dump(4);
-	//	m_IsDirty = false;
-	//}
+	std::ofstream file(GetFilePath());
+	if (file.is_open())
+	{
+		file << j.dump(4);
+		m_IsDirty = false;
+	}
 }

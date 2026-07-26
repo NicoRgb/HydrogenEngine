@@ -6,10 +6,11 @@
 #include <functional>
 #include <filesystem>
 #include <typeindex>
+#include <unordered_map>
 #include <imgui.h>
 #include <imgui_internal.h>
-
-#include <Hydrogen/Scene.hpp>
+#include <ImGuizmo.h>
+#include <Hydrogen/Hydrogen.hpp>
 
 struct AssetSelectedEvent
 {
@@ -26,29 +27,18 @@ struct EntitySelectedEvent
 	Hydrogen::Entity SelectedEntity;
 };
 
-struct SceneViewportRenderedEvent
+struct ToolChangeEvent
 {
-	VkImageView TextureView = VK_NULL_HANDLE;
+	ImGuizmo::OPERATION GuizmoTool;
 };
 
-struct GameViewportRenderedEvent
+struct HardwareChangeEvent
 {
-	VkImageView TextureView = VK_NULL_HANDLE;
-};
+	bool RenderDeviceChanged = false;
+	bool SwapChainChanged = false;
 
-struct SceneViewportStateEvent
-{
-	glm::vec2 Size{ 1920.0f, 1080.0f };
-	glm::vec2 BoundsMin{ 0.0f, 0.0f };
-	glm::vec2 BoundsMax{ 0.0f, 0.0f };
-	bool IsVisible = false;
-	bool IsHovered = false;
-};
-
-struct GameViewportStateEvent
-{
-	glm::vec2 Size{ 1920.0f, 1080.0f };
-	bool IsVisible = false;
+	Hydrogen::RenderDeviceDescriptor RenderDeviceDesc = {};
+	Hydrogen::SwapChainSpec SwapChainSpec = {};
 };
 
 class EventBus
@@ -122,7 +112,7 @@ protected:
 	uint64_t m_PanelID = s_IDCounter++;
 	bool m_IsOpen = true;
 
-	class DockspaceManager* Dockspace;
+	class DockspaceManager* Dockspace = nullptr;
 };
 
 class DocumentTab : public EditorPanel
@@ -201,6 +191,38 @@ public:
 		doc->OnAttach();
 		m_DocumentTabs.push_back(doc);
 		return doc;
+	}
+
+	template <typename T>
+	T* TryGetPanel()
+	{
+		static_assert(std::is_base_of_v<EditorPanel, T>, "T must derive from EditorPanel");
+
+		for (auto& panel : m_FixedPanels)
+		{
+			if (auto casted = std::dynamic_pointer_cast<T>(panel))
+			{
+				return casted.get();
+			}
+		}
+
+		return nullptr;
+	}
+
+	template <typename T>
+	const T* TryGetPanel() const
+	{
+		static_assert(std::is_base_of_v<EditorPanel, T>, "T must derive from EditorPanel");
+
+		for (const auto& panel : m_FixedPanels)
+		{
+			if (auto casted = std::dynamic_pointer_cast<const T>(panel))
+			{
+				return casted.get();
+			}
+		}
+
+		return nullptr;
 	}
 
 	void SetMenuBarCallback(const std::function<void()>& callback) { m_MenuBarCallback = callback; }

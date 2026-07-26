@@ -1,4 +1,4 @@
-#include "AssetInspectorPanel.hpp"
+#include "Panels/AssetInspectorPanel.hpp"
 
 using namespace Hydrogen;
 

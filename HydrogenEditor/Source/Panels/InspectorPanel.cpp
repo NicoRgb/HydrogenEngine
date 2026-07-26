@@ -1,5 +1,5 @@
 #include <imgui.h>
-#include "InspectorPanel.hpp"
+#include "Panels/InspectorPanel.hpp"
 #include "Hydrogen/Animation.hpp"
 
 using namespace Hydrogen;
