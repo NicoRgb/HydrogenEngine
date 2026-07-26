@@ -42,8 +42,11 @@ void SceneViewportPanel::OnUpdate(float dt)
 	}
 
 	Settings.Display.RenderToSwapChain = false;
+	Settings.Debug.RenderGrid = true;
 	Settings.Display.Width = (uint64_t)m_ViewportSize.x;
 	Settings.Display.Height = (uint64_t)m_ViewportSize.y;
+
+	CollectGizmos(Settings.Debug.Gizmos);
 
 	if (m_IsVisible && m_ViewportSize.x != 0 && m_ViewportSize.y != 0)
 	{
@@ -126,4 +129,23 @@ void SceneViewportPanel::DrawGizmo()
 
 	if (ImGuizmo::IsUsing())
 		tc.Transform = transform;
+}
+
+void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
+{
+	m_Scene->IterateComponents([&gizmos](Entity entity)
+		{
+			if (entity.HasComponent<CameraComponent>())
+			{
+				gizmos.push_back({ Application::Get()->MainAssetManager.GetAsset<TextureAsset>("camera.png"), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1}});
+			}
+			else if (entity.HasComponent<PointLightComponent>())
+			{
+				gizmos.push_back({ Application::Get()->MainAssetManager.GetAsset<TextureAsset>("point_light.png"), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1} });
+			}
+			else if (entity.HasComponent<DirectionalLightComponent>())
+			{
+				gizmos.push_back({ Application::Get()->MainAssetManager.GetAsset<TextureAsset>("directional_light.png"), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1} });
+			}
+		});
 }

@@ -1,13 +1,17 @@
 #version 450
 
+#extension GL_KHR_vulkan_glsl : enable
+
 layout(location = 0) out vec4 outColor;
 
-layout(binding = 0) uniform sampler2D gDepth;
-
-layout(binding = 1) uniform CameraBuffer {
-    mat4 viewProj;
+layout(binding = 0, set = 0) uniform CameraBuffer
+{
+    mat4 view;
+    mat4 proj;
     vec3 viewPos;
-} camera;
+} ubo;
+
+layout(binding = 0, set = 1) uniform sampler2D gDepth;
 
 layout(location = 0) in vec3 fragRayDir;
 
@@ -24,19 +28,20 @@ float ComputeAxis(float coord, float lineWidth)
     return 1.0 - min(axis / lineWidth, 1.0);
 }
 
-void main() {
+void main()
+{
     vec2 uv = gl_FragCoord.xy / textureSize(gDepth, 0);
     vec3 R = normalize(fragRayDir);
 
-    if (R.y == 0.0 || (camera.viewPos.y > 0.0 && R.y > 0.0) || (camera.viewPos.y < 0.0 && R.y < 0.0))
+    if (R.y == 0.0 || (ubo.viewPos.y > 0.0 && R.y > 0.0) || (ubo.viewPos.y < 0.0 && R.y < 0.0))
     {
         discard;
     }
 
-    float t = -camera.viewPos.y / R.y;
-    vec3 worldPos = camera.viewPos + t * R;
+    float t = -ubo.viewPos.y / R.y;
+    vec3 worldPos = ubo.viewPos + t * R;
 
-    vec4 clipPos = camera.viewProj * vec4(worldPos, 1.0);
+    vec4 clipPos = ubo.proj * ubo.view * vec4(worldPos, 1.0);
     float gridDepth = clipPos.z / clipPos.w;
     float sceneDepth = texture(gDepth, uv).r;
 
@@ -51,7 +56,7 @@ void main() {
     float xAxisLine = ComputeAxis(worldPos.z, 2.0);
     float zAxisLine = ComputeAxis(worldPos.x, 2.0);
 
-    float distance = length(worldPos - camera.viewPos);
+    float distance = length(worldPos - ubo.viewPos);
     
     float maxDistance = 80.0; 
     float distanceFade = clamp(1.0 - (distance / maxDistance), 0.0, 1.0);

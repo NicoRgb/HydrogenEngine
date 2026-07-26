@@ -71,7 +71,7 @@ namespace Hydrogen
 		void BindPipeline(const std::shared_ptr<ShaderAsset>& vertexShader, const std::shared_ptr<ShaderAsset>& fragmentShader, PipelineSpec spec);
 		void BindVertexBuffer(const RenderBuffer* vertexBuffer);
 		void BindIndexBuffer(const RenderBuffer* indexBuffer);
-		void Draw(uint32_t vertexCount);
+		void Draw(uint32_t vertexCount, uint32_t instanceCount=1);
 		void DrawIndexed(uint32_t indexCount);
 
 	private:

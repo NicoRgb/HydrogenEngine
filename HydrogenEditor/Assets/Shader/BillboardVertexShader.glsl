@@ -1,33 +1,50 @@
 #version 450
+#extension GL_KHR_vulkan_glsl : enable
 
-layout(location = 0) in vec2 inPos;
-layout(location = 1) in vec2 inUV;
-
-layout(binding = 1) uniform CameraInfo
-{
-    mat4 viewProj;
-    vec3 viewPos;
-} camera;
-
-layout(push_constant) uniform GizmoData
+struct BillboardInstance
 {
     vec3 worldPosition;
     int textureIndex;
     vec2 scale;
-} gizmo;
+    vec2 padding;
+};
+
+layout(set = 0, binding = 0) uniform CameraBuffer
+{
+    mat4 view;
+    mat4 proj;
+    vec3 viewPos;
+} ubo;
+
+layout(std430, set = 1, binding = 0) readonly buffer InstanceData
+{
+    BillboardInstance instances[];
+};
 
 layout(location = 0) out vec2 fragUV;
+layout(location = 1) flat out int fragTextureIndex;
 
 void main()
 {
-    fragUV = inUV;
+    BillboardInstance instance = instances[gl_InstanceIndex];
 
-    vec3 cameraRight = normalize(vec3(camera.viewProj[0][0], camera.viewProj[1][0], camera.viewProj[2][0]));
-    vec3 cameraUp = normalize(vec3(camera.viewProj[0][1], camera.viewProj[1][1], camera.viewProj[2][1]));
+    vec2 offsets[6] = vec2[](
+        vec2(-0.5, -0.5), vec2(-0.5,  0.5), vec2(0.5, -0.5),
+        vec2( 0.5, -0.5), vec2(-0.5,  0.5), vec2(0.5,  0.5)
+    );
 
-    vec3 worldOffsetPos = gizmo.worldPosition 
-                        + (cameraRight * inPos.x * gizmo.scale.x * 0.5) 
-                        + (cameraUp    * inPos.y * gizmo.scale.y * 0.5);
+    vec2 uvs[6] = vec2[](
+        vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0, 1.0),
+        vec2(1.0, 1.0), vec2(0.0, 0.0), vec2(1.0, 0.0)
+    );
 
-    gl_Position = camera.viewProj * vec4(worldOffsetPos, 1.0);
+    uint vertexIdx = gl_VertexIndex % 6;
+    vec2 posOffset = offsets[vertexIdx];
+    fragUV = uvs[vertexIdx];
+    fragTextureIndex = instance.textureIndex;
+
+    vec4 viewSpacePos = ubo.view * vec4(instance.worldPosition, 1.0);
+    viewSpacePos.xy += posOffset * instance.scale; 
+
+    gl_Position = ubo.proj * viewSpacePos;
 }

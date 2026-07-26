@@ -146,9 +146,9 @@ void RgCommandList::BindIndexBuffer(const RenderBuffer* indexBuffer)
 	vkCmdBindIndexBuffer(m_CmdBuf, indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 }
 
-void RgCommandList::Draw(uint32_t vertexCount)
+void RgCommandList::Draw(uint32_t vertexCount, uint32_t instanceCount)
 {
-	vkCmdDraw(m_CmdBuf, vertexCount, 1, 0, 0);
+	vkCmdDraw(m_CmdBuf, vertexCount, instanceCount, 0, 0);
 }
 
 void Hydrogen::RgCommandList::DrawIndexed(uint32_t indexCount)

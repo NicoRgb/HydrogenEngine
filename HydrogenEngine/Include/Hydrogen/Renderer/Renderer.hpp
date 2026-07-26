@@ -60,9 +60,18 @@ namespace Hydrogen
 		bool RenderToSwapChain = true;
 	};
 
+	struct Gizmo
+	{
+		std::shared_ptr<TextureAsset> BillboardTexture;
+		glm::vec3 Position;
+		glm::vec2 Scale;
+	};
+
 	struct DebugSettings
 	{
 		bool WireframeMode = false;
+		bool RenderGrid = false;
+		std::vector<Gizmo> Gizmos;
 	};
 
 	struct PostProcessingSettings
@@ -93,6 +102,14 @@ namespace Hydrogen
 		float Padding;
 	};
 
+	struct BillboardInstanceData
+	{
+		glm::vec3 WorldPosition;
+		int32_t TextureIndex;
+		glm::vec2 Scale;
+		glm::vec2 Padding;
+	};
+
 	class DefaultRenderer
 	{
 	public:
@@ -112,10 +129,10 @@ namespace Hydrogen
 			std::vector<const Texture*>& normalTextures,
 			std::vector<const Texture*>& ORMTextures,
 			std::vector<const Texture*>& emissiveTextures);
-
 		static void UploadBones(Scene* scene, std::vector<glm::mat4>& bones, std::vector<uint32_t>& boneBaseIndices);
-
 		static std::vector<DirectionalLight> GetDirectionalLights(Scene* scene);
+
+		static void CollectGizmoRenderData(const std::vector<Gizmo>& gizmos, std::vector<BillboardInstanceData>& instanceData, std::vector<const Texture*>& textures);
 
 		static std::unique_ptr<RenderBuffer> s_SphereVertexBuffer;
 		static std::unique_ptr<RenderBuffer> s_SphereIndexBuffer;

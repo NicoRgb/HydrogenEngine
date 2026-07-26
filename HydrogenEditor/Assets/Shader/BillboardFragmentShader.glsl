@@ -1,25 +1,24 @@
 #version 450
+#extension GL_KHR_vulkan_glsl : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
-#define MAX_TEXTURES 128
-layout(binding = 0) uniform sampler2D textures[MAX_TEXTURES];
+layout(set = 1, binding = 1) uniform sampler2D textures[];
 
 layout(location = 0) in vec2 fragUV;
+layout(location = 1) flat in int fragTextureIndex;
 
 layout(location = 0) out vec4 outColor;
 
-layout(push_constant) uniform GizmoData
-{
-    vec3 worldPosition;
-    int textureIndex;
-    vec2 scale;
-} gizmo;
-
 void main()
 {
-    vec4 texColor = texture(textures[gizmo.textureIndex], fragUV);
-    
-    if(texColor.a < 0.1) discard; 
-
-    outColor = texColor;
-    outColor.a = 0.25;
+    if (fragTextureIndex >= 0)
+    {
+        vec4 texColor = texture(textures[nonuniformEXT(fragTextureIndex)], fragUV);
+        if (texColor.a < 0.1) discard;
+        outColor = texColor;
+    }
+    else
+    {
+        outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
 }

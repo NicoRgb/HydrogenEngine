@@ -762,6 +762,81 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					});
 			}
 
+			if (settings.Debug.RenderGrid)
+			{
+				graph->AddPass("Grid",
+					{
+						{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment }
+					},
+
+				{
+					{.Resources = {gBufferDepth} }
+				},
+
+					[&](RgPassBuilder& builder)
+					{
+						builder.WriteColor(sceneColor);
+						builder.ReadTexture(gBufferDepth);
+					},
+					[&](RgCommandList& cmd)
+					{
+						ZoneScopedN("Grid Pass");
+
+						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GridVertexShader.glsl");
+						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("GridFragmentShader.glsl");
+
+						PipelineSpec gridProcessingPipeline = {};
+						gridProcessingPipeline.VertexBufferLayout = {};
+						gridProcessingPipeline.PushConstants = {};
+						gridProcessingPipeline.CullMode = ShaderCullMode::None;
+						gridProcessingPipeline.ColorBlending = { BlendMode::Alpha };
+
+						cmd.BindPipeline(vertexShader, fragmentShader, gridProcessingPipeline);
+						cmd.Draw(3);
+					});
+			}
+
+			std::vector<BillboardInstanceData> instanceData;
+			std::vector<const Texture*> billboardTextures;
+
+			if (settings.Debug.Gizmos.size() > 0)
+			{
+				CollectGizmoRenderData(settings.Debug.Gizmos, instanceData, billboardTextures);
+				uint32_t instanceCount = static_cast<uint32_t>(instanceData.size());
+
+				graph->AddPass("Gizmo",
+					{
+						{ 0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex },
+						{ 1, DescriptorType::CombinedImageSampler, 1000, ShaderStage::Fragment, DescriptorBindingFlags::VariableDescriptorCount }
+					},
+
+					{
+						{ .Size = instanceData.size() * sizeof(BillboardInstanceData), .Data = (uint32_t*)instanceData.data() },
+						{ .Textures = billboardTextures }
+					},
+
+					[&](RgPassBuilder& builder)
+					{
+						builder.WriteColor(sceneColor);
+					},
+					[instanceCount](RgCommandList& cmd)
+					{
+						ZoneScopedN("Gizmo Pass");
+
+						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BillboardVertexShader.glsl");
+						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BillboardFragmentShader.glsl");
+
+						PipelineSpec billboardProcessingPipeline = {};
+						billboardProcessingPipeline.VertexBufferLayout = {};
+						billboardProcessingPipeline.PushConstants = {};
+						billboardProcessingPipeline.CullMode = ShaderCullMode::None;
+						billboardProcessingPipeline.ColorBlending = { BlendMode::Alpha };
+
+						cmd.BindPipeline(vertexShader, fragmentShader, billboardProcessingPipeline);
+						cmd.Draw(6, instanceCount);
+					});
+			}
+
 			RgResourceHandle currentSceneTarget = sceneColor;
 			RgResourceHandle finalBloomTarget;
 
@@ -988,4 +1063,40 @@ std::vector<DirectionalLight> DefaultRenderer::GetDirectionalLights(Scene* scene
 		});
 
 	return directionalLights;
+}
+
+void DefaultRenderer::CollectGizmoRenderData(const std::vector<Gizmo>& gizmos, std::vector<BillboardInstanceData>& instanceData, std::vector<const Texture*>& textures)
+{
+	instanceData.reserve(gizmos.size());
+	std::unordered_map<const Texture*, int> textureIndexMap;
+
+	for (const auto& gizmo : gizmos)
+	{
+		int texIndex = -1;
+
+		if (gizmo.BillboardTexture)
+		{
+			const Texture* rawTex = gizmo.BillboardTexture->GetTexture(Application::Get()->ActiveRenderDevice.get());
+
+			auto it = textureIndexMap.find(rawTex);
+			if (it != textureIndexMap.end())
+			{
+				texIndex = it->second;
+			}
+			else
+			{
+				texIndex = static_cast<int>(textures.size());
+				textureIndexMap[rawTex] = texIndex;
+				textures.push_back(rawTex);
+			}
+		}
+
+		BillboardInstanceData instance{};
+		instance.WorldPosition = gizmo.Position;
+		instance.TextureIndex = texIndex;
+		instance.Scale = gizmo.Scale;
+		instance.Padding = glm::vec2(0.0f);
+
+		instanceData.push_back(instance);
+	}
 }

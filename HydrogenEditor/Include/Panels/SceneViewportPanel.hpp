@@ -18,6 +18,9 @@ public:
 	virtual void OnImGuiRender() override;
 
 private:
+	void DrawGizmo();
+	void CollectGizmos(std::vector<Hydrogen::Gizmo>& gizmos);
+
 	bool m_IsVisible = false;
 	bool m_IsHovered = false;
 	glm::vec2 m_ViewportSize{ 1920.0f, 1080.0f };
@@ -30,6 +33,4 @@ private:
 	Hydrogen::Scene* m_Scene;
 	Hydrogen::Entity m_SelectedEntity;
 	ImGuizmo::OPERATION m_GuizmoTool;
-
-	void DrawGizmo();
 };
