@@ -66,7 +66,8 @@ namespace Hydrogen
 
 	enum class DepthTestOp
 	{
-		Less
+		Less,
+		LessOrEqual
 	};
 
 	struct DepthTestSpec

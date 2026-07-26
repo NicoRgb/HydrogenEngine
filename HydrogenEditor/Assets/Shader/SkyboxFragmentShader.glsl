@@ -1,15 +1,14 @@
 #version 450
+#extension GL_KHR_vulkan_glsl : enable
+
+layout(location = 0) in vec3 inViewDir;
 
 layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outBright;
 
-layout(binding = 0) uniform samplerCube skyboxCubemap;
-
-layout(location = 0) in vec3 fragTexCoord;
+layout(binding = 0, set = 1) uniform samplerCube u_SkyboxCubemap;
 
 void main()
 {
-    vec3 envColor = texture(skyboxCubemap, fragTexCoord).rgb;
-    outColor = vec4(envColor, 1.0);
-    outBright = vec4(0.0);
+    vec3 dir = normalize(inViewDir);
+    outColor = texture(u_SkyboxCubemap, dir);
 }

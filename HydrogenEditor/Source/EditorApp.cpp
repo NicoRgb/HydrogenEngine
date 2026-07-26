@@ -111,6 +111,7 @@ public:
 		m_GameViewportRenderer = std::make_unique<Renderer>(ActiveRenderDevice.get());
 
 		m_ImGuiRenderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
+		m_RenderSettings.Rendering.Skybox = MainAssetManager.GetAsset<CubeMapAsset>("sky.hycube");
 
 		ImguiSampler = m_ImGuiRenderer->GetImguiSampler();
 
@@ -208,6 +209,7 @@ public:
 	{
 		EditorGUI.Shutdown();
 
+		m_RenderSettings.Rendering.Skybox.reset();
 		SavedScene.reset();
 		TextureCache.Clear();
 		m_SceneViewportRenderer.reset();

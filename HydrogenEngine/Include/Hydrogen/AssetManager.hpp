@@ -138,6 +138,7 @@ namespace Hydrogen
 		CubeMapAsset(std::string path, json config)
 			: Asset(path, config)
 		{
+			Parse(path);
 		}
 
 		~CubeMapAsset() = default;
@@ -150,12 +151,19 @@ namespace Hydrogen
 		{
 		}
 
-		//const std::shared_ptr<CubeMap>& GetCubeMap() const { return m_CubeMap; }
+		const uint32_t GetWidth() const { return m_Width; }
+		const uint32_t GetHeight() const { return m_Height; }
+		const uint8_t GetChannels() const { return m_Channels; }
+		const Texture* GetCubeMap();
 
 		void Parse(std::string path);
 
 	private:
-		//std::shared_ptr<CubeMap> m_CubeMap;
+		uint32_t m_Width, m_Height;
+		uint8_t m_Channels;
+
+		std::vector<uint32_t> m_CubeData;
+		std::unique_ptr<Texture> m_CubeMap;
 	};
 
 #pragma pack(push, 1)

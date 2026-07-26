@@ -727,6 +727,41 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 						});
 				});
 
+			if (settings.Rendering.Skybox)
+			{
+				graph->AddPass("Skybox",
+					{
+						{ 0, DescriptorType::CombinedImageSampler, 1, ShaderStage::Fragment }
+					},
+
+				{
+					{.Textures = {settings.Rendering.Skybox->GetCubeMap()}}
+				},
+
+				[&](RgPassBuilder& builder)
+					{
+						builder.WriteColor(sceneColor);
+						builder.WriteDepth(gBufferDepth);
+					},
+					[&](RgCommandList& cmd)
+					{
+						ZoneScopedN("Skybox Pass");
+
+						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("SkyboxVertexShader.glsl");
+						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("SkyboxFragmentShader.glsl");
+
+						PipelineSpec skyboxProcessingPipeline = {};
+						skyboxProcessingPipeline.VertexBufferLayout = {};
+						skyboxProcessingPipeline.PushConstants = {};
+						skyboxProcessingPipeline.CullMode = ShaderCullMode::None;
+						skyboxProcessingPipeline.ColorBlending = { BlendMode::None };
+						skyboxProcessingPipeline.DepthSpec = { .DepthTest = true, .DepthWrite = false, .Operator = DepthTestOp::LessOrEqual };
+
+						cmd.BindPipeline(vertexShader, fragmentShader, skyboxProcessingPipeline);
+						cmd.Draw(3);
+					});
+			}
+
 			RgResourceHandle currentSceneTarget = sceneColor;
 			RgResourceHandle finalBloomTarget;
 

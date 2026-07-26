@@ -20,12 +20,20 @@ namespace Hydrogen
 		DepthAttachment = 1 << 2
 	};
 
+	enum class TextureType
+	{
+		Texture2D,
+		CubeMap
+	};
+
 	struct TextureDescription
 	{
-		uint32_t width = 0;
-		uint32_t height = 0;
-		TextureFormat format = TextureFormat::RGBA8_SRGB;
-		TextureUsage usageFlags = TextureUsage::SampledImage;
+		uint32_t Width = 0;
+		uint32_t Height = 0;
+
+		TextureFormat Format = TextureFormat::RGBA8_SRGB;
+		TextureUsage UsageFlags = TextureUsage::SampledImage;
+		TextureType Type = TextureType::Texture2D;
 	};
 
 	class Texture
@@ -40,18 +48,26 @@ namespace Hydrogen
 		Texture(const Texture&) = delete;
 		Texture& operator=(const Texture&) = delete;
 
-		uint32_t GetWidth() const { return m_Desc.width; }
-		uint32_t GetHeight() const { return m_Desc.height; }
-		TextureFormat GetFormat() const { return m_Desc.format; }
-		bool IsSampled() const { return (((uint32_t)m_Desc.usageFlags & (uint32_t)TextureUsage::SampledImage)) != 0; }
+		uint32_t GetWidth() const { return m_Desc.Width; }
+		uint32_t GetHeight() const { return m_Desc.Height; }
+		TextureFormat GetFormat() const { return m_Desc.Format; }
+		bool IsSampled() const { return (((uint32_t)m_Desc.UsageFlags & (uint32_t)TextureUsage::SampledImage)) != 0; }
 
 		VkImage GetImage() const { return m_Image; }
 		VkImageView GetImageView() const { return m_ImageView; }
 
 	private:
+		void ExtractVulkanFlags();
+		void CreateImageVMA();
+		void CreateImageView();
+
 		RenderDevice* m_Device;
 
 		TextureDescription m_Desc;
+
+		VkFormat m_VkFormat;
+		VkImageAspectFlags m_AspectMask;
+		VkImageUsageFlags m_UsageFlags;
 
 		VkImage m_Image = VK_NULL_HANDLE;
 		VkImageView m_ImageView = VK_NULL_HANDLE;

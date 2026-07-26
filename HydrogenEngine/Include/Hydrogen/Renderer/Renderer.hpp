@@ -72,11 +72,17 @@ namespace Hydrogen
 		bool ToneMapping = true;
 	};
 
+	struct RenderingSettings
+	{
+		std::shared_ptr<CubeMapAsset> Skybox = nullptr;
+	};
+
 	struct RenderSettings
 	{
 		DisplaySettings Display;
 		DebugSettings Debug;
 		PostProcessingSettings PostProcessing;
+		RenderingSettings Rendering;
 	};
 
 	struct DirectionalLight

@@ -205,9 +205,9 @@ const Texture* TextureAsset::GetTexture(RenderDevice* device)
 	if (!m_Texture)
 	{
 		TextureDescription textureDesc;
-		textureDesc.width = m_Width;
-		textureDesc.height = m_Height;
-		textureDesc.usageFlags = TextureUsage::SampledImage;
+		textureDesc.Width = m_Width;
+		textureDesc.Height = m_Height;
+		textureDesc.UsageFlags = TextureUsage::SampledImage;
 
 		m_Texture = std::make_unique<Texture>(device, textureDesc);
 		m_Texture->UploadData(m_Image.data(), m_Width, m_Height);
@@ -646,6 +646,23 @@ std::shared_ptr<TextureAsset> MaterialAsset::GetEmissiveMap()
 	return m_EmissiveMap;
 }
 
+const Texture* CubeMapAsset::GetCubeMap()
+{
+	if (!m_CubeMap)
+	{
+		TextureDescription textureDesc;
+		textureDesc.Width = m_Width;
+		textureDesc.Height = m_Height;
+		textureDesc.UsageFlags = TextureUsage::SampledImage;
+		textureDesc.Type = TextureType::CubeMap;
+
+		m_CubeMap = std::make_unique<Texture>(Application::Get()->GetRenderDevice(), textureDesc);
+		m_CubeMap->UploadData(m_CubeData.data(), m_Width, m_Height);
+	}
+
+	return m_CubeMap.get();
+}
+
 void CubeMapAsset::Parse(std::string path)
 {
 	std::ifstream fin(path);
@@ -693,13 +710,13 @@ void CubeMapAsset::Parse(std::string path)
 		}
 	}
 
-	std::vector<uint32_t> cubeData;
+	m_Width = textures[0]->GetWidth();
+	m_Height = textures[0]->GetHeight();
+	m_Channels = textures[0]->GetChannels();
+
 	for (size_t i = 0; i < 6; i++)
 	{
 		const auto& imageData = textures[i]->GetImageData();
-		cubeData.insert(cubeData.end(), imageData.begin(), imageData.end());
+		m_CubeData.insert(m_CubeData.end(), imageData.begin(), imageData.end());
 	}
-
-	//m_CubeMap = CubeMap::Create(m_RenderContext, TextureFormat::FormatR8G8B8A8, textures[0]->GetWidth(), textures[0]->GetHeight());
-	//m_CubeMap->UploadData(cubeData.data());
 }

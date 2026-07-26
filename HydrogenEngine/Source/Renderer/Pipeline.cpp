@@ -263,6 +263,9 @@ Pipeline::Pipeline(RenderDevice* device, VkRenderPass renderPass, const std::sha
 	case DepthTestOp::Less:
 		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
 		break;
+	case DepthTestOp::LessOrEqual:
+		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+		break;
 	default:
 		HY_ENGINE_ERROR("Invalid Depth Test Operator... Defaulting to DepthTestOp::Less");
 		depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
