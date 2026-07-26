@@ -24,28 +24,35 @@ namespace Hydrogen
 		static void FromJson(const json& j, SkeletalMeshRendererComponent& t, class AssetManager* assetManager);
 	};
 
+	struct AnimPose
+	{
+		std::vector<glm::mat4> LocalTransforms;
+	};
+
 	struct AnimatorComponent
 	{
 		AnimatorComponent(Entity entity);
 
-		std::shared_ptr<class AnimationAsset> AnimationClip;
-		float CurrentTime;
-
-		void LoadAnimation();
-		void UpdateAnimation(float dt);
+		std::shared_ptr<class AnimationGraphAsset> AnimationGraph;
 
 		static void ToJson(json& j, const AnimatorComponent& a);
 		static void FromJson(const json& j, AnimatorComponent& a, class AssetManager* assetManager);
 
-	private:
-		struct CachedChannelState
-		{
-			size_t PositionIndex = 0;
-			size_t RotationIndex = 0;
-			size_t ScaleIndex = 0;
-		};
+		void SetFloat(const std::string& name, float val) { m_Parameters[name].Value = val; }
+		void SetBool(const std::string& name, bool val) { m_Parameters[name].Value = val; }
+		void SetInt(const std::string& name, int val) { m_Parameters[name].Value = val; }
 
-		glm::mat4 GetChannelTransform(const std::string& jointName, float time);
+		void UpdateAnimation(float dt);
+		void UpdateGraph();
+
+	private:
+		void SetBindPose();
+
+		AnimPose SamplePose(const std::shared_ptr<AnimationAsset>& clip, float time, const std::shared_ptr<class SkeletonAsset>& skeleton);
+		glm::mat4 GetBindPoseTransform(const Joint& joint, const std::shared_ptr<class SkeletonAsset>& skeleton);
+		AnimPose BlendPoses(const AnimPose& poseA, const AnimPose& poseB, float factor);
+		bool EvaluateCondition(const Condition& cond);
+		glm::mat4 GetChannelTransform(const std::shared_ptr<AnimationAsset>& clip, const Joint& joint, const std::shared_ptr<SkeletonAsset>& skeleton, float time);
 
 		template <typename KeyFrameType>
 		size_t FindKeyframeIndex(const std::vector<KeyFrameType>& keyframes, float time, size_t& cachedIndex)
@@ -74,6 +81,31 @@ namespace Hydrogen
 		}
 
 		Entity m_Entity;
+
+		// State Machine
+
+		uint64_t m_DefaultStateID = 0;
+		std::unordered_map<uint64_t, AnimState> m_States;
+		std::unordered_map<std::string, AnimParameter> m_Parameters;
+
+		uint64_t CurrentStateID = 0;
+		float CurrentStateTime = 0.0f;
+
+		bool IsTransitioning = false;
+		uint64_t TargetStateID = 0;
+		float TargetStateTime = 0.0f;
+		float TransitionProgress = 0.0f;
+		float TransitionDuration = 0.25f;
+
+		// Cache
+
+		struct CachedChannelState
+		{
+			size_t PositionIndex = 0;
+			size_t RotationIndex = 0;
+			size_t ScaleIndex = 0;
+		};
+
 		std::unordered_map<std::string, CachedChannelState> m_ChannelCache;
 	};
 }

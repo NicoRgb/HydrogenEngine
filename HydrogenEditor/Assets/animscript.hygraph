@@ -1,16 +1,35 @@
 {
-    "next_id": 8,
+    "next_id": 11,
     "parameters": [],
     "states": [
         {
-            "clip_path": "Fox.hyanim",
+            "clip_path": "NULL",
             "id": 1,
             "input_pin": 2,
             "is_default": true,
             "name": "Idle",
             "output_pin": 3,
             "speed": 1.0
+        },
+        {
+            "clip_path": "Fox.hyanim",
+            "id": 7,
+            "input_pin": 8,
+            "is_default": false,
+            "name": "New State",
+            "output_pin": 9,
+            "speed": 1.0
         }
     ],
-    "transitions": []
+    "transitions": [
+        {
+            "conditions": [],
+            "duration": 2.0,
+            "from": 1,
+            "id": 10,
+            "input_pin": 8,
+            "output_pin": 3,
+            "to": 7
+        }
+    ]
 }

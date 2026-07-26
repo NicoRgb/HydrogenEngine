@@ -34,7 +34,7 @@ void CodeEditor::OnSave()
 	out.close();
 
 	auto app = Hydrogen::Application::Get();
-	app->MainAssetManager.LoadAssets("assets");
+	app->MainAssetManager.ReloadAsset(m_FileName);
 
 	m_IsDirty = false;
 }

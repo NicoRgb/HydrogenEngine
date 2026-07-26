@@ -55,148 +55,169 @@ void AssetManager::LoadAssets(const std::string& directory)
 	for (const auto& entry : fs::recursive_directory_iterator(directory))
 	{
 		if (!entry.is_regular_file() || entry.path().extension() == ".hyasset")
-		{
 			continue;
-		}
+		LoadAsset(entry.path());
+	}
+}
 
-		std::string ext = entry.path().extension().string();
-		std::string filePath = entry.path().string();
-		std::string cachePath = "Caches/" + entry.path().string() + ".hycache";
+void AssetManager::ReloadAsset(const std::string& path)
+{
+	if (m_Assets.at(path))
+	{
+		m_Assets[path]->Reload();
+		return;
+	}
+	LoadAsset(std::filesystem::path(path));
+}
 
-		std::string assetFilePath = filePath + ".hyasset";
+void AssetManager::LoadAsset(const std::filesystem::path& path)
+{
+	std::string ext = path.extension().string();
+	std::string filePath = path.string();
+	std::string cachePath = "Caches/" + filePath + ".hycache";
 
-		json assetConfig;
-		if (fs::exists(assetFilePath))
+	std::string assetFilePath = filePath + ".hyasset";
+
+	json assetConfig;
+	if (fs::exists(assetFilePath))
+	{
+		std::ifstream fin(assetFilePath);
+		assetConfig = json::parse(fin);
+		fin.close();
+	}
+	else
+	{
+		HY_ENGINE_WARN("No asset configuration file for '{}' -> Create default", filePath);
+
+		std::string assetType = "";
+		if (ext == ".glsl")
 		{
-			std::ifstream fin(assetFilePath);
-			assetConfig = json::parse(fin);
-			fin.close();
+			assetType = "Shader";
+			assetConfig["preferences"]["stage"] = "vertex";
+		}
+		else if (ext == ".png" || ext == ".jpg")
+		{
+			assetType = "Texture";
+		}
+		else if (ext == ".hymesh")
+		{
+			assetType = "StaticMesh";
+		}
+		else if (ext == ".hydynmesh")
+		{
+			assetType = "SkeletalMesh";
+		}
+		else if (ext == ".hyskel")
+		{
+			assetType = "Skeleton";
+		}
+		else if (ext == ".hyanim")
+		{
+			assetType = "Animation";
+		}
+		else if (ext == ".lua")
+		{
+			assetType = "Script";
+		}
+		else if (ext == ".hyscene")
+		{
+			assetType = "Scene";
+		}
+		else if (ext == ".hymat")
+		{
+			assetType = "Material";
+		}
+		else if (ext == ".hygraph")
+		{
+			assetType = "AnimationGraph";
+		}
+		else if (ext == ".hycube")
+		{
+			assetType = "CubeMap";
 		}
 		else
 		{
-			HY_ENGINE_WARN("No asset configuration file for '{}' -> Create default", filePath);
-
-			std::string assetType = "";
-			if (ext == ".glsl")
-			{
-				assetType = "Shader";
-				assetConfig["preferences"]["stage"] = "vertex";
-			}
-			else if (ext == ".png" || ext == ".jpg")
-			{
-				assetType = "Texture";
-			}
-			else if (ext == ".hymesh")
-			{
-				assetType = "StaticMesh";
-			}
-			else if (ext == ".hydynmesh")
-			{
-				assetType = "SkeletalMesh";
-			}
-			else if (ext == ".hyskel")
-			{
-				assetType = "Skeleton";
-			}
-			else if (ext == ".hyanim")
-			{
-				assetType = "Animation";
-			}
-			else if (ext == ".lua")
-			{
-				assetType = "Script";
-			}
-			else if (ext == ".hyscene")
-			{
-				assetType = "Scene";
-			}
-			else if (ext == ".hymat")
-			{
-				assetType = "Material";
-			}
-			else if (ext == ".hycube")
-			{
-				assetType = "CubeMap";
-			}
-			else
-			{
-				HY_ENGINE_WARN("Ignoring file '{}'", filePath);
-				continue;
-			}
-
-			assetConfig["name"] = entry.path().filename();
-			assetConfig["type"] = assetType;
-
-			std::ofstream fout(assetFilePath);
-			fout << assetConfig.dump();
-			fout.close();
+			HY_ENGINE_WARN("Ignoring file '{}'", filePath);
+			return;
 		}
 
-		if (assetConfig["type"] == "Shader")
+		assetConfig["name"] = path.filename();
+		assetConfig["type"] = assetType;
+
+		std::ofstream fout(assetFilePath);
+		fout << assetConfig.dump();
+		fout.close();
+	}
+
+	if (assetConfig["type"] == "Shader")
+	{
+		if (fs::exists(cachePath) && fs::last_write_time(cachePath) > fs::last_write_time(filePath))
 		{
-			if (fs::exists(cachePath) && fs::last_write_time(cachePath) > fs::last_write_time(filePath))
-			{
-				auto shader = std::make_shared<ShaderAsset>(filePath, assetConfig);
-				shader->LoadCache(cachePath);
-				m_Assets[entry.path().filename().string()] = std::move(shader);
-			}
-			else
-			{
-				auto shader = std::make_shared<ShaderAsset>(filePath, assetConfig);
-				shader->Compile();
-				shader->Cache();
-				m_Assets[entry.path().filename().string()] = std::move(shader);
-			}
-		}
-		else if (assetConfig["type"] == "Texture")
-		{
-			auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(texture);
-		}
-		else if (assetConfig["type"] == "StaticMesh")
-		{
-			auto mesh = std::make_shared<StaticMeshAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(mesh);
-		}
-		else if (assetConfig["type"] == "SkeletalMesh")
-		{
-			auto mesh = std::make_shared<SkeletalMeshAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(mesh);
-		}
-		else if (assetConfig["type"] == "Skeleton")
-		{
-			auto sekleton = std::make_shared<SkeletonAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(sekleton);
-		}
-		else if (assetConfig["type"] == "Animation")
-		{
-			auto animation = std::make_shared<AnimationAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(animation);
-		}
-		else if (assetConfig["type"] == "Script")
-		{
-			auto script = std::make_shared<ScriptAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(script);
-		}
-		else if (assetConfig["type"] == "Scene")
-		{
-			auto scene = std::make_shared<SceneAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(scene);
-		}
-		else if (assetConfig["type"] == "Material")
-		{
-			auto material = std::make_shared<MaterialAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(material);
-		}
-		else if (assetConfig["type"] == "CubeMap")
-		{
-			auto cubeMap = std::make_shared<CubeMapAsset>(filePath, assetConfig);
-			m_Assets[entry.path().filename().string()] = std::move(cubeMap);
+			auto shader = std::make_shared<ShaderAsset>(filePath, assetConfig);
+			shader->LoadCache(cachePath);
+			m_Assets[path.filename().string()] = std::move(shader);
 		}
 		else
 		{
-			HY_ENGINE_ERROR("Unknown asset type for file '{}'", filePath);
+			auto shader = std::make_shared<ShaderAsset>(filePath, assetConfig);
+			shader->Compile();
+			shader->Cache();
+			m_Assets[path.filename().string()] = std::move(shader);
 		}
+	}
+	else if (assetConfig["type"] == "Texture")
+	{
+		auto texture = std::make_shared<TextureAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(texture);
+	}
+	else if (assetConfig["type"] == "StaticMesh")
+	{
+		auto mesh = std::make_shared<StaticMeshAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(mesh);
+	}
+	else if (assetConfig["type"] == "SkeletalMesh")
+	{
+		auto mesh = std::make_shared<SkeletalMeshAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(mesh);
+	}
+	else if (assetConfig["type"] == "Skeleton")
+	{
+		auto sekleton = std::make_shared<SkeletonAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(sekleton);
+	}
+	else if (assetConfig["type"] == "Animation")
+	{
+		auto animation = std::make_shared<AnimationAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(animation);
+	}
+	else if (assetConfig["type"] == "Script")
+	{
+		auto script = std::make_shared<ScriptAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(script);
+	}
+	else if (assetConfig["type"] == "Scene")
+	{
+		auto scene = std::make_shared<SceneAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(scene);
+	}
+	else if (assetConfig["type"] == "Material")
+	{
+		auto material = std::make_shared<MaterialAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(material);
+	}
+	else if (assetConfig["type"] == "AnimationGraph")
+	{
+		auto material = std::make_shared<AnimationGraphAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(material);
+	}
+	else if (assetConfig["type"] == "CubeMap")
+	{
+		auto cubeMap = std::make_shared<CubeMapAsset>(filePath, assetConfig);
+		m_Assets[path.filename().string()] = std::move(cubeMap);
+	}
+	else
+	{
+		HY_ENGINE_ERROR("Unknown asset type for file '{}'", filePath);
 	}
 }
 
@@ -718,5 +739,99 @@ void CubeMapAsset::Parse(std::string path)
 	{
 		const auto& imageData = textures[i]->GetImageData();
 		m_CubeData.insert(m_CubeData.end(), imageData.begin(), imageData.end());
+	}
+}
+
+std::shared_ptr<AnimationAsset> AnimState::GetAnimationClip() const
+{
+	return Application::Get()->MainAssetManager.TryGetAsset<AnimationAsset>(AnimationClipPath);
+}
+
+void AnimationGraphAsset::Parse(std::string path)
+{
+	m_Parameters.clear();
+	m_States.clear();
+
+	std::ifstream fin(path);
+	std::stringstream buffer;
+	buffer << fin.rdbuf();
+	std::string content = std::move(buffer.str());
+	fin.close();
+
+	if (content.empty())
+	{
+		content = "{}";
+		return;
+	}
+
+	json root = json::parse(content);
+
+	if (root.contains("parameters") && root["parameters"].is_array())
+	{
+		for (const auto& pJson : root["parameters"])
+		{
+			AnimParameter param;
+			param.Name = pJson.value("name", "");
+			param.Type = static_cast<ParameterType>(pJson.value("type", 0));
+
+			if (param.Type == ParameterType::Float)
+				param.Value = pJson.value("value", 0.0f);
+			else if (param.Type == ParameterType::Int)
+				param.Value = pJson.value("value", 0);
+			else if (param.Type == ParameterType::Bool)
+				param.Value = pJson.value("value", false);
+
+			m_Parameters[param.Name] = param;
+		}
+	}
+
+	if (root.contains("states") && root["states"].is_array())
+	{
+		for (const auto& sJson : root["states"])
+		{
+			AnimState state;
+			state.ID = sJson.value("id", 0ULL);
+			state.Name = sJson.value("name", "State");
+			state.IsDefaultState = sJson.value("is_default", false);
+			state.PlaybackSpeed = sJson.value("speed", 1.0f);
+
+			state.AnimationClipPath = sJson.value("clip_path", "NULL");
+
+			if (state.IsDefaultState)
+			{
+				m_DefaultStateID = state.ID;
+			}
+
+			m_States[state.ID] = state;
+		}
+	}
+
+	if (root.contains("transitions") && root["transitions"].is_array())
+	{
+		for (const auto& tJson : root["transitions"])
+		{
+			AnimTransition trans;
+			trans.ID = tJson.value("id", 0ULL);
+			trans.FromStateID = tJson.value("from", 0ULL);
+			trans.ToStateID = tJson.value("to", 0ULL);
+			trans.Duration = tJson.value("duration", 0.25f);
+
+			if (tJson.contains("conditions") && tJson["conditions"].is_array())
+			{
+				for (const auto& cJson : tJson["conditions"])
+				{
+					Condition cond;
+					cond.ParameterName = cJson.value("param", "");
+					cond.Mode = static_cast<ConditionMode>(cJson.value("mode", 0));
+					cond.Threshold = cJson.value("threshold", 0.0f);
+					trans.Conditions.push_back(cond);
+				}
+			}
+
+			if (m_States.find(trans.FromStateID) != m_States.end())
+			{
+				m_States[trans.FromStateID].Transitions.push_back(trans);
+			}
+		}
 	}
 }

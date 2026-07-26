@@ -90,7 +90,7 @@ void AnimGraphEditor::OnAttach()
 
 			for (const auto& s : j["states"])
 			{
-				AnimState state;
+				EditorAnimState state;
 				state.ID = ed::NodeId(s["id"]);
 				state.Name = s["name"];
 
@@ -108,7 +108,7 @@ void AnimGraphEditor::OnAttach()
 
 			for (const auto& t : j["transitions"])
 			{
-				AnimTransition trans;
+				EditorAnimTransition trans;
 				trans.ID = ed::LinkId(t["id"]);
 				trans.FromStateID = ed::NodeId(t["from"]);
 				trans.ToStateID = ed::NodeId(t["to"]);
@@ -132,7 +132,7 @@ void AnimGraphEditor::OnAttach()
 
 	if (m_States.empty())
 	{
-		AnimState idleState;
+		EditorAnimState idleState;
 		idleState.ID = ed::NodeId(GetNextID());
 		idleState.Name = "Idle";
 		idleState.AnimationClip = nullptr;
@@ -307,8 +307,8 @@ void AnimGraphEditor::DrawNodeCanvas()
 		{
 			if (startPinId && endPinId && ed::AcceptNewItem())
 			{
-				AnimState* fromState = nullptr;
-				AnimState* toState = nullptr;
+				EditorAnimState* fromState = nullptr;
+				EditorAnimState* toState = nullptr;
 
 				for (auto& s : m_States)
 				{
@@ -318,7 +318,7 @@ void AnimGraphEditor::DrawNodeCanvas()
 
 				if (fromState && toState && fromState->ID != toState->ID)
 				{
-					AnimTransition newTrans;
+					EditorAnimTransition newTrans;
 					newTrans.ID = ed::LinkId(GetNextID());
 					newTrans.FromStateID = fromState->ID;
 					newTrans.ToStateID = toState->ID;
@@ -340,11 +340,11 @@ void AnimGraphEditor::DrawNodeCanvas()
 		{
 			if (ed::AcceptDeletedItem())
 			{
-				std::erase_if(m_Transitions, [deletedNodeId](const AnimTransition& t) {
+				std::erase_if(m_Transitions, [deletedNodeId](const EditorAnimTransition& t) {
 					return t.FromStateID == deletedNodeId || t.ToStateID == deletedNodeId;
 					});
 
-				std::erase_if(m_States, [deletedNodeId](const AnimState& s) {
+				std::erase_if(m_States, [deletedNodeId](const EditorAnimState& s) {
 					return s.ID == deletedNodeId;
 					});
 
@@ -477,7 +477,7 @@ void AnimGraphEditor::DrawInspectorSidebar()
 
 void AnimGraphEditor::CreateNewState(const std::string& name, const std::shared_ptr<AnimationAsset>& animationClip)
 {
-	AnimState newState;
+	EditorAnimState newState;
 	newState.ID = ed::NodeId(GetNextID());
 	newState.Name = name.empty() ? "New State" : name;
 	newState.AnimationClip = animationClip;
@@ -558,4 +558,6 @@ void AnimGraphEditor::OnSave()
 		file << j.dump(4);
 		m_IsDirty = false;
 	}
+
+	Application::Get()->MainAssetManager.ReloadAsset(m_FileName);
 }

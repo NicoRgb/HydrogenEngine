@@ -323,7 +323,8 @@ inline void DrawComponentUI<AnimatorComponent>(AnimatorComponent& comp)
 {
 	if (ImGui::TreeNode("Animator"))
 	{
-		AssetPicker("Animation Clip", comp.AnimationClip);
+		if (AssetPicker("Animation Graph", comp.AnimationGraph))
+			comp.UpdateGraph();
 
 		ImGui::TreePop();
 	}
