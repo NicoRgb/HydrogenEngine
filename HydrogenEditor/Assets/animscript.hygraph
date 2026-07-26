@@ -1,6 +1,12 @@
 {
-    "next_id": 11,
-    "parameters": [],
+    "next_id": 12,
+    "parameters": [
+        {
+            "name": "is_animating",
+            "type": 2,
+            "value": false
+        }
+    ],
     "states": [
         {
             "clip_path": "NULL",
@@ -23,13 +29,34 @@
     ],
     "transitions": [
         {
-            "conditions": [],
-            "duration": 2.0,
+            "conditions": [
+                {
+                    "mode": 0,
+                    "param": "is_animating",
+                    "threshold": 0.0
+                }
+            ],
+            "duration": 0.5,
             "from": 1,
             "id": 10,
             "input_pin": 8,
             "output_pin": 3,
             "to": 7
+        },
+        {
+            "conditions": [
+                {
+                    "mode": 0,
+                    "param": "is_animating",
+                    "threshold": 0.0
+                }
+            ],
+            "duration": 0.5,
+            "from": 7,
+            "id": 11,
+            "input_pin": 2,
+            "output_pin": 9,
+            "to": 1
         }
     ]
 }

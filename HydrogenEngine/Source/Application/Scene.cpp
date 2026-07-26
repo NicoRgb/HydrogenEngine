@@ -1,65 +1,11 @@
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/Camera.hpp"
-#include "Hydrogen/ScriptEngine.hpp"
 #include "Hydrogen/Animation.hpp"
 
 #include <string>
 
 using namespace Hydrogen;
-
-void ScriptSystem::OnCreate()
-{
-	m_Scene->IterateComponents<ScriptComponent>([&](Entity entity, ScriptComponent& script)
-		{
-			script.Environment = sol::environment(ScriptEngine::GetLuaState(), sol::create, ScriptEngine::GetLuaState().globals());
-
-			script.Chunk = ScriptEngine::GetLuaState().load(script.Script->GetContent());
-			if (!script.Chunk.valid())
-			{
-				sol::error err = script.Chunk;
-				HY_ENGINE_ERROR("[LUA LOAD ERROR]: {}", err.what());
-			}
-			else
-			{
-				sol::protected_function_result result = script.Chunk();
-
-				if (!result.valid())
-				{
-					sol::error err = script.Chunk;
-					HY_ENGINE_ERROR("[LUA RUNTIME ERROR]: {}", err.what());
-				}
-			}
-
-			sol::protected_function on_create = script.Environment["on_create"];
-			if (on_create.valid())
-			{
-				sol::protected_function_result r = on_create(entity);
-				if (!r.valid())
-				{
-					sol::error err = r;
-					HY_ENGINE_ERROR("[LUA RUNTIME ERROR]: {}", err.what());
-				}
-			}
-		});
-}
-
-void ScriptSystem::OnUpdate(float dt)
-{
-	m_Scene->IterateComponents<ScriptComponent>([&](Entity entity, ScriptComponent& script)
-		{
-			sol::protected_function on_update = script.Environment["on_update"];
-			if (on_update.valid())
-			{
-				sol::protected_function_result r = on_update(entity, dt);
-				if (!r.valid())
-				{
-					sol::error err = r;
-					HY_ENGINE_ERROR("[LUA RUNTIME ERROR]: {}", err.what());
-				}
-			}
-		});
-}
 
 Entity::Entity(Scene* scene, std::string name)
 	: m_Scene(scene)
@@ -170,9 +116,9 @@ json Scene::SerializeScene()
 		{
 			CameraComponent::ToJson(entityJson["CameraComponent"], m_Registry.get<CameraComponent>(entity));
 		}
-		if (m_Registry.all_of<ScriptComponent>(entity))
+		if (m_Registry.all_of<ScriptsComponent>(entity))
 		{
-			ScriptComponent::ToJson(entityJson["ScriptComponent"], m_Registry.get<ScriptComponent>(entity));
+			ScriptsComponent::ToJson(entityJson["ScriptsComponent"], m_Registry.get<ScriptsComponent>(entity));
 		}
 		if (m_Registry.all_of<ColliderComponent>(entity))
 		{
@@ -240,10 +186,10 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 			CameraComponent& component = m_Registry.emplace<CameraComponent>(entity, e);
 			CameraComponent::FromJson(value["CameraComponent"], component, assetManager);
 		}
-		if (value.contains("ScriptComponent"))
+		if (value.contains("ScriptsComponent"))
 		{
-			ScriptComponent& component = m_Registry.emplace<ScriptComponent>(entity, e);
-			ScriptComponent::FromJson(value["ScriptComponent"], component, assetManager);
+			ScriptsComponent& component = m_Registry.emplace<ScriptsComponent>(entity, e);
+			ScriptsComponent::FromJson(value["ScriptsComponent"], component, assetManager);
 		}
 		if (value.contains("ColliderComponent"))
 		{

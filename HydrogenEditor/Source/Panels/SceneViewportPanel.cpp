@@ -67,8 +67,8 @@ void SceneViewportPanel::OnUpdate(float dt)
 
 		if (m_ViewportSize.x > 0 && m_ViewportSize.y > 0 && (m_FreeCam.ViewportWidth != m_ViewportSize.x || m_FreeCam.ViewportHeight != m_ViewportSize.y))
 		{
-			m_FreeCam.ViewportWidth = m_ViewportSize.x;
-			m_FreeCam.ViewportHeight = m_ViewportSize.y;
+			m_FreeCam.ViewportWidth = static_cast<uint32_t>(m_ViewportSize.x);
+			m_FreeCam.ViewportHeight = static_cast<uint32_t>(m_ViewportSize.y);
 			m_FreeCam.CalculateProj();
 		}
 

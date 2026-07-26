@@ -433,26 +433,60 @@ namespace Hydrogen
 		}
 	};
 
-	struct ScriptComponent
+	struct ScriptDesc
 	{
-		ScriptComponent(Entity entity) { (void)entity; }
-		ScriptComponent(Entity entity, std::shared_ptr<ScriptAsset> script)
-			: Script(script)
+		ScriptDesc()
 		{
+			Script = nullptr;
 		}
 
 		std::shared_ptr<ScriptAsset> Script;
 		sol::environment Environment;
 		sol::load_result Chunk;
+	};
 
-		static void ToJson(json& j, const ScriptComponent& s)
+	struct ScriptsComponent
+	{
+		ScriptsComponent(Entity entity) { (void)entity; }
+		ScriptsComponent(const ScriptsComponent&) = delete;
+		ScriptsComponent& operator=(const ScriptsComponent&) = delete;
+		ScriptsComponent(ScriptsComponent&&) = default;
+		ScriptsComponent& operator=(ScriptsComponent&&) = default;
+
+		std::vector<std::unique_ptr<ScriptDesc>> Scripts;
+
+		static void ToJson(json& j, const ScriptsComponent& s)
 		{
-			j["Script"] = std::filesystem::path(s.Script->GetPath()).filename().string();
+			j = json();
+			j["Scripts"] = json::array();
+
+			for (const auto& scriptItem : s.Scripts)
+			{
+				if (scriptItem->Script)
+				{
+					std::string filename = std::filesystem::path(scriptItem->Script->GetPath()).filename().string();
+					j["Scripts"].push_back(filename);
+				}
+			}
 		}
 
-		static void FromJson(const json& j, ScriptComponent& s, AssetManager* assetManager)
+		static void FromJson(const json& j, ScriptsComponent& s, AssetManager* assetManager)
 		{
-			s.Script = assetManager->GetAsset<ScriptAsset>(j.at("Script"));
+			s.Scripts.clear();
+
+			if (j.contains("Scripts") && j["Scripts"].is_array())
+			{
+				for (const auto& scriptPathJson : j["Scripts"])
+				{
+					std::string scriptPath = scriptPathJson.get<std::string>();
+					if (!scriptPath.empty())
+					{
+						auto script = std::make_unique<ScriptDesc>();
+						script->Script = assetManager->GetAsset<ScriptAsset>(scriptPath);
+						s.Scripts.push_back(std::move(script));
+					}
+				}
+			}
 		}
 	};
 }

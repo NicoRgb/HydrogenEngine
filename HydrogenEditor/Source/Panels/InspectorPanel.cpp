@@ -18,7 +18,7 @@ const char* GetComponentName()
 	else if constexpr (std::is_same_v<T, RigidbodyComponent>) return "Rigidbody";
 	else if constexpr (std::is_same_v<T, ColliderComponent>) return "Collider";
 	else if constexpr (std::is_same_v<T, CameraComponent>) return "Camera";
-	else if constexpr (std::is_same_v<T, ScriptComponent>) return "Script";
+	else if constexpr (std::is_same_v<T, ScriptsComponent>) return "Script";
 	else return "Unknown Component";
 }
 
@@ -105,10 +105,10 @@ void InspectorPanel::OnImGuiRender()
 		}
 
 		ImGui::Separator();
-		DrawAllComponents<TagComponent, TransformComponent, SkeletalMeshRendererComponent, AnimatorComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
+		DrawAllComponents<TagComponent, TransformComponent, SkeletalMeshRendererComponent, AnimatorComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptsComponent>
 			(m_SelectedEntity);
 		ImGui::Separator();
-		DrawAddComponentMenu<SkeletalMeshRendererComponent, AnimatorComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptComponent>
+		DrawAddComponentMenu<SkeletalMeshRendererComponent, AnimatorComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptsComponent>
 			(m_Scene, m_SelectedEntity);
 	}
 	else
@@ -191,12 +191,57 @@ inline void DrawComponentUI<PointLightComponent>(PointLightComponent& comp)
 }
 
 template<>
-inline void DrawComponentUI<ScriptComponent>(ScriptComponent& comp)
+inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent & comp)
 {
-	if (ImGui::TreeNode("Script"))
+	if (ImGui::Button("+ Add Script"))
 	{
-		AssetPicker("Script", comp.Script);
-		ImGui::TreePop();
+		comp.Scripts.push_back(std::make_unique<ScriptDesc>());
+	}
+
+	ImGui::Separator();
+
+	int scriptToRemove = -1;
+
+	for (size_t i = 0; i < comp.Scripts.size(); ++i)
+	{
+		auto& script = comp.Scripts[i];
+
+		std::string scriptName = script->Script
+			? std::filesystem::path(script->Script->GetPath()).stem().string()
+			: "[Empty Script]";
+
+		ImGui::PushID(static_cast<int>(i));
+
+		if (ImGui::Button("X"))
+		{
+			scriptToRemove = static_cast<int>(i);
+		}
+		ImGui::SameLine();
+
+		bool nodeOpen = ImGui::TreeNode((scriptName + "##" + std::to_string(i)).c_str());
+
+		if (ImGui::BeginPopupContextItem("ScriptContext"))
+		{
+			if (ImGui::MenuItem("Remove Script"))
+			{
+				scriptToRemove = static_cast<int>(i);
+			}
+			ImGui::EndPopup();
+		}
+
+		if (nodeOpen)
+		{
+			AssetPicker("Script", script->Script);
+
+			ImGui::TreePop();
+		}
+
+		ImGui::PopID();
+	}
+
+	if (scriptToRemove != -1)
+	{
+		comp.Scripts.erase(comp.Scripts.begin() + scriptToRemove);
 	}
 }
 

@@ -1,54 +1,155 @@
 #pragma once
-
 #include <sol/sol.hpp>
 #include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Animation.hpp"
+#include "Hydrogen/Input.hpp"
 
 namespace Hydrogen
 {
-    class ScriptEngine
-    {
-    public:
-        static void Init()
-        {
-            s_Lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::table);
+	class ScriptEngine
+	{
+	public:
+		static void Init()
+		{
+			s_Lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::table, sol::lib::string);
 
-            BindEntity();
-            BindComponents();
-            BindMath();
-        }
+			BindMath();
+			BindComponents();
+			BindEntity();
+			BindInputSystem();
+		}
 
-        static sol::state& GetLuaState() { return s_Lua; }
+		static sol::state& GetLuaState() { return s_Lua; }
 
-    private:
-        static void BindEntity()
-        {
-            auto& lua = s_Lua;
-            lua.new_usertype<Entity>("Entity",
-                "GetUUID", &Entity::GetUUID,
-                "GetTransform", &Entity::GetComponent<TransformComponent>
-            );
-        }
+	private:
+		static void BindEntity()
+		{
+			auto& lua = s_Lua;
 
-        static void BindComponents()
-        {
-            auto& lua = s_Lua;
-            lua.new_usertype<TransformComponent>("TransformComponent",
-                "pos", sol::property(&TransformComponent::GetPosition, &TransformComponent::SetPosition),
-                "rot", sol::property(&TransformComponent::GetRotation, &TransformComponent::SetRotation),
-                "scale", sol::property(&TransformComponent::GetScale, &TransformComponent::SetScale));
-        }
+			lua.new_usertype<Entity>("Entity",
+				"GetUUID", &Entity::GetUUID,
 
-        static void BindMath()
-        {
-            auto& lua = s_Lua;
-            lua.new_usertype<glm::vec3>("vec3",
-                sol::constructors<glm::vec3(), glm::vec3(float, float, float)>(),
-                "x", &glm::vec3::x,
-                "y", &glm::vec3::y,
-                "z", &glm::vec3::z);
-        }
+				"get_component", [](Entity& self, const std::string& typeName, sol::this_state s) -> sol::object {
+					sol::state_view luaState(s);
 
-    private:
-        static inline sol::state s_Lua;
-    };
+					if (typeName == "Transform" && self.HasComponent<TransformComponent>())
+						return sol::make_object(luaState, &self.GetComponent<TransformComponent>());
+
+					if (typeName == "Animator" && self.HasComponent<AnimatorComponent>())
+						return sol::make_object(luaState, &self.GetComponent<AnimatorComponent>());
+
+					return sol::nil;
+				},
+
+				"has_component", [](Entity& self, const std::string& typeName) -> bool {
+					if (typeName == "Transform") return self.HasComponent<TransformComponent>();
+					if (typeName == "Animator") return self.HasComponent<AnimatorComponent>();
+					return false;
+				}
+			);
+		}
+
+		static void BindComponents()
+		{
+			auto& lua = s_Lua;
+
+			lua.new_usertype<TransformComponent>("Transform",
+				"pos", sol::property(&TransformComponent::GetPosition, &TransformComponent::SetPosition),
+				"rot", sol::property(&TransformComponent::GetRotation, &TransformComponent::SetRotation),
+				"scale", sol::property(&TransformComponent::GetScale, &TransformComponent::SetScale)
+			);
+
+			lua.new_usertype<AnimatorComponent>("Animator",
+				"set_float", &AnimatorComponent::SetFloat,
+				"set_bool", &AnimatorComponent::SetBool,
+				"set_int", &AnimatorComponent::SetInt
+			);
+
+			lua["Transform"] = "Transform";
+			lua["Animator"] = "Animator";
+		}
+
+		static void BindMath()
+		{
+			auto& lua = s_Lua;
+
+			lua.new_usertype<glm::vec3>("vec3",
+				sol::constructors<glm::vec3(), glm::vec3(float), glm::vec3(float, float, float)>(),
+				"x", &glm::vec3::x,
+				"y", &glm::vec3::y,
+				"z", &glm::vec3::z,
+
+				sol::meta_function::addition, [](const glm::vec3& a, const glm::vec3& b) { return a + b; },
+				sol::meta_function::subtraction, [](const glm::vec3& a, const glm::vec3& b) { return a - b; },
+				sol::meta_function::multiplication, sol::overload(
+					[](const glm::vec3& v, float scalar) { return v * scalar; },
+					[](float scalar, const glm::vec3& v) { return v * scalar; },
+					[](const glm::vec3& a, const glm::vec3& b) { return a * b; }
+				)
+			);
+		}
+
+		static void BindInputSystem()
+		{
+			auto& lua = s_Lua;
+
+			lua.new_enum<KeyCode>("Key", {
+				{ "Unknown", KeyCode::Unknown },
+
+				{ "A", KeyCode::A }, { "B", KeyCode::B }, { "C", KeyCode::C }, { "D", KeyCode::D },
+				{ "E", KeyCode::E }, { "F", KeyCode::F }, { "G", KeyCode::G }, { "H", KeyCode::H },
+				{ "I", KeyCode::I }, { "J", KeyCode::J }, { "K", KeyCode::K }, { "L", KeyCode::L },
+				{ "M", KeyCode::M }, { "N", KeyCode::N }, { "O", KeyCode::O }, { "P", KeyCode::P },
+				{ "Q", KeyCode::Q }, { "R", KeyCode::R }, { "S", KeyCode::S }, { "T", KeyCode::T },
+				{ "U", KeyCode::U }, { "V", KeyCode::V }, { "W", KeyCode::W }, { "X", KeyCode::X },
+				{ "Y", KeyCode::Y }, { "Z", KeyCode::Z },
+
+				{ "Num0", KeyCode::Num0 }, { "Num1", KeyCode::Num1 }, { "Num2", KeyCode::Num2 },
+				{ "Num3", KeyCode::Num3 }, { "Num4", KeyCode::Num4 }, { "Num5", KeyCode::Num5 },
+				{ "Num6", KeyCode::Num6 }, { "Num7", KeyCode::Num7 }, { "Num8", KeyCode::Num8 },
+				{ "Num9", KeyCode::Num9 },
+
+				{ "F1", KeyCode::F1 },   { "F2", KeyCode::F2 },   { "F3", KeyCode::F3 },
+				{ "F4", KeyCode::F4 },   { "F5", KeyCode::F5 },   { "F6", KeyCode::F6 },
+				{ "F7", KeyCode::F7 },   { "F8", KeyCode::F8 },   { "F9", KeyCode::F9 },
+				{ "F10", KeyCode::F10 }, { "F11", KeyCode::F11 }, { "F12", KeyCode::F12 },
+
+				{ "LeftShift", KeyCode::LeftShift },     { "RightShift", KeyCode::RightShift },
+				{ "LeftControl", KeyCode::LeftControl }, { "RightControl", KeyCode::RightControl },
+				{ "LeftAlt", KeyCode::LeftAlt },         { "RightAlt", KeyCode::RightAlt },
+				{ "Space", KeyCode::Space },             { "Escape", KeyCode::Escape },
+				{ "Enter", KeyCode::Enter },             { "Tab", KeyCode::Tab },
+				{ "Backspace", KeyCode::Backspace },
+
+				{ "Up", KeyCode::Up },       { "Down", KeyCode::Down },
+				{ "Left", KeyCode::Left },   { "Right", KeyCode::Right },
+
+				{ "MouseLeft", KeyCode::MouseLeft },     { "MouseRight", KeyCode::MouseRight },
+				{ "MouseMiddle", KeyCode::MouseMiddle }, { "MouseButton4", KeyCode::MouseButton4 },
+				{ "MouseButton5", KeyCode::MouseButton5 },
+
+				{ "GamepadA", KeyCode::GamepadA },           { "GamepadB", KeyCode::GamepadB },
+				{ "GamepadX", KeyCode::GamepadX },           { "GamepadY", KeyCode::GamepadY },
+				{ "GamepadLeftBumper", KeyCode::GamepadLeftBumper },
+				{ "GamepadRightBumper", KeyCode::GamepadRightBumper },
+				{ "GamepadDPadUp", KeyCode::GamepadDPadUp },
+				{ "GamepadDPadDown", KeyCode::GamepadDPadDown },
+				{ "GamepadDPadLeft", KeyCode::GamepadDPadLeft },
+				{ "GamepadDPadRight", KeyCode::GamepadDPadRight }
+				});
+
+			auto inputTable = lua.create_named_table("Input");
+
+			inputTable.set_function("is_key_down", &Input::IsKeyDown);
+			inputTable.set_function("is_mouse_button_down", &Input::IsMouseButtonDown);
+
+			inputTable.set_function("get_mouse_x", &Input::GetMouseX);
+			inputTable.set_function("get_mouse_y", &Input::GetMouseY);
+			inputTable.set_function("get_mouse_delta_x", &Input::GetMouseDeltaX);
+			inputTable.set_function("get_mouse_delta_y", &Input::GetMouseDeltaY);
+		}
+
+	private:
+		static inline sol::state s_Lua;
+	};
 }

@@ -474,8 +474,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 	const auto& outputs = renderer->Render(
 		[&](RenderGraph* graph) -> const std::vector<DescriptorBindingValue>
 		{
-			uint32_t textureWidth = settings.Display.Width;
-			uint32_t textureHeight = settings.Display.Height;
+			uint32_t textureWidth = static_cast<uint32_t>(settings.Display.Width);
+			uint32_t textureHeight = static_cast<uint32_t>(settings.Display.Height);
 
 			auto gBufferPosition = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
 			auto gBufferNormal = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
@@ -1050,7 +1050,7 @@ void DefaultRenderer::UploadBones(Scene* scene, std::vector<glm::mat4>& bones, s
 			if (!m.Skeleton)
 				return;
 
-			boneBaseIndices.push_back(bones.size());
+			boneBaseIndices.push_back(static_cast<uint32_t>(bones.size()));
 			bones.insert(bones.begin(), m.Bones.begin(), m.Bones.end());
 		});
 }
