@@ -22,496 +22,518 @@ using json = nlohmann::json;
 
 namespace Hydrogen
 {
-	namespace fs = std::filesystem;
+    namespace fs = std::filesystem;
 
-	class Asset
-	{
-	public:
-		explicit Asset(std::string path, json config) : m_Filepath(std::move(path)), m_Config(config) {}
-		virtual ~Asset() = default;
+    class Asset
+    {
+    public:
+        explicit Asset(std::string path, json config) : m_Filepath(std::move(path)), m_Config(config) {}
+        virtual ~Asset() = default;
 
-		virtual void LoadCache(std::string cachePath) = 0;
-		virtual void Cache() = 0;
+        virtual void LoadCache(std::string cachePath) = 0;
+        virtual void Cache() = 0;
 
-		std::string GetPath() { return m_Filepath; }
+        std::string GetPath() const { return m_Filepath; }
 
-	protected:
-		std::string m_Filepath;
-		json m_Config;
-	};
+    protected:
+        std::string m_Filepath;
+        json m_Config;
+    };
 
-	class ShaderAsset : public Asset
-	{
-	public:
-		ShaderAsset(std::string path, json config) : Asset(path, config)
-		{
-			std::ifstream fin(path);
-			std::stringstream buffer;
-			buffer << fin.rdbuf();
-			m_Content = std::move(buffer.str());
-			fin.close();
-		}
+    class ShaderAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Shader"; }
 
-		~ShaderAsset() = default;
+        ShaderAsset(std::string path, json config) : Asset(path, config)
+        {
+            std::ifstream fin(path);
+            std::stringstream buffer;
+            buffer << fin.rdbuf();
+            m_Content = std::move(buffer.str());
+            fin.close();
+        }
 
-		void LoadCache(std::string cachePath) override
-		{
-			HY_ENGINE_INFO("Using cached version for {}", m_Filepath);
+        ~ShaderAsset() = default;
 
-			std::ifstream fin(cachePath, std::ios::binary | std::ios::ate);
-			HY_ASSERT(fin, "Failed to open file '{}'", cachePath);
+        void LoadCache(std::string cachePath) override
+        {
+            HY_ENGINE_INFO("Using cached version for {}", m_Filepath);
 
-			std::streamsize fileSize = fin.tellg();
-			HY_ASSERT(fileSize % sizeof(uint32_t) == 0, "File size is not a multiple of uint32_t");
+            std::ifstream fin(cachePath, std::ios::binary | std::ios::ate);
+            HY_ASSERT(fin, "Failed to open file '{}'", cachePath);
 
-			fin.seekg(0, std::ios::beg);
+            std::streamsize fileSize = fin.tellg();
+            HY_ASSERT(fileSize % sizeof(uint32_t) == 0, "File size is not a multiple of uint32_t");
 
-			m_ByteCode = std::vector<uint32_t>(fileSize / sizeof(uint32_t));
-			fin.read(reinterpret_cast<char*>(m_ByteCode.data()), fileSize);
+            fin.seekg(0, std::ios::beg);
 
-			HY_ASSERT(fin, "Error reading file '{}'", cachePath);
-			fin.close();
-		}
+            m_ByteCode = std::vector<uint32_t>(fileSize / sizeof(uint32_t));
+            fin.read(reinterpret_cast<char*>(m_ByteCode.data()), fileSize);
 
-		void Cache() override
-		{
-			HY_ENGINE_INFO("Caching version for {}", m_Filepath);
+            HY_ASSERT(fin, "Error reading file '{}'", cachePath);
+            fin.close();
+        }
 
-			std::string cachePath = "Caches/" + m_Filepath + ".hycache";
-			std::filesystem::create_directories(std::filesystem::path(cachePath).parent_path());
+        void Cache() override
+        {
+            HY_ENGINE_INFO("Caching version for {}", m_Filepath);
 
-			std::ofstream fout(cachePath, std::ios::binary);
-			fout.write((char*)m_ByteCode.data(), m_ByteCode.size() * sizeof(uint32_t));
-			fout.close();
-		}
-		
-		void Compile();
-		const std::vector<uint32_t>& GetByteCode() const { return m_ByteCode; }
+            std::string cachePath = "Caches/" + m_Filepath + ".hycache";
+            std::filesystem::create_directories(std::filesystem::path(cachePath).parent_path());
 
-		std::string GetContent() { return m_Content; }
+            std::ofstream fout(cachePath, std::ios::binary);
+            fout.write((char*)m_ByteCode.data(), m_ByteCode.size() * sizeof(uint32_t));
+            fout.close();
+        }
 
-	private:
-		std::string m_Content;
-		std::vector<uint32_t> m_ByteCode;
-	};
+        void Compile();
+        const std::vector<uint32_t>& GetByteCode() const { return m_ByteCode; }
 
-	class TextureAsset : public Asset
-	{
-	public:
-		TextureAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			Parse(path);
-		}
+        std::string GetContent() const { return m_Content; }
 
-		~TextureAsset() = default;
+    private:
+        std::string m_Content;
+        std::vector<uint32_t> m_ByteCode;
+    };
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+    class TextureAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Texture"; }
 
-		void Cache() override
-		{
-		}
+        TextureAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            Parse(path);
+        }
 
-		const uint32_t GetWidth() const { return m_Width; }
-		const uint32_t GetHeight() const { return m_Height; }
-		const uint8_t GetChannels() const { return m_Channels; }
-		const std::vector<uint32_t>& GetImageData() const { return m_Image; }
+        ~TextureAsset() = default;
 
-		const Texture* GetTexture(RenderDevice* device);
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-	private:
-		void Parse(std::string path);
+        uint32_t GetWidth() const { return m_Width; }
+        uint32_t GetHeight() const { return m_Height; }
+        uint8_t GetChannels() const { return m_Channels; }
+        const std::vector<uint32_t>& GetImageData() const { return m_Image; }
 
-		uint32_t m_Width, m_Height;
-		uint8_t m_Channels;
+        const Texture* GetTexture(RenderDevice* device);
 
-		std::vector<uint32_t> m_Image;
+    private:
+        void Parse(std::string path);
 
-		std::unique_ptr<Texture> m_Texture = nullptr;
-	};
+        uint32_t m_Width = 0, m_Height = 0;
+        uint8_t m_Channels = 0;
 
-	class CubeMapAsset : public Asset
-	{
-	public:
-		CubeMapAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			Parse(path);
-		}
+        std::vector<uint32_t> m_Image;
+        std::unique_ptr<Texture> m_Texture = nullptr;
+    };
 
-		~CubeMapAsset() = default;
+    class CubeMapAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "CubeMap"; }
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+        CubeMapAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            Parse(path);
+        }
 
-		void Cache() override
-		{
-		}
+        ~CubeMapAsset() = default;
 
-		const uint32_t GetWidth() const { return m_Width; }
-		const uint32_t GetHeight() const { return m_Height; }
-		const uint8_t GetChannels() const { return m_Channels; }
-		const Texture* GetCubeMap();
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		void Parse(std::string path);
+        uint32_t GetWidth() const { return m_Width; }
+        uint32_t GetHeight() const { return m_Height; }
+        uint8_t GetChannels() const { return m_Channels; }
+        const Texture* GetCubeMap();
 
-	private:
-		uint32_t m_Width, m_Height;
-		uint8_t m_Channels;
+        void Parse(std::string path);
 
-		std::vector<uint32_t> m_CubeData;
-		std::unique_ptr<Texture> m_CubeMap;
-	};
+    private:
+        uint32_t m_Width = 0, m_Height = 0;
+        uint8_t m_Channels = 0;
+
+        std::vector<uint32_t> m_CubeData;
+        std::unique_ptr<Texture> m_CubeMap;
+    };
 
 #pragma pack(push, 1)
-	struct StaticVertex
-	{
-		glm::vec3 Position;
-		glm::vec2 UV;
-		glm::vec3 Normal;
-		glm::vec3 Tangent;
-	};
+    struct StaticVertex
+    {
+        glm::vec3 Position;
+        glm::vec2 UV;
+        glm::vec3 Normal;
+        glm::vec3 Tangent;
+    };
 
-	struct SkinnedVertex
-	{
-		glm::vec3 Position;
-		glm::vec2 UV;
-		glm::vec3 Normal;
-		glm::vec3 Tangent;
-		glm::ivec4 BoneIDs = glm::ivec4(-1);
-		glm::vec4 Weights = glm::vec4(0.0f);
-	};
+    struct SkinnedVertex
+    {
+        glm::vec3 Position;
+        glm::vec2 UV;
+        glm::vec3 Normal;
+        glm::vec3 Tangent;
+        glm::ivec4 BoneIDs = glm::ivec4(-1);
+        glm::vec4 Weights = glm::vec4(0.0f);
+    };
 
-	struct Joint
-	{
-		std::string Name;
-		int ParentIndex = -1;
-		glm::mat4 InverseBindMatrix;
-	};
+    struct Joint
+    {
+        std::string Name;
+        int ParentIndex = -1;
+        glm::mat4 InverseBindMatrix;
+    };
 
-	struct VectorKey { float Time; glm::vec3 Value; };
-	struct QuatKey { float Time; glm::quat Value; };
+    struct VectorKey { float Time; glm::vec3 Value; };
+    struct QuatKey { float Time; glm::quat Value; };
 
-	struct BoneChannel
-	{
-		std::string BoneName;
-		std::vector<VectorKey> PositionKeys;
-		std::vector<QuatKey>   RotationKeys;
-		std::vector<VectorKey> ScaleKeys;
-	};
+    struct BoneChannel
+    {
+        std::string BoneName;
+        std::vector<VectorKey> PositionKeys;
+        std::vector<QuatKey>   RotationKeys;
+        std::vector<VectorKey> ScaleKeys;
+    };
 #pragma pack(pop)
 
-	class SkeletonAsset : public Asset
-	{
-	public:
-		SkeletonAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			ReadAssetFile(path);
-		}
-	
-		~SkeletonAsset() = default;
-	
-		void LoadCache(std::string cachePath) override
-		{
-		}
-	
-		void Cache() override
-		{
-		}
-	
-		const std::vector<Joint>& GetJoints() const { return m_Joints; }
-		int FindJointIndex(const std::string& name) const;
-	
-		void WriteAssetFile(const std::string& path);
-		void ReadAssetFile(const std::string& path);
-	
-	private:
-		std::vector<Joint> m_Joints;
-	};
+    class SkeletonAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Skeleton"; }
 
-	class StaticMeshAsset : public Asset
-	{
-	public:
-		StaticMeshAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			ReadAssetFile(path);
-		}
+        SkeletonAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            ReadAssetFile(path);
+        }
 
-		~StaticMeshAsset() = default;
+        ~SkeletonAsset() = default;
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		void Cache() override
-		{
-		}
+        const std::vector<Joint>& GetJoints() const { return m_Joints; }
+        int FindJointIndex(const std::string& name) const;
 
-		uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
+        void WriteAssetFile(const std::string& path);
+        void ReadAssetFile(const std::string& path);
 
-		RenderBuffer* GetVertexBuffer();
-		RenderBuffer* GetIndexBuffer();
+    private:
+        std::vector<Joint> m_Joints;
+    };
 
-		void WriteAssetFile(const std::string& path);
-		void ReadAssetFile(const std::string& path);
+    class StaticMeshAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "StaticMesh"; }
 
-	private:
-		std::vector<StaticVertex> m_Vertices;
-		std::vector<uint32_t> m_Indices;
+        StaticMeshAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            ReadAssetFile(path);
+        }
 
-		std::unique_ptr<RenderBuffer> m_VertexBuffer;
-		std::unique_ptr<RenderBuffer> m_IndexBuffer;
-	};
+        ~StaticMeshAsset() = default;
 
-	class SkeletalMeshAsset : public Asset
-	{
-	public:
-		SkeletalMeshAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			ReadAssetFile(path);
-		}
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		~SkeletalMeshAsset() = default;
+        uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+        RenderBuffer* GetVertexBuffer();
+        RenderBuffer* GetIndexBuffer();
 
-		void Cache() override
-		{
-		}
+        void WriteAssetFile(const std::string& path);
+        void ReadAssetFile(const std::string& path);
 
-		uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
+    private:
+        std::vector<StaticVertex> m_Vertices;
+        std::vector<uint32_t> m_Indices;
 
-		RenderBuffer* GetVertexBuffer();
-		RenderBuffer* GetIndexBuffer();
+        std::unique_ptr<RenderBuffer> m_VertexBuffer;
+        std::unique_ptr<RenderBuffer> m_IndexBuffer;
+    };
 
-		void WriteAssetFile(const std::string& path);
-		void ReadAssetFile(const std::string& path);
+    class SkeletalMeshAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "SkeletalMesh"; }
 
-	private:
-		std::vector<SkinnedVertex> m_Vertices;
-		std::vector<uint32_t> m_Indices;
+        SkeletalMeshAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            ReadAssetFile(path);
+        }
 
-		std::unique_ptr<RenderBuffer> m_VertexBuffer;
-		std::unique_ptr<RenderBuffer> m_IndexBuffer;
-	};
+        ~SkeletalMeshAsset() = default;
 
-	class AnimationAsset : public Asset
-	{
-	public:
-		AnimationAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			ReadAssetFile(path);
-		}
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		~AnimationAsset() = default;
+        uint32_t GetIndexCount() const { return static_cast<uint32_t>(m_Indices.size()); }
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+        RenderBuffer* GetVertexBuffer();
+        RenderBuffer* GetIndexBuffer();
 
-		void Cache() override
-		{
-		}
+        void WriteAssetFile(const std::string& path);
+        void ReadAssetFile(const std::string& path);
 
-		float GetDuration() const { return m_Duration; }
-		float GetTicksPerSecond() const { return m_TicksPerSecond; }
-		const std::vector<BoneChannel>& GetChannels() const { return m_Channels; }
+    private:
+        std::vector<SkinnedVertex> m_Vertices;
+        std::vector<uint32_t> m_Indices;
 
-		void WriteAssetFile(const std::string& path);
-		void ReadAssetFile(const std::string& path);
+        std::unique_ptr<RenderBuffer> m_VertexBuffer;
+        std::unique_ptr<RenderBuffer> m_IndexBuffer;
+    };
 
-	private:
-		float m_Duration = 0.0f;
-		float m_TicksPerSecond = 0.0f;
-		std::vector<BoneChannel> m_Channels;
-	};
+    class AnimationAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Animation"; }
 
-	class ScriptAsset : public Asset
-	{
-	public:
-		ScriptAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			std::ifstream fin(path);
-			std::stringstream buffer;
-			buffer << fin.rdbuf();
-			m_Content = std::move(buffer.str());
-			fin.close();
-		}
+        AnimationAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            ReadAssetFile(path);
+        }
 
-		~ScriptAsset() = default;
+        ~AnimationAsset() = default;
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		void Cache() override
-		{
-		}
+        float GetDuration() const { return m_Duration; }
+        float GetTicksPerSecond() const { return m_TicksPerSecond; }
+        const std::vector<BoneChannel>& GetChannels() const { return m_Channels; }
 
-		const std::string& GetContent() const { return m_Content; }
+        void WriteAssetFile(const std::string& path);
+        void ReadAssetFile(const std::string& path);
 
-	private:
-		std::string m_Content;
-	};
+    private:
+        float m_Duration = 0.0f;
+        float m_TicksPerSecond = 0.0f;
+        std::vector<BoneChannel> m_Channels;
+    };
 
-	class SceneAsset : public Asset
-	{
-	public:
-		SceneAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			std::ifstream fin(path);
-			std::stringstream buffer;
-			buffer << fin.rdbuf();
-			m_Content = std::move(buffer.str());
-			fin.close();
+    class ScriptAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Script"; }
 
-			if (m_Content.empty())
-			{
-				m_Content = "{}";
-			}
-		}
+        ScriptAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            std::ifstream fin(path);
+            std::stringstream buffer;
+            buffer << fin.rdbuf();
+            m_Content = std::move(buffer.str());
+            fin.close();
+        }
 
-		~SceneAsset() = default;
+        ~ScriptAsset() = default;
 
-		void Load(class AssetManager* assetManager);
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+        const std::string& GetContent() const { return m_Content; }
 
-		void Cache() override
-		{
-		}
+    private:
+        std::string m_Content;
+    };
 
-		void Save() const;
-		void ClearScene();
+    class SceneAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Scene"; }
 
-		class Scene* GetScene() { return m_Scene.get(); }
+        SceneAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            std::ifstream fin(path);
+            std::stringstream buffer;
+            buffer << fin.rdbuf();
+            m_Content = std::move(buffer.str());
+            fin.close();
 
-	private:
-		std::string m_Content;
-		class std::shared_ptr<class Scene> m_Scene;
-	};
+            if (m_Content.empty())
+            {
+                m_Content = "{}";
+            }
+        }
 
-	class MaterialAsset : public Asset
-	{
-	public:
-		MaterialAsset(std::string path, json config)
-			: Asset(path, config)
-		{
-			std::ifstream fin(path);
-			std::stringstream buffer;
-			buffer << fin.rdbuf();
-			m_Content = std::move(buffer.str());
-			fin.close();
+        ~SceneAsset() = default;
 
-			if (m_Content.empty())
-			{
-				m_Content = "{}";
-			}
+        void Load(class AssetManager* assetManager);
 
-			Parse();
-		}
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		~MaterialAsset() = default;
+        void Save() const;
+        void ClearScene();
 
-		void Parse();
-		void Save() const;
+        class Scene* GetScene() { return m_Scene.get(); }
 
-		void LoadCache(std::string cachePath) override
-		{
-		}
+    private:
+        std::string m_Content;
+        std::shared_ptr<class Scene> m_Scene;
+    };
 
-		void Cache() override
-		{
-		}
+    class MaterialAsset : public Asset
+    {
+    public:
+        static constexpr const char* GetStaticName() { return "Material"; }
 
-		std::shared_ptr<TextureAsset> GetAlbedoMap();
-		std::shared_ptr<TextureAsset> GetNormalMap();
-		std::shared_ptr<TextureAsset> GetORMMap();
-		std::shared_ptr<TextureAsset> GetEmissiveMap();
+        MaterialAsset(std::string path, json config)
+            : Asset(path, config)
+        {
+            std::ifstream fin(path);
+            std::stringstream buffer;
+            buffer << fin.rdbuf();
+            m_Content = std::move(buffer.str());
+            fin.close();
 
-		void SetAlbedoMap(const std::shared_ptr<TextureAsset>& albedo) { m_AlbedoMapFilename = std::filesystem::path(albedo->GetPath()).filename().string(); m_AlbedoMap = albedo; }
-		void SetNormalMap(const std::shared_ptr<TextureAsset>& normal) { m_NormalMapFilename = std::filesystem::path(normal->GetPath()).filename().string(); m_NormalMap = normal; }
-		void SetORMMap(const std::shared_ptr<TextureAsset>& orm) { m_ORMMapFilename = std::filesystem::path(orm->GetPath()).filename().string(); m_ORMMap = orm; }
-		void SetEmissiveMap(const std::shared_ptr<TextureAsset>& emissive) { m_EmissiveMapFilename = std::filesystem::path(emissive->GetPath()).filename().string(); m_EmissiveMap = emissive; }
+            if (m_Content.empty())
+            {
+                m_Content = "{}";
+            }
 
-		glm::vec3 GetTint() const { return m_Tint; }
-		float GetRoughnessFactor() const { return m_RoughnessFactor; }
-		float GetMetallicFactor() const { return m_MetallicFactor; }
-		glm::vec4 GetEmissive() const { return m_Emissive; }
+            Parse();
+        }
 
-		void SetTint(glm::vec3 tint) { m_Tint = tint; }
-		void SetRoughnessFactor(float roughness) { m_RoughnessFactor = roughness; }
-		void SetMetallicFactor(float metallic) { m_MetallicFactor=  metallic; }
-		void SetEmissive(glm::vec4 emissive) { m_Emissive = emissive; }
+        ~MaterialAsset() = default;
 
-	private:
-		std::string m_Content;
-		
-		std::string m_AlbedoMapFilename;
-		std::string m_NormalMapFilename;
-		std::string m_ORMMapFilename;
-		std::string m_EmissiveMapFilename;
+        void Parse();
+        void Save() const;
 
-		glm::vec3 m_Tint;
-		float m_RoughnessFactor;
-		float m_MetallicFactor;
+        void LoadCache(std::string cachePath) override {}
+        void Cache() override {}
 
-		glm::vec4 m_Emissive; // a = intesity scalar
+        std::shared_ptr<TextureAsset> GetAlbedoMap();
+        std::shared_ptr<TextureAsset> GetNormalMap();
+        std::shared_ptr<TextureAsset> GetORMMap();
+        std::shared_ptr<TextureAsset> GetEmissiveMap();
 
-		std::shared_ptr<TextureAsset> m_AlbedoMap;
-		std::shared_ptr<TextureAsset> m_NormalMap;
-		std::shared_ptr<TextureAsset> m_ORMMap;
-		std::shared_ptr<TextureAsset> m_EmissiveMap;
-	};
+        void SetAlbedoMap(const std::shared_ptr<TextureAsset>& albedo)
+        {
+            m_AlbedoMap = albedo;
+            m_AlbedoMapFilename = albedo ? std::filesystem::path(albedo->GetPath()).filename().string() : "";
+        }
 
-	class AssetManager
-	{
-	public:
-		void LoadAssets(const std::string& directory);
+        void SetNormalMap(const std::shared_ptr<TextureAsset>& normal)
+        {
+            m_NormalMap = normal;
+            m_NormalMapFilename = normal ? std::filesystem::path(normal->GetPath()).filename().string() : "";
+        }
 
-		std::string& GetAssetDirectory() { return m_Directory; }
+        void SetORMMap(const std::shared_ptr<TextureAsset>& orm)
+        {
+            m_ORMMap = orm;
+            m_ORMMapFilename = orm ? std::filesystem::path(orm->GetPath()).filename().string() : "";
+        }
 
-		template<typename T>
-		std::shared_ptr<T> GetAsset(std::string name)
-		{
-			static_assert(std::is_base_of_v<Asset, T>);
+        void SetEmissiveMap(const std::shared_ptr<TextureAsset>& emissive)
+        {
+            m_EmissiveMap = emissive;
+            m_EmissiveMapFilename = emissive ? std::filesystem::path(emissive->GetPath()).filename().string() : "";
+        }
 
-			auto res = std::dynamic_pointer_cast<T>(m_Assets[name]);
-			if (res == nullptr)
-			{
-				LoadAssets(m_Directory);
-				res = std::dynamic_pointer_cast<T>(m_Assets[name]);
-				HY_ASSERT(res, "Failed to load asset '{}'", name);
-			}
+        glm::vec3 GetTint() const { return m_Tint; }
+        float GetRoughnessFactor() const { return m_RoughnessFactor; }
+        float GetMetallicFactor() const { return m_MetallicFactor; }
+        glm::vec4 GetEmissive() const { return m_Emissive; }
 
-			return res;
-		}
+        void SetTint(glm::vec3 tint) { m_Tint = tint; }
+        void SetRoughnessFactor(float roughness) { m_RoughnessFactor = roughness; }
+        void SetMetallicFactor(float metallic) { m_MetallicFactor = metallic; }
+        void SetEmissive(glm::vec4 emissive) { m_Emissive = emissive; }
 
-		void Clear()
-		{
-			for (auto& [_, asset] : m_Assets)
-			{
-				asset.reset();
-			}
-			m_Assets.clear();
-		}
+    private:
+        std::string m_Content;
 
-	private:
-		std::string m_Directory;
+        std::string m_AlbedoMapFilename;
+        std::string m_NormalMapFilename;
+        std::string m_ORMMapFilename;
+        std::string m_EmissiveMapFilename;
 
-		std::unordered_map<std::string, std::shared_ptr<Asset>> m_Assets;
-	};
+        glm::vec3 m_Tint{ 1.0f };
+        float m_RoughnessFactor = 1.0f;
+        float m_MetallicFactor = 0.0f;
+
+        glm::vec4 m_Emissive{ 0.0f };
+
+        std::shared_ptr<TextureAsset> m_AlbedoMap;
+        std::shared_ptr<TextureAsset> m_NormalMap;
+        std::shared_ptr<TextureAsset> m_ORMMap;
+        std::shared_ptr<TextureAsset> m_EmissiveMap;
+    };
+
+    class AssetManager
+    {
+    public:
+        void LoadAssets(const std::string& directory);
+
+        std::string& GetAssetDirectory() { return m_Directory; }
+
+        template<typename T>
+        std::shared_ptr<T> GetAsset(std::string name)
+        {
+            static_assert(std::is_base_of_v<Asset, T>);
+
+            auto res = std::dynamic_pointer_cast<T>(m_Assets[name]);
+            if (res == nullptr)
+            {
+                LoadAssets(m_Directory);
+                res = std::dynamic_pointer_cast<T>(m_Assets[name]);
+                HY_ASSERT(res, "Failed to load asset '{}'", name);
+            }
+
+            return res;
+        }
+
+        template<typename T>
+        std::shared_ptr<T> TryGetAsset(const std::string& name)
+        {
+            static_assert(std::is_base_of_v<Asset, T>);
+
+            auto it = m_Assets.find(name);
+            if (it != m_Assets.end())
+            {
+                return std::dynamic_pointer_cast<T>(it->second);
+            }
+
+            return nullptr;
+        }
+
+        template<typename T>
+        std::unordered_map<std::string, std::shared_ptr<T>> GetAllAssetsOfType()
+        {
+            static_assert(std::is_base_of_v<Asset, T>);
+
+            std::unordered_map<std::string, std::shared_ptr<T>> result;
+            for (const auto& [name, asset] : m_Assets)
+            {
+                if (auto casted = std::dynamic_pointer_cast<T>(asset))
+                {
+                    result[name] = casted;
+                }
+            }
+            return result;
+        }
+
+        void Clear()
+        {
+            for (auto& [_, asset] : m_Assets)
+            {
+                asset.reset();
+            }
+            m_Assets.clear();
+        }
+
+    private:
+        std::string m_Directory;
+        std::unordered_map<std::string, std::shared_ptr<Asset>> m_Assets;
+    };
 }

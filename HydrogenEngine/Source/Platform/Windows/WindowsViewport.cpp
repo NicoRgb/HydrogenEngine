@@ -111,7 +111,7 @@ WindowsViewport::~WindowsViewport()
 
 void WindowsViewport::Open()
 {
-	ShowWindow(m_hWnd, 1);
+	ShowWindow(m_hWnd, SW_MAXIMIZE);
 	m_IsOpen = true;
 }
 

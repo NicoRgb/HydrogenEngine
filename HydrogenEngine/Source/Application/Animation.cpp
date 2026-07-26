@@ -7,87 +7,11 @@ using namespace Hydrogen;
 
 SkeletalMeshRendererComponent::SkeletalMeshRendererComponent(Entity entity)
 {
-	Material = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>("DefaultMaterial.hymat");
 }
 
 const std::shared_ptr<class SkeletonAsset>& SkeletalMeshRendererComponent::GetSkeleton() const
 {
 	return Skeleton;
-}
-
-void SkeletalMeshRendererComponent::OnImGuiRender(SkeletalMeshRendererComponent& t)
-{
-	if (ImGui::TreeNode("Skeletal Mesh Renderer"))
-	{
-		if (t.SkeletalMesh)
-		{
-			ImGui::Text(t.SkeletalMesh->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<SkeletalMeshAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.SkeletalMesh = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.Material)
-		{
-			ImGui::Text(t.Material->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.Material = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.Skeleton)
-		{
-			ImGui::Text(t.Skeleton->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<SkeletonAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.Skeleton = asset;
-					t.Bones.resize(t.Skeleton->GetJoints().size());
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		ImGui::TreePop();
-	}
 }
 
 void SkeletalMeshRendererComponent::ToJson(json& j, const SkeletalMeshRendererComponent& t)
@@ -110,10 +34,6 @@ void SkeletalMeshRendererComponent::FromJson(const json& j, SkeletalMeshRenderer
 	if (!materialPath.empty())
 	{
 		t.Material = assetManager->GetAsset<MaterialAsset>(materialPath);
-	}
-	else
-	{
-		t.Material = assetManager->GetAsset<MaterialAsset>("DefaultMaterial.hymat");
 	}
 	if (!meshPath.empty())
 	{
@@ -285,37 +205,6 @@ void AnimatorComponent::UpdateAnimation(float dt)
 			globalTransforms[i] = globalTransforms[joint.ParentIndex] * localTransform;
 
 		bones[i] = globalTransforms[i] * joint.InverseBindMatrix;
-	}
-}
-
-void AnimatorComponent::OnImGuiRender(AnimatorComponent& a)
-{
-	if (ImGui::TreeNode("Animator"))
-	{
-		if (a.AnimationClip)
-		{
-			ImGui::Text(a.AnimationClip->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<AnimationAsset>(newPath.filename().string());
-				if (asset)
-				{
-					a.AnimationClip = asset;
-					a.CurrentTime = 0.0f;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		ImGui::TreePop();
 	}
 }
 

@@ -199,18 +199,6 @@ namespace Hydrogen
 
 		std::string Name;
 
-		static void OnImGuiRender(TagComponent& t)
-		{
-			char buffer[256];
-			memset(buffer, 0, sizeof(buffer));
-			std::strncpy(buffer, t.Name.c_str(), sizeof(buffer) - 1);
-
-			if (ImGui::InputText("Tag", buffer, sizeof(buffer)))
-			{
-				t.Name = std::string(buffer);
-			}
-		}
-
 		static void ToJson(json& j, const TagComponent& t)
 		{
 			j["name"] = t.Name;
@@ -278,26 +266,6 @@ namespace Hydrogen
 			glm::vec3 p, r, s;
 			TransformComponent::DecomposeTransform(Transform, p, r, s);
 			Transform = TransformComponent::RecomposeTransform(p, r, newScale);
-		}
-
-		static void OnImGuiRender(TransformComponent& transform)
-		{
-			if (ImGui::TreeNode("Transform"))
-			{
-				glm::vec3 translation, rotation, scale;
-				DecomposeTransform(transform.Transform, translation, rotation, scale);
-
-				bool changed = false;
-
-				changed |= ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.1f);
-				changed |= ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f);
-				changed |= ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f);
-
-				if (changed)
-					transform.Transform = RecomposeTransform(translation, rotation, scale);
-
-				ImGui::TreePop();
-			}
 		}
 
 		static void ToJson(json& j, const TransformComponent& t)
@@ -379,8 +347,6 @@ namespace Hydrogen
 		std::shared_ptr<StaticMeshAsset> Mesh;
 		std::shared_ptr<MaterialAsset> Material;
 
-		static void OnImGuiRender(MeshRendererComponent& t);
-
 		static void ToJson(json& j, const MeshRendererComponent& t)
 		{
 			j = json();
@@ -399,10 +365,6 @@ namespace Hydrogen
 			{
 				t.Material = assetManager->GetAsset<MaterialAsset>(materialPath);
 			}
-			else
-			{
-				t.Material = assetManager->GetAsset<MaterialAsset>("DefaultMaterial.hymat");
-			}
 			if (!meshPath.empty())
 			{
 				t.Mesh = assetManager->GetAsset<StaticMeshAsset>(meshPath);
@@ -419,17 +381,6 @@ namespace Hydrogen
 
 		glm::vec3 Color;
 		float Intensity;
-
-		static void OnImGuiRender(DirectionalLightComponent& t)
-		{
-			if (ImGui::TreeNode("DirectionalLight"))
-			{
-				ImGui::ColorPicker3("Color", glm::value_ptr(t.Color));
-				ImGui::TreePop();
-
-				ImGui::SliderFloat("Intensity", &t.Intensity, 0.0f, 10.0f);
-			}
-		}
 
 		static void ToJson(json& j, const DirectionalLightComponent& t)
 		{
@@ -460,18 +411,6 @@ namespace Hydrogen
 		glm::vec3 Color;
 		float Intensity;
 		float Radius;
-
-		static void OnImGuiRender(PointLightComponent& t)
-		{
-			if (ImGui::TreeNode("PointLight"))
-			{
-				ImGui::ColorPicker3("Color", glm::value_ptr(t.Color));
-				ImGui::TreePop();
-
-				ImGui::SliderFloat("Intensity", &t.Intensity, 0.0f, 10.0f);
-				ImGui::SliderFloat("Radius", &t.Radius, 0.1f, 100.0f);
-			}
-		}
 
 		static void ToJson(json& j, const PointLightComponent& t)
 		{
@@ -505,8 +444,6 @@ namespace Hydrogen
 		std::shared_ptr<ScriptAsset> Script;
 		sol::environment Environment;
 		sol::load_result Chunk;
-
-		static void OnImGuiRender(ScriptComponent& s);
 
 		static void ToJson(json& j, const ScriptComponent& s)
 		{

@@ -252,3 +252,116 @@ private:
 
 	EventBus m_EventBus;
 };
+
+template<typename T>
+bool AssetPicker(const std::string& name, std::shared_ptr<T>& dest)
+{
+	static_assert(std::is_base_of_v<Hydrogen::Asset, T>);
+
+	bool valueChanged = false;
+	ImGui::PushID(name.c_str());
+
+	ImGui::Text("%s:", name.c_str());
+	ImGui::SameLine();
+
+	std::string assetName = dest ? std::filesystem::path(dest->GetPath()).filename().string() : "None";
+	std::string text = assetName + " (" + T::GetStaticName() + ")";
+
+	if (ImGui::Button(text.c_str(), ImVec2(180, 0)))
+	{
+		ImGui::OpenPopup("AssetPickerPopup");
+	}
+
+	if (ImGui::BeginDragDropTarget())
+	{
+		const ImGuiPayload* payload = ImGui::GetDragDropPayload();
+		if (payload && payload->IsDataType("ASSET_FILE"))
+		{
+			std::string droppedPathStr = (const char*)payload->Data;
+			std::filesystem::path droppedPath(droppedPathStr);
+
+			auto& assetMgr = Hydrogen::Application::Get()->MainAssetManager;
+
+			std::shared_ptr<T> candidateAsset = assetMgr.TryGetAsset<T>(droppedPath.filename().string());
+			bool isValid = (candidateAsset != nullptr);
+
+			if (!isValid)
+			{
+				ImGui::SetTooltip("Invalid asset type! Expected %s", T::GetStaticName());
+			}
+
+			if (const ImGuiPayload* acceptedPayload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+			{
+				if (isValid)
+				{
+					dest = candidateAsset;
+					valueChanged = true;
+				}
+				else
+				{
+					ImGui::OpenPopup("AssetErrorPopup");
+				}
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
+
+	if (dest)
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("X##Clear"))
+		{
+			dest = nullptr;
+			valueChanged = true;
+		}
+	}
+
+	if (ImGui::BeginPopup("AssetErrorPopup"))
+	{
+		ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Failed to assign asset!");
+		ImGui::Text("The dropped file does not match the required asset type.");
+		ImGui::EndPopup();
+	}
+
+	if (ImGui::BeginPopup("AssetPickerPopup"))
+	{
+		static ImGuiTextFilter filter;
+		filter.Draw("Search...", 180.0f);
+		ImGui::Separator();
+
+		if (ImGui::Selectable("None", dest == nullptr))
+		{
+			dest = nullptr;
+			valueChanged = true;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::Separator();
+
+		auto availableAssets = Hydrogen::Application::Get()->MainAssetManager.GetAllAssetsOfType<T>();
+
+		for (const auto& [assetName, assetPtr] : availableAssets)
+		{
+			if (filter.PassFilter(assetName.c_str()))
+			{
+				bool isSelected = (dest == assetPtr);
+				if (ImGui::Selectable(assetName.c_str(), isSelected))
+				{
+					dest = assetPtr;
+					valueChanged = true;
+					ImGui::CloseCurrentPopup();
+				}
+
+				if (isSelected)
+				{
+					ImGui::SetItemDefaultFocus();
+				}
+			}
+		}
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopID();
+
+	return valueChanged;
+}

@@ -17,30 +17,7 @@ void GraphicsSettingsPanel::OnImGuiRender()
 
 	ImGui::TextDisabled("RENDERING");
 
-	ImGui::Text("Skybox:");
-	ImGui::SameLine();
-
-	if (m_RenderSettings.Rendering.Skybox)
-	{
-		ImGui::Text(std::filesystem::path(m_RenderSettings.Rendering.Skybox->GetPath()).filename().string().c_str());
-	}
-	else
-	{
-		ImGui::Text("NULL");
-	}
-	if (ImGui::BeginDragDropTarget())
-	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-		{
-			std::filesystem::path newPath((const char*)payload->Data);
-			auto asset = Application::Get()->MainAssetManager.GetAsset<CubeMapAsset>(newPath.filename().string());
-			if (asset)
-			{
-				m_RenderSettings.Rendering.Skybox = asset;
-			}
-		}
-		ImGui::EndDragDropTarget();
-	}
+	AssetPicker("Skybox", m_RenderSettings.Rendering.Skybox);
 
 	ImGui::Spacing();
 	ImGui::Separator();

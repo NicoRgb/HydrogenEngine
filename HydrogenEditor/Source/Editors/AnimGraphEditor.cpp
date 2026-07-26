@@ -389,7 +389,7 @@ void AnimGraphEditor::DrawNodeCanvas()
 		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
 		{
 			std::filesystem::path newPath((const char*)payload->Data);
-			auto asset = Application::Get()->MainAssetManager.GetAsset<AnimationAsset>(newPath.filename().string());
+			auto asset = Application::Get()->MainAssetManager.TryGetAsset<AnimationAsset>(newPath.filename().string());
 			if (asset)
 			{
 				CreateNewState("New State", asset);
@@ -413,27 +413,7 @@ void AnimGraphEditor::DrawInspectorSidebar()
 				ImGui::Text("State: %s", state.Name.c_str());
 				if (ImGui::InputText("Name", &state.Name)) m_IsDirty = true;
 
-				if (state.AnimationClip)
-				{
-					ImGui::Text(std::filesystem::path(state.AnimationClip->GetPath()).filename().string().c_str());
-				}
-				else
-				{
-					ImGui::Text("NULL");
-				}
-				if (ImGui::BeginDragDropTarget())
-				{
-					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-					{
-						std::filesystem::path newPath((const char*)payload->Data);
-						auto asset = Application::Get()->MainAssetManager.GetAsset<AnimationAsset>(newPath.filename().string());
-						if (asset)
-						{
-							state.AnimationClip = asset;
-						}
-					}
-					ImGui::EndDragDropTarget();
-				}
+				AssetPicker("Animation Clip", state.AnimationClip);
 
 				if (ImGui::DragFloat("Speed", &state.PlaybackSpeed, 0.05f, 0.0f, 10.0f)) m_IsDirty = true;
 

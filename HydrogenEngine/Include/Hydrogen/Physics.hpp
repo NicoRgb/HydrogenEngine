@@ -49,76 +49,6 @@ namespace Hydrogen
 			Rigidbody->applyLocalTorque({ torque.x, torque.y, torque.z });
 		}
 
-		static void OnImGuiRender(RigidbodyComponent& r)
-		{
-			if (ImGui::TreeNode("Rigidbody"))
-			{
-				const char* types[] = { "Static", "Kinematic", "Dynamic" };
-				int currentIndex = 0;
-				switch (r.Rigidbody->getType())
-				{
-				case reactphysics3d::BodyType::STATIC:
-					currentIndex = 0;
-					break;
-				case reactphysics3d::BodyType::KINEMATIC:
-					currentIndex = 1;
-					break;
-				case reactphysics3d::BodyType::DYNAMIC:
-					currentIndex = 2;
-					break;
-				default:
-					break;
-				}
-
-				if (ImGui::Combo("Type", &currentIndex, types, IM_ARRAYSIZE(types)))
-				{
-					reactphysics3d::BodyType bodyType = reactphysics3d::BodyType::STATIC;
-					switch (currentIndex)
-					{
-					case 0:
-						bodyType = reactphysics3d::BodyType::STATIC;
-						break;
-					case 1:
-						bodyType = reactphysics3d::BodyType::KINEMATIC;
-						break;
-					case 2:
-						bodyType = reactphysics3d::BodyType::DYNAMIC;
-						break;
-					default:
-						break;
-					}
-
-					r.Rigidbody->setType(bodyType);
-				}
-
-				float mass = r.Rigidbody->getMass();
-				if (ImGui::InputFloat("Mass", &mass))
-				{
-					r.Rigidbody->setMass(mass);
-				}
-
-				float linearDampening = r.Rigidbody->getLinearDamping();
-				if (ImGui::InputFloat("Linear Dampening", &linearDampening))
-				{
-					r.Rigidbody->setLinearDamping(linearDampening);
-				}
-
-				float angularDampening = r.Rigidbody->getAngularDamping();
-				if (ImGui::InputFloat("Angular Dampening", &angularDampening))
-				{
-					r.Rigidbody->setAngularDamping(angularDampening);
-				}
-
-				bool gravity = r.Rigidbody->isGravityEnabled();
-				if (ImGui::Checkbox("Gravity", &gravity))
-				{
-					r.Rigidbody->enableGravity(gravity);
-				}
-
-				ImGui::TreePop();
-			}
-		}
-
 		static void ToJson(json& j, const RigidbodyComponent& rb)
 		{
 			int typeIndex = 0;
@@ -189,7 +119,6 @@ namespace Hydrogen
 		glm::vec3 Size = glm::vec3(1.0f);
 		float Radius = 1.0f;
 
-		static void OnImGuiRender(ColliderComponent& col);
 		static void ToJson(json& j, const ColliderComponent& col);
 		static void FromJson(const json& j, ColliderComponent& col, AssetManager* assetManager);
 	};

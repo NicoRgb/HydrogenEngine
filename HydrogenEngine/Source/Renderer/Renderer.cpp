@@ -537,6 +537,11 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					scene->IterateComponents<MeshRendererComponent>([&cmd, &albedoIndex, &normalIndex, &ORMIndex, &emissiveIndex, albedoOffset, normalOffset, ORMOffset, emissiveOffset]
 					(Entity e, MeshRendererComponent& mesh)
 						{
+							if (!mesh.Mesh || !mesh.Material)
+							{
+								return;
+							}
+
 							GeometryPassPushConstants pushConstants{};
 							pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
 
@@ -587,10 +592,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					scene->IterateComponents<SkeletalMeshRendererComponent>([&cmd, &albedoIndex, &normalIndex, &ORMIndex, &emissiveIndex, albedoOffset, normalOffset, ORMOffset, emissiveOffset, &boneBaseIndicesIndex, BoneBaseIndices]
 					(Entity e, SkeletalMeshRendererComponent& mesh)
 						{
-							if (!mesh.SkeletalMesh || !mesh.Skeleton)
+							if (!mesh.SkeletalMesh || !mesh.Skeleton || !mesh.Material)
 							{
-								if (mesh.Skeleton)
-									boneBaseIndicesIndex++;
 								return;
 							}
 
@@ -979,7 +982,7 @@ void DefaultRenderer::UploadMaterialTextures(Scene* scene, std::vector<const Tex
 	scene->IterateComponents<MeshRendererComponent>(
 		[&](Entity e, const MeshRendererComponent& m)
 		{
-			if (!m.Mesh)
+			if (!m.Mesh || !m.Material)
 				return;
 
 			auto albedo = m.Material->GetAlbedoMap();
@@ -1010,7 +1013,7 @@ void DefaultRenderer::UploadMaterialTextures(Scene* scene, std::vector<const Tex
 	scene->IterateComponents<SkeletalMeshRendererComponent>(
 		[&](Entity e, const SkeletalMeshRendererComponent& m)
 		{
-			if (!m.SkeletalMesh)
+			if (!m.SkeletalMesh || !m.Material || !m.Skeleton)
 				return;
 
 			auto albedo = m.Material->GetAlbedoMap();

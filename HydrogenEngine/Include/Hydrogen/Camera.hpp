@@ -64,20 +64,6 @@ namespace Hydrogen
 			Proj[1][1] *= -1;
 		}
 
-		static void OnImGuiRender(CameraComponent& c)
-		{
-			if (ImGui::TreeNode("Camera"))
-			{
-				ImGui::Checkbox("Active", &c.Active);
-
-				ImGui::DragFloat("Near Plane", &c.NearPlane, 0.1f);
-				ImGui::DragFloat("Far Plane", &c.FarPlane, 0.1f);
-				ImGui::DragFloat("FOV", &c.FOV, 0.1f);
-
-				ImGui::TreePop();
-			}
-		}
-
 		static void ToJson(json& j, const CameraComponent& c)
 		{
 			j["Active"] = c.Active;

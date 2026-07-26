@@ -12,20 +12,27 @@
 class AssetBrowserPanel : public EditorPanel
 {
 public:
-    virtual void OnAttach();
-    virtual void OnDetach();
+	void OnAttach() override;
+	void OnDetach() override;
 
-    virtual void OnUpdate(float deltaTime) {}
-    virtual void OnImGuiRender();
+	virtual void OnUpdate(float deltaTime) override {}
+	void OnImGuiRender() override;
 
-    virtual std::string GetTitle() const { return "Asset Browser"; }
+	virtual std::string GetTitle() const { return "Asset Browser"; }
 
-    virtual DockDirection GetDefaultDockDirection() const { return DockDirection::Bottom; }
-    virtual float GetDefaultDockSplitRatio() const { return 0.25f; }
+	virtual DockDirection GetDefaultDockDirection() const { return DockDirection::Bottom; }
+	virtual float GetDefaultDockSplitRatio() const { return 0.25f; }
 
 private:
-    std::filesystem::path m_AssetDirectory, m_CurrentDirectory;
+	void RenderDirectoryTree(const std::filesystem::path& directoryPath);
+	void RenderBreadcrumbs();
+	void StartRenaming(const std::filesystem::path& path);
 
-    bool showCreateFolderDialog = false, showCreateFileDialog = false;
-    char inputName[256] = "";
+	std::filesystem::path m_AssetDirectory;
+	std::filesystem::path m_CurrentDirectory;
+
+	float m_ThumbnailSize = 50.0f;
+
+	std::filesystem::path m_RenamingPath;
+	char m_RenameBuffer[256] = "";
 };

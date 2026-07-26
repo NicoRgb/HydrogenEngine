@@ -103,39 +103,6 @@ ColliderComponent::ColliderComponent(Entity entity)
 	CreateCollider(*this);
 }
 
-void ColliderComponent::OnImGuiRender(ColliderComponent& col)
-{
-	if (ImGui::TreeNode("Collider"))
-	{
-		const char* types[] = { "Box", "Sphere" };
-		int currentIndex = static_cast<int>(col.ColliderType);
-
-		if (ImGui::Combo("Type", &currentIndex, types, IM_ARRAYSIZE(types)))
-		{
-			col.ColliderType = static_cast<Type>(currentIndex);
-
-			col.CreateCollider(col);
-		}
-
-		if (col.ColliderType == Type::Box)
-		{
-			if (ImGui::DragFloat3("Size", glm::value_ptr(col.Size), 0.1f))
-			{
-				col.CreateCollider(col);
-			}
-		}
-		else if (col.ColliderType == Type::Sphere)
-		{
-			if (ImGui::DragFloat("Radius", &col.Radius, 0.1f))
-			{
-				col.CreateCollider(col);
-			}
-		}
-
-		ImGui::TreePop();
-	}
-}
-
 void ColliderComponent::ToJson(json& j, const ColliderComponent& col)
 {
 	j["type"] = static_cast<int>(col.ColliderType);

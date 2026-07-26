@@ -5,6 +5,9 @@
 using namespace Hydrogen;
 
 template<typename T>
+void DrawComponentUI(T& component);
+
+template<typename T>
 const char* GetComponentName()
 {
 	if constexpr (std::is_same_v<T, SkeletalMeshRendererComponent>) return "Skeletal Mesh Renderer";
@@ -43,7 +46,7 @@ static void DrawComponent(Entity entity)
 	}
 	
 	T& component = entity.GetComponent<T>();
-	T::OnImGuiRender(component);
+	DrawComponentUI<T>(component);
 }
 
 template<typename... Ts>
@@ -98,7 +101,6 @@ void InspectorPanel::OnImGuiRender()
 			auto e = m_SelectedEntity;
 			m_SelectedEntity = Entity();
 			e.Delete();
-			ImGui::End();
 			return;
 		}
 
@@ -112,5 +114,232 @@ void InspectorPanel::OnImGuiRender()
 	else
 	{
 		ImGui::Text("No entity selected");
+	}
+}
+
+template<>
+inline void DrawComponentUI<TagComponent>(TagComponent& comp)
+{
+	char buffer[256];
+	memset(buffer, 0, sizeof(buffer));
+	std::strncpy(buffer, comp.Name.c_str(), sizeof(buffer) - 1);
+
+	if (ImGui::InputText("Tag", buffer, sizeof(buffer)))
+	{
+		comp.Name = std::string(buffer);
+	}
+}
+
+template<>
+inline void DrawComponentUI<TransformComponent>(TransformComponent& comp)
+{
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
+	if (ImGui::TreeNodeEx("Transform", flags))
+	{
+		glm::vec3 translation, rotation, scale;
+		comp.DecomposeTransform(comp.Transform, translation, rotation, scale);
+
+		bool changed = false;
+
+		changed |= ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.1f);
+		changed |= ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f);
+		changed |= ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f);
+
+		if (changed)
+			comp.Transform = comp.RecomposeTransform(translation, rotation, scale);
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<MeshRendererComponent>(MeshRendererComponent& comp)
+{
+	if (ImGui::TreeNode("Mesh Renderer"))
+	{
+		AssetPicker("Static Mesh", comp.Mesh);
+		AssetPicker("Material", comp.Material);
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<DirectionalLightComponent>(DirectionalLightComponent& comp)
+{
+	if (ImGui::TreeNode("DirectionalLight"))
+	{
+		ImGui::ColorPicker3("Color", glm::value_ptr(comp.Color));
+		ImGui::SliderFloat("Intensity", &comp.Intensity, 0.0f, 10.0f);
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<PointLightComponent>(PointLightComponent& comp)
+{
+	if (ImGui::TreeNode("PointLight"))
+	{
+		ImGui::ColorPicker3("Color", glm::value_ptr(comp.Color));
+
+		ImGui::SliderFloat("Intensity", &comp.Intensity, 0.0f, 10.0f);
+		ImGui::SliderFloat("Radius", &comp.Radius, 0.1f, 100.0f);
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<ScriptComponent>(ScriptComponent& comp)
+{
+	if (ImGui::TreeNode("Script"))
+	{
+		AssetPicker("Script", comp.Script);
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<RigidbodyComponent>(RigidbodyComponent& comp)
+{
+	if (ImGui::TreeNode("Rigidbody"))
+	{
+		const char* types[] = { "Static", "Kinematic", "Dynamic" };
+		int currentIndex = 0;
+		switch (comp.Rigidbody->getType())
+		{
+		case reactphysics3d::BodyType::STATIC:
+			currentIndex = 0;
+			break;
+		case reactphysics3d::BodyType::KINEMATIC:
+			currentIndex = 1;
+			break;
+		case reactphysics3d::BodyType::DYNAMIC:
+			currentIndex = 2;
+			break;
+		default:
+			break;
+		}
+
+		if (ImGui::Combo("Type", &currentIndex, types, IM_ARRAYSIZE(types)))
+		{
+			reactphysics3d::BodyType bodyType = reactphysics3d::BodyType::STATIC;
+			switch (currentIndex)
+			{
+			case 0:
+				bodyType = reactphysics3d::BodyType::STATIC;
+				break;
+			case 1:
+				bodyType = reactphysics3d::BodyType::KINEMATIC;
+				break;
+			case 2:
+				bodyType = reactphysics3d::BodyType::DYNAMIC;
+				break;
+			default:
+				break;
+			}
+
+			comp.Rigidbody->setType(bodyType);
+		}
+
+		float mass = comp.Rigidbody->getMass();
+		if (ImGui::InputFloat("Mass", &mass))
+		{
+			comp.Rigidbody->setMass(mass);
+		}
+
+		float linearDampening = comp.Rigidbody->getLinearDamping();
+		if (ImGui::InputFloat("Linear Dampening", &linearDampening))
+		{
+			comp.Rigidbody->setLinearDamping(linearDampening);
+		}
+
+		float angularDampening = comp.Rigidbody->getAngularDamping();
+		if (ImGui::InputFloat("Angular Dampening", &angularDampening))
+		{
+			comp.Rigidbody->setAngularDamping(angularDampening);
+		}
+
+		bool gravity = comp.Rigidbody->isGravityEnabled();
+		if (ImGui::Checkbox("Gravity", &gravity))
+		{
+			comp.Rigidbody->enableGravity(gravity);
+		}
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<ColliderComponent>(ColliderComponent& comp)
+{
+	if (ImGui::TreeNode("Collider"))
+	{
+		const char* types[] = { "Box", "Sphere" };
+		int currentIndex = static_cast<int>(comp.ColliderType);
+
+		if (ImGui::Combo("Type", &currentIndex, types, IM_ARRAYSIZE(types)))
+		{
+			comp.ColliderType = static_cast<ColliderComponent::Type>(currentIndex);
+
+			comp.CreateCollider(comp);
+		}
+
+		if (comp.ColliderType == ColliderComponent::Type::Box)
+		{
+			if (ImGui::DragFloat3("Size", glm::value_ptr(comp.Size), 0.1f))
+			{
+				comp.CreateCollider(comp);
+			}
+		}
+		else if (comp.ColliderType == ColliderComponent::Type::Sphere)
+		{
+			if (ImGui::DragFloat("Radius", &comp.Radius, 0.1f))
+			{
+				comp.CreateCollider(comp);
+			}
+		}
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<SkeletalMeshRendererComponent>(SkeletalMeshRendererComponent& comp)
+{
+	if (ImGui::TreeNode("Skeletal Mesh Renderer"))
+	{
+		AssetPicker("Skeleton", comp.Skeleton);
+		AssetPicker("Skeletal Mesh", comp.SkeletalMesh);
+		AssetPicker("Material", comp.Material);
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<AnimatorComponent>(AnimatorComponent& comp)
+{
+	if (ImGui::TreeNode("Animator"))
+	{
+		AssetPicker("Animation Clip", comp.AnimationClip);
+
+		ImGui::TreePop();
+	}
+}
+
+template<>
+inline void DrawComponentUI<CameraComponent>(CameraComponent& comp)
+{
+	if (ImGui::TreeNode("Camera"))
+	{
+		ImGui::Checkbox("Active", &comp.Active);
+
+		ImGui::DragFloat("Near Plane", &comp.NearPlane, 0.1f);
+		ImGui::DragFloat("Far Plane", &comp.FarPlane, 0.1f);
+		ImGui::DragFloat("FOV", &comp.FOV, 0.1f);
+
+		ImGui::TreePop();
 	}
 }

@@ -20,7 +20,6 @@ namespace Hydrogen
 		std::vector<glm::mat4>& GetBones() { return Bones; }
 		const std::shared_ptr<class SkeletonAsset>& GetSkeleton() const;
 
-		static void OnImGuiRender(SkeletalMeshRendererComponent& t);
 		static void ToJson(json& j, const SkeletalMeshRendererComponent& t);
 		static void FromJson(const json& j, SkeletalMeshRendererComponent& t, class AssetManager* assetManager);
 	};
@@ -35,7 +34,6 @@ namespace Hydrogen
 		void LoadAnimation();
 		void UpdateAnimation(float dt);
 
-		static void OnImGuiRender(AnimatorComponent& a);
 		static void ToJson(json& j, const AnimatorComponent& a);
 		static void FromJson(const json& j, AnimatorComponent& a, class AssetManager* assetManager);
 

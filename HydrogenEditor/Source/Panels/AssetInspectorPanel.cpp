@@ -70,7 +70,8 @@ void AssetInspectorPanel::DrawFileConfig(std::filesystem::path path, json& j)
 	ImGui::Text("Type: %s", assetType.c_str());
 	ImGui::Unindent();
 
-	if (ImGui::TreeNode("Preferences"))
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
+	if (ImGui::TreeNodeEx("Preferences", flags))
 	{
 		if (assetType == "Shader")
 		{
@@ -123,6 +124,13 @@ void AssetInspectorPanel::DrawFileConfig(std::filesystem::path path, json& j)
 				ImGui::EndCombo();
 			}
 		}
+		else if (assetType == "Texture")
+		{
+			if (const auto& texture = Application::Get()->MainAssetManager.TryGetAsset<TextureAsset>(path.filename().string()))
+				ImGui::Image(TextureCache.GetTextureID(texture->GetTexture(Application::Get()->ActiveRenderDevice.get())->GetImageView(), m_MaterialPreviewRenderer->GetImguiSampler()), {256, 256});
+			else
+				ImGui::Text("Failed to load asset");
+		}
 		else if (assetType == "Material")
 		{
 			auto materialAsset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(path.filename().string());
@@ -133,124 +141,106 @@ void AssetInspectorPanel::DrawFileConfig(std::filesystem::path path, json& j)
 					mesh.Material = materialAsset;
 				});
 
+			bool dirty = false;
+
 			float metallic = materialAsset->GetMetallicFactor();
 			if (ImGui::SliderFloat("Metallic", &metallic, 0.0f, 1.0f))
+			{
 				materialAsset->SetMetallicFactor(metallic);
+				dirty = true;
+			}
 
 			float roughness = materialAsset->GetRoughnessFactor();
 			if (ImGui::SliderFloat("Roughness", &roughness, 0.0f, 1.0f))
+			{
 				materialAsset->SetRoughnessFactor(roughness);
+				dirty = true;
+			}
 
 			glm::vec3 tint = materialAsset->GetTint();
 			if (ImGui::ColorPicker3("Tint", glm::value_ptr(tint)))
+			{
 				materialAsset->SetTint(tint);
+				dirty = true;
+			}
 
-			glm::vec3 emissive = materialAsset->GetEmissive();
-			float emissiveStrength = materialAsset->GetEmissive().a;
-			if (ImGui::ColorPicker3("Emissive", glm::value_ptr(emissive)))
-				materialAsset->SetEmissive(glm::vec4(emissive, emissiveStrength));
+			glm::vec4 currentEmissive = materialAsset->GetEmissive();
+			glm::vec3 emissiveColor = glm::vec3(currentEmissive);
+			float emissiveStrength = currentEmissive.a;
+
+			if (ImGui::ColorPicker3("Emissive", glm::value_ptr(emissiveColor)))
+			{
+				materialAsset->SetEmissive(glm::vec4(emissiveColor, emissiveStrength));
+				dirty = true;
+			}
 
 			if (ImGui::SliderFloat("Emissive Strength", &emissiveStrength, 0.0f, 10.0f))
-				materialAsset->SetEmissive(glm::vec4(emissive, emissiveStrength));
-
-			auto albedo = materialAsset->GetAlbedoMap();
-			auto normal = materialAsset->GetNormalMap();
-			auto orm = materialAsset->GetORMMap();
-
-			ImGui::Text("Albedo Map");
-			if (albedo)
 			{
-				ImGui::Text(albedo->GetPath().c_str());
+				materialAsset->SetEmissive(glm::vec4(emissiveColor, emissiveStrength));
+				dirty = true;
 			}
-			else
+
+			std::shared_ptr<TextureAsset> albedoMap = materialAsset->GetAlbedoMap();
+			if (AssetPicker("Albedo Map", albedoMap))
 			{
-				ImGui::Text("NULL");
+				materialAsset->SetAlbedoMap(albedoMap);
+				dirty = true;
 			}
-			if (ImGui::BeginDragDropTarget())
+
+			std::shared_ptr<TextureAsset> normalMap = materialAsset->GetNormalMap();
+			if (AssetPicker("Normal Map", normalMap))
 			{
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
+				materialAsset->SetNormalMap(normalMap);
+				dirty = true;
+			}
+
+			std::shared_ptr<TextureAsset> ORMMap = materialAsset->GetORMMap();
+			if (AssetPicker("ORM Map", ORMMap))
+			{
+				materialAsset->SetORMMap(ORMMap);
+				dirty = true;
+			}
+
+			std::shared_ptr<TextureAsset> emissiveMap = materialAsset->GetEmissiveMap();
+			if (AssetPicker("Emissive Map", emissiveMap))
+			{
+				materialAsset->SetEmissiveMap(emissiveMap);
+				dirty = true;
+			}
+
+			if (dirty)
+			{
+				materialAsset->Save();
+			}
+
+			ImGui::Separator();
+
+			Entity activeCameraEntity;
+			m_MaterialPreviewScene->GetScene()->IterateComponents<CameraComponent>(
+				[&](Entity entity, CameraComponent& camera)
 				{
-					std::filesystem::path newPath((const char*)payload->Data);
-					auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
-					if (asset)
-					{
-						materialAsset->SetAlbedoMap(asset);
-					}
-				}
-				ImGui::EndDragDropTarget();
-			}
+					if (camera.Active)
+						activeCameraEntity = entity;
+				});
 
-			ImGui::Text("Normal Map");
-			if (normal)
+			if (activeCameraEntity.IsValid())
 			{
-				ImGui::Text(normal->GetPath().c_str());
+				RenderSettings renderSettings;
+				renderSettings.Display.Width = 256;
+				renderSettings.Display.Height = 256;
+				renderSettings.Display.RenderToSwapChain = false;
+
+				VkImageView finalImage =
+					DefaultRenderer::RenderSceneDeferred(
+						m_MaterialPreviewRenderer.get(),
+						renderSettings,
+						activeCameraEntity.GetComponent<CameraComponent>(),
+						activeCameraEntity.GetComponent<TransformComponent>().GetPosition(),
+						m_MaterialPreviewScene->GetScene()
+					).ImageView;
+
+				ImGui::Image(TextureCache.GetTextureID(finalImage, m_MaterialPreviewRenderer->GetImguiSampler()), { 256, 256 });
 			}
-			else
-			{
-				ImGui::Text("NULL");
-			}
-			if (ImGui::BeginDragDropTarget())
-			{
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-				{
-					std::filesystem::path newPath((const char*)payload->Data);
-					auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
-					if (asset)
-					{
-						materialAsset->SetNormalMap(asset);
-					}
-				}
-				ImGui::EndDragDropTarget();
-			}
-
-			ImGui::Text("ORM Map");
-			if (orm)
-			{
-				ImGui::Text(orm->GetPath().c_str());
-			}
-			else
-			{
-				ImGui::Text("NULL");
-			}
-			if (ImGui::BeginDragDropTarget())
-			{
-				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-				{
-					std::filesystem::path newPath((const char*)payload->Data);
-					auto asset = Application::Get()->MainAssetManager.GetAsset<TextureAsset>(newPath.filename().string());
-					if (asset)
-					{
-						materialAsset->SetORMMap(asset);
-					}
-				}
-				ImGui::EndDragDropTarget();
-			}
-
-			materialAsset->Save();
-		}
-
-		ImGui::Separator();
-
-		Entity activeCameraEntity;
-		m_MaterialPreviewScene->GetScene()->IterateComponents<CameraComponent>(
-			[&](Entity entity, CameraComponent& camera)
-			{
-				if (camera.Active)
-					activeCameraEntity = entity;
-			});
-
-		if (activeCameraEntity.IsValid())
-		{
-			RenderSettings renderSettings;
-			renderSettings.Display.Width = 256;
-			renderSettings.Display.Height = 256;
-			renderSettings.Display.RenderToSwapChain = false;
-
-			VkImageView finalImage =
-				DefaultRenderer::RenderSceneDeferred(m_MaterialPreviewRenderer.get(), renderSettings, activeCameraEntity.GetComponent<CameraComponent>(),
-					activeCameraEntity.GetComponent<TransformComponent>().GetPosition(), m_MaterialPreviewScene->GetScene()).ImageView;
-
-			ImGui::Image(TextureCache.GetTextureID(finalImage, m_MaterialPreviewRenderer->GetImguiSampler()), { 256, 256 });
 		}
 
 		ImGui::TreePop();

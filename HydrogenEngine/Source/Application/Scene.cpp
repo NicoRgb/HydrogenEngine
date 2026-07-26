@@ -93,59 +93,6 @@ void Entity::Delete()
 
 MeshRendererComponent::MeshRendererComponent(Entity entity)
 {
-	Material = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>("DefaultMaterial.hymat");
-}
-
-void MeshRendererComponent::OnImGuiRender(MeshRendererComponent& t)
-{
-	if (ImGui::TreeNode("Mesh Renderer"))
-	{
-		if (t.Mesh)
-		{
-			ImGui::Text(t.Mesh->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<StaticMeshAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.Mesh = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		if (t.Material)
-		{
-			ImGui::Text(t.Material->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<MaterialAsset>(newPath.filename().string());
-				if (asset)
-				{
-					t.Material = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-
-		ImGui::TreePop();
-	}
 }
 
 Scene::Scene()
@@ -324,33 +271,4 @@ UUIDComponent::UUIDComponent(Entity)
 UUIDComponent::UUIDComponent(Entity, uint64_t uuid)
 {
 	UUID = uuid;
-}
-
-void ScriptComponent::OnImGuiRender(ScriptComponent& s)
-{
-	if (ImGui::TreeNode("Script"))
-	{
-		if (s.Script)
-		{
-			ImGui::Text(s.Script->GetPath().c_str());
-		}
-		else
-		{
-			ImGui::Text("NULL");
-		}
-		if (ImGui::BeginDragDropTarget())
-		{
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_FILE"))
-			{
-				std::filesystem::path newPath((const char*)payload->Data);
-				auto asset = Application::Get()->MainAssetManager.GetAsset<ScriptAsset>(newPath.filename().string());
-				if (asset)
-				{
-					s.Script = asset;
-				}
-			}
-			ImGui::EndDragDropTarget();
-		}
-		ImGui::TreePop();
-	}
 }
