@@ -33,7 +33,7 @@ void GameViewportPanel::OnUpdate(float dt)
 	if (m_IsVisible && m_ViewportSize.x != 0 && m_ViewportSize.y != 0 && GetAndUpdateCamera(cameraEntity))
 	{
 		const auto& camera = cameraEntity.GetComponent<CameraComponent>();
-		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
+		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetTranslation();
 
 		m_RenderedScene = DefaultRenderer::RenderSceneDeferred(
 			m_Renderer.get(), Settings, camera, cameraPos, m_Scene

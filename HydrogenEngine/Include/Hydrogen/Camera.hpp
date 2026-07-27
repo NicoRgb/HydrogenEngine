@@ -32,23 +32,17 @@ namespace Hydrogen
 
 		virtual void CalculateView(Entity entity)
 		{
-			glm::mat4& transform = entity.GetComponent<TransformComponent>().Transform;
+			const auto& transform = entity.GetComponent<TransformComponent>();
 
-			glm::vec3 position, rotation, scale;
-			TransformComponent::DecomposeTransform(transform, position, rotation, scale);
+			glm::vec3 translation = transform.GetTranslation();
+			glm::quat rotation = transform.GetRotation();
 
-			glm::vec3 front;
-			front.x = cos(rotation.y) * cos(rotation.x);
-			front.y = sin(rotation.x);
-			front.z = sin(rotation.y) * cos(rotation.x);
-			front = glm::normalize(front);
-
-			glm::vec3 right = glm::normalize(glm::cross(front, glm::vec3(0.0f, 1.0f, 0.0f)));
-			glm::vec3 up = glm::normalize(glm::cross(right, front));
+			glm::vec3 front = rotation * glm::vec3(0.0f, 0.0f, -1.0f);
+			glm::vec3 up = rotation * glm::vec3(0.0f, 1.0f, 0.0f);
 
 			View = glm::lookAt(
-				position,
-				position + front,
+				translation,
+				translation + front,
 				up
 			);
 		}

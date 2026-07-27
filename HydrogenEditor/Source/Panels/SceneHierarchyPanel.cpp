@@ -57,12 +57,12 @@ static bool CheckCycle(Hydrogen::Scene* scene, uint64_t entityUUID, uint64_t tar
 	return false;
 }
 
-void DrawEntityNode(Entity entity, Scene* scene, uint64_t& selectedUUID)
+void SceneHierarchyPanel::DrawEntityNode(Entity entity)
 {
 	auto& tag = entity.GetComponent<TagComponent>();
 	auto* rel = entity.TryGetComponent<RelationshipComponent>();
 
-	bool selected = (selectedUUID == entity.GetUUID());
+	bool selected = (m_SelectedEntityUUID == entity.GetUUID());
 
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
 	if (selected)
@@ -72,7 +72,8 @@ void DrawEntityNode(Entity entity, Scene* scene, uint64_t& selectedUUID)
 
 	if (ImGui::IsItemClicked())
 	{
-		selectedUUID = entity.GetUUID();
+		m_SelectedEntityUUID = entity.GetUUID();
+		Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ entity });
 	}
 
 	if (ImGui::BeginDragDropSource())
@@ -89,9 +90,9 @@ void DrawEntityNode(Entity entity, Scene* scene, uint64_t& selectedUUID)
 		{
 			uint64_t droppedEntityUUID = *(const uint64_t*)payload->Data;
 
-			Entity droppedEntity = scene->GetEntityByUUID(droppedEntityUUID);
+			Entity droppedEntity = m_Scene->GetEntityByUUID(droppedEntityUUID);
 
-			if (droppedEntity.IsValid() && droppedEntity.GetUUID() != entity.GetUUID() && !CheckCycle(scene, droppedEntityUUID, entity.GetUUID()))
+			if (droppedEntity.IsValid() && droppedEntity.GetUUID() != entity.GetUUID() && !CheckCycle(m_Scene, droppedEntityUUID, entity.GetUUID()))
 			{
 				auto& droppedRel = droppedEntity.GetComponent<RelationshipComponent>();
 				droppedRel.ParentUUID = entity.GetUUID();
@@ -104,11 +105,11 @@ void DrawEntityNode(Entity entity, Scene* scene, uint64_t& selectedUUID)
 
 	if (opened)
 	{
-		scene->IterateComponents<RelationshipComponent>([&](Entity childEntity, const RelationshipComponent& childRel)
+		m_Scene->IterateComponents<RelationshipComponent>([&](Entity childEntity, const RelationshipComponent& childRel)
 			{
 				if (childRel.ParentUUID == entity.GetUUID())
 				{
-					DrawEntityNode(childEntity, scene, selectedUUID);
+					DrawEntityNode(childEntity);
 				}
 			});
 
@@ -116,11 +117,20 @@ void DrawEntityNode(Entity entity, Scene* scene, uint64_t& selectedUUID)
 	}
 }
 
-void DrawSceneHierarchyPanel(Scene* scene, uint64_t& m_SelectedEntityUUID)
+void SceneHierarchyPanel::DrawSceneHierarchyPanel(Scene* scene)
 {
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+	if (m_SelectedEntityUUID == 0)
+		flags |= ImGuiTreeNodeFlags_Selected;
+
 	if (ImGui::TreeNodeEx("Scene", flags))
 	{
+		if (ImGui::IsItemClicked())
+		{
+			m_SelectedEntityUUID = 0;
+			Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ Entity() });
+		}
+
 		if (ImGui::BeginDragDropTarget())
 		{
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_NODE"))
@@ -144,7 +154,7 @@ void DrawSceneHierarchyPanel(Scene* scene, uint64_t& m_SelectedEntityUUID)
 
 				if (isRoot)
 				{
-					DrawEntityNode(entity, scene, m_SelectedEntityUUID);
+					DrawEntityNode(entity);
 				}
 			});
 
@@ -166,5 +176,5 @@ void SceneHierarchyPanel::OnImGuiRender()
 
 	 ImGui::Separator();
 
-	 DrawSceneHierarchyPanel(m_Scene, m_SelectedEntityUUID);
+	 DrawSceneHierarchyPanel(m_Scene);
 }

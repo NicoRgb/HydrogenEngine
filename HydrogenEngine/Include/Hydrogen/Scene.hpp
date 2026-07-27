@@ -245,67 +245,64 @@ namespace Hydrogen
 		TransformComponent(Entity entity)
 		{
 			(void)entity;
-			Transform = glm::mat4(1.0f);
+			Translation = glm::vec3(0.0f, 0.0f, 0.0f);
+			Rotation = glm::quat(0.0f, 0.0f, 0.0f, 0.0f);
+			Scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		}
 
-		TransformComponent(Entity entity, glm::mat4 transform)
+		const glm::mat4& GetModel()
 		{
-			(void)entity;
-			Transform = transform;
+			if (Dirty)
+			{
+				Dirty = false;
+
+				ModelCache = glm::mat4(1.0f);
+				ModelCache = glm::translate(ModelCache, Translation);
+				ModelCache = ModelCache * glm::mat4_cast(Rotation);
+				ModelCache = glm::scale(ModelCache, Scale);
+			}
+
+			return ModelCache;
 		}
 
-		glm::mat4 Transform;
-
-		glm::vec3 GetPosition() const
+		glm::vec3 GetTranslation() const
 		{
-			glm::vec3 p, r, s;
-			TransformComponent::DecomposeTransform(Transform, p, r, s);
-			return p;
+			return Translation;
 		}
 
-		void SetPosition(const glm::vec3& newPos)
+		void SetTranslation(const glm::vec3& newTranslation)
 		{
-			glm::vec3 p, r, s;
-			TransformComponent::DecomposeTransform(Transform, p, r, s);
-			Transform = TransformComponent::RecomposeTransform(newPos, r, s);
+			Translation = newTranslation;
+			Dirty = true;
 		}
 
-		glm::vec3 GetRotation() const
+		glm::quat GetRotation() const
 		{
-			glm::vec3 p, r, s;
-			TransformComponent::DecomposeTransform(Transform, p, r, s);
-			return r;
+			return Rotation;
 		}
 
-		void SetRotation(const glm::vec3& newRot)
+		void SetRotation(const glm::quat& newRotation)
 		{
-			glm::vec3 p, r, s;
-			TransformComponent::DecomposeTransform(Transform, p, r, s);
-			Transform = TransformComponent::RecomposeTransform(p, newRot, s);
+			Rotation = newRotation;
+			Dirty = true;
 		}
 
 		glm::vec3 GetScale() const
 		{
-			glm::vec3 p, r, s;
-			TransformComponent::DecomposeTransform(Transform, p, r, s);
-			return s;
+			return Scale;
 		}
 
 		void SetScale(const glm::vec3& newScale)
 		{
-			glm::vec3 p, r, s;
-			TransformComponent::DecomposeTransform(Transform, p, r, s);
-			Transform = TransformComponent::RecomposeTransform(p, r, newScale);
+			Scale = newScale;
+			Dirty = true;
 		}
 
 		static void ToJson(json& j, const TransformComponent& t)
 		{
-			glm::vec3 translation, rotation, scale;
-			DecomposeTransform(t.Transform, translation, rotation, scale);
-
-			j = json{ { "translation", { { "x", translation.x }, { "y", translation.y }, { "z", translation.z } } },
-					  { "rotation", { { "x", rotation.x }, { "y", rotation.y }, { "z", rotation.z } } },
-					  { "scale", { { "x", scale.x }, { "y", scale.y }, { "z", scale.z } } } };
+			j = json{ { "translation", { { "x", t.Translation.x }, { "y", t.Translation.y }, { "z", t.Translation.z } } },
+					  { "rotation", { { "x", t.Rotation.x}, {"y", t.Rotation.y}, {"z", t.Rotation.z}, { "w", t.Rotation.w } }},
+					  { "scale", { { "x", t.Scale.x }, { "y", t.Scale.y }, { "z", t.Scale.z } } } };
 		}
 
 		static void FromJson(const json& j, TransformComponent& t, AssetManager* assetManager)
@@ -317,57 +314,24 @@ namespace Hydrogen
 			float rotationX = j.at("rotation").at("x").get<float>();
 			float rotationY = j.at("rotation").at("y").get<float>();
 			float rotationZ = j.at("rotation").at("z").get<float>();
+			float rotationW = j.at("rotation").at("w").get<float>();
 
 			float scaleX = j.at("scale").at("x").get<float>();
 			float scaleY = j.at("scale").at("y").get<float>();
 			float scaleZ = j.at("scale").at("z").get<float>();
 
-			glm::vec3 translation(translationX, translationY, translationZ);
-			glm::vec3 rotation(rotationX, rotationY, rotationZ);
-			glm::vec3 scale(scaleX, scaleY, scaleZ);
-
-			t.Transform = RecomposeTransform(translation, rotation, scale);
+			t.Translation = glm::vec3(translationX, translationY, translationZ);
+			t.Rotation = glm::quat(rotationW, rotationX, rotationY, rotationZ);
+			t.Scale = glm::vec3(scaleX, scaleY, scaleZ);
 		}
 
-		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::quat& rotation, glm::vec3& scale)
-		{
-			glm::vec3 skew;
-			glm::vec4 perspective;
+	private:
+		glm::vec3 Translation;
+		glm::quat Rotation;
+		glm::vec3 Scale;
 
-			decompose(matrix, scale, rotation, translation, skew, perspective);
-		}
-
-		static void DecomposeTransform(const glm::mat4& matrix, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale)
-		{
-			using namespace glm;
-			glm::vec3 skew;
-			glm::vec4 perspective;
-			glm::quat orientation;
-
-			decompose(matrix, scale, orientation, translation, skew, perspective);
-
-			rotation = glm::degrees(glm::eulerAngles(orientation));
-		}
-
-		static glm::mat4 RecomposeTransform(const glm::vec3& translation, const glm::quat& q, const glm::vec3& scale)
-		{
-			glm::mat4 transform = glm::translate(glm::mat4(1.0f), translation)
-				* glm::mat4_cast(q)
-				* glm::scale(glm::mat4(1.0f), scale);
-
-			return transform;
-		}
-
-		static glm::mat4 RecomposeTransform(const glm::vec3& translation, const glm::vec3& rotation, const glm::vec3& scale)
-		{
-			glm::quat q = glm::quat(glm::radians(rotation));
-
-			glm::mat4 transform = glm::translate(glm::mat4(1.0f), translation)
-				* glm::mat4_cast(q)
-				* glm::scale(glm::mat4(1.0f), scale);
-
-			return transform;
-		}
+		bool Dirty = true;
+		glm::mat4 ModelCache;
 	};
 
 	struct MeshRendererComponent

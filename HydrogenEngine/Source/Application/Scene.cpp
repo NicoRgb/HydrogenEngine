@@ -13,7 +13,7 @@ Entity::Entity(Scene* scene, std::string name)
 	m_Entity = m_Scene->m_Registry.create();
 	AddComponent<UUIDComponent>();
 	AddComponent<TagComponent>(name);
-	AddComponent<TransformComponent>(glm::mat4(1.0f));
+	AddComponent<TransformComponent>();
 	AddComponent<RelationshipComponent>(0);
 }
 

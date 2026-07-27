@@ -60,7 +60,7 @@ namespace Hydrogen
 			auto& lua = s_Lua;
 
 			lua.new_usertype<TransformComponent>("Transform",
-				"pos", sol::property(&TransformComponent::GetPosition, &TransformComponent::SetPosition),
+				"pos", sol::property(&TransformComponent::GetTranslation, &TransformComponent::SetTranslation),
 				"rot", sol::property(&TransformComponent::GetRotation, &TransformComponent::SetRotation),
 				"scale", sol::property(&TransformComponent::GetScale, &TransformComponent::SetScale)
 			);

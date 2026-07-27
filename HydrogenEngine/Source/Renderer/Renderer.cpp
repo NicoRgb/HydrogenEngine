@@ -617,7 +617,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 							}
 
 							GeometryPassPushConstants pushConstants{};
-							pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
+							pushConstants.Model = e.GetComponent<TransformComponent>().GetModel();
 
 							pushConstants.AlbedoIndex = -1;
 							pushConstants.NormalIndex = -1;
@@ -672,7 +672,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 							}
 
 							GeometryPassPushConstants pushConstants{};
-							pushConstants.Model = e.GetComponent<TransformComponent>().Transform;
+							pushConstants.Model = e.GetComponent<TransformComponent>().GetModel();
 
 							pushConstants.AlbedoIndex = -1;
 							pushConstants.NormalIndex = -1;
@@ -785,7 +785,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					scene->IterateComponents<PointLightComponent>(
 						[&](Entity e, const PointLightComponent& l)
 						{
-							const auto& transform = e.GetComponent<TransformComponent>().Transform;
+							const auto& transform = e.GetComponent<TransformComponent>().GetModel();
 							glm::vec3 position = glm::vec3(transform[3]);
 							glm::mat4 model = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), glm::vec3(l.Radius));
 
@@ -1210,7 +1210,7 @@ std::vector<DirectionalLight> DefaultRenderer::GetDirectionalLights(Scene* scene
 	scene->IterateComponents<DirectionalLightComponent>(
 		[&](Entity e, const DirectionalLightComponent& l)
 		{
-			const auto& transform = e.GetComponent<TransformComponent>().Transform;
+			const auto& transform = e.GetComponent<TransformComponent>().GetModel();
 			directionalLights.push_back({ l.Color, l.Intensity, glm::vec3(transform[2]), 0.0f });
 		});
 

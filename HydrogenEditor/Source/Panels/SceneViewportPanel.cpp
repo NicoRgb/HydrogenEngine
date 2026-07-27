@@ -131,7 +131,7 @@ void SceneViewportPanel::DrawGizmo()
 		m_ViewportBounds[1].y - m_ViewportBounds[0].y);
 
 	auto& tc = m_SelectedEntity.GetComponent<TransformComponent>();
-	glm::mat4 transform = tc.Transform;
+	glm::mat4 transform = tc.GetModel();
 	glm::mat4 view = m_FreeCam.View;
 	glm::mat4 proj = m_FreeCam.Proj;
 	proj[1][1] *= -1;
@@ -140,7 +140,18 @@ void SceneViewportPanel::DrawGizmo()
 		m_GuizmoTool, ImGuizmo::WORLD, glm::value_ptr(transform));
 
 	if (ImGuizmo::IsUsing())
-		tc.Transform = transform;
+	{
+		glm::vec3 translation;
+		glm::vec3 scale;
+		glm::quat rotation;
+		glm::vec3 skew;
+		glm::vec4 perspective;
+
+		glm::decompose(transform, scale, rotation, translation, skew, perspective);
+		tc.SetTranslation(translation);
+		tc.SetRotation(rotation);
+		tc.SetScale(scale);
+	}
 }
 
 void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
@@ -154,7 +165,7 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 					gizmos.push_back({
 						Gizmo::Type::Billboard,
 						Application::Get()->MainAssetManager.GetAsset<TextureAsset>("camera.png"),
-						entity.GetComponent<TransformComponent>().GetPosition(),
+						entity.GetComponent<TransformComponent>().GetTranslation(),
 						{1, 1}
 						});
 				}
@@ -163,7 +174,7 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 					gizmos.push_back({
 						Gizmo::Type::Billboard,
 						Application::Get()->MainAssetManager.GetAsset<TextureAsset>("point_light.png"),
-						entity.GetComponent<TransformComponent>().GetPosition(),
+						entity.GetComponent<TransformComponent>().GetTranslation(),
 						{1, 1}
 						});
 				}
@@ -172,7 +183,7 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 					gizmos.push_back({
 						Gizmo::Type::Billboard,
 						Application::Get()->MainAssetManager.GetAsset<TextureAsset>("directional_light.png"),
-						entity.GetComponent<TransformComponent>().GetPosition(),
+						entity.GetComponent<TransformComponent>().GetTranslation(),
 						{1, 1}
 						});
 				}
@@ -183,8 +194,9 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 	{
 		m_Scene->IterateComponents<TransformComponent, ColliderComponent>([&gizmos](Entity entity, TransformComponent& transform, ColliderComponent& collider)
 			{
-				glm::vec3 translation, rotation, scale;
-				TransformComponent::DecomposeTransform(transform.Transform, translation, rotation, scale);
+				glm::vec3 translation = transform.GetTranslation();
+				glm::vec3 scale = transform.GetScale();
+				glm::quat rotation = transform.GetRotation();
 
 				glm::quat worldRot = glm::quat(rotation);
 				glm::vec3 colliderWorldPos = translation + worldRot * collider.LocalPosition;

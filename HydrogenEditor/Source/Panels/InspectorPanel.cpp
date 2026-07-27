@@ -136,17 +136,18 @@ inline void DrawComponentUI<TransformComponent>(TransformComponent& comp)
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
 	if (ImGui::TreeNodeEx("Transform", flags))
 	{
-		glm::vec3 translation, rotation, scale;
-		comp.DecomposeTransform(comp.Transform, translation, rotation, scale);
+		glm::vec3 translation = comp.GetTranslation();
+		glm::vec3 scale = comp.GetScale();
+		glm::quat rotation = comp.GetRotation();
 
-		bool changed = false;
+		if (ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.1f))
+			comp.SetTranslation(translation);
 
-		changed |= ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.1f);
-		changed |= ImGui::DragFloat3("Rotation", glm::value_ptr(rotation), 0.1f);
-		changed |= ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f);
+		if (ImGui::DragFloat4("Rotation", glm::value_ptr(rotation), 0.1f))
+			comp.SetRotation(rotation);
 
-		if (changed)
-			comp.Transform = comp.RecomposeTransform(translation, rotation, scale);
+		if (ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f))
+			comp.SetScale(scale);
 
 		ImGui::TreePop();
 	}

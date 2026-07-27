@@ -35,9 +35,9 @@ reactphysics3d::RigidBody* PhysicsWorld::CreateRigidbody(const TransformComponen
 {
 	HY_ASSERT(m_PhysicsWorld, "Physics world is null!");
 
-	glm::vec3 translation, scale;
-	glm::quat rotation;
-	TransformComponent::DecomposeTransform(transform.Transform, translation, rotation, scale);
+	glm::vec3 translation = transform.GetTranslation();
+	glm::vec3 scale = transform.GetScale();
+	glm::quat rotation = transform.GetRotation();
 
 	if (glm::length(scale) < 0.001f)
 	{
@@ -92,18 +92,11 @@ void PhysicsWorld::SyncTransforms()
 
 			const reactphysics3d::Transform& t = rb.Rigidbody->getTransform();
 
-			glm::vec3 translation, scale;
-			glm::quat rotation;
-			TransformComponent::DecomposeTransform(transform.Transform, translation, rotation, scale);
-
 			reactphysics3d::Vector3 p = t.getPosition();
 			reactphysics3d::Quaternion q = t.getOrientation();
 
-			transform.Transform = TransformComponent::RecomposeTransform(
-				glm::vec3(p.x, p.y, p.z),
-				glm::quat(q.w, q.x, q.y, q.z),
-				scale
-			);
+			transform.SetTranslation(glm::vec3(p.x, p.y, p.z));
+			transform.SetRotation(glm::quat(q.w, q.x, q.y, q.z));
 		});
 }
 

@@ -235,7 +235,7 @@ void AssetInspectorPanel::DrawFileConfig(std::filesystem::path path, json& j)
 						m_MaterialPreviewRenderer.get(),
 						renderSettings,
 						activeCameraEntity.GetComponent<CameraComponent>(),
-						activeCameraEntity.GetComponent<TransformComponent>().GetPosition(),
+						activeCameraEntity.GetComponent<TransformComponent>().GetTranslation(),
 						m_MaterialPreviewScene->GetScene()
 					).ImageView;
 

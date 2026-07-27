@@ -22,6 +22,9 @@ public:
 private:
 	Hydrogen::Entity GetSelectedEntity() const;
 
+	void DrawSceneHierarchyPanel(Hydrogen::Scene* scene);
+	void DrawEntityNode(Hydrogen::Entity entity);
+
     Hydrogen::Scene* m_Scene;
     uint64_t m_SelectedEntityUUID;
 };
