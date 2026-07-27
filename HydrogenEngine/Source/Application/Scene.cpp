@@ -24,7 +24,6 @@ Entity::Entity()
 uint64_t Entity::GetUUID()
 {
 	return GetComponent<UUIDComponent>().UUID;
-
 }
 
 void Entity::SetUUID(uint64_t uuid)

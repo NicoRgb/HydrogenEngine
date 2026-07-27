@@ -27,11 +27,6 @@ struct EntitySelectedEvent
 	Hydrogen::Entity SelectedEntity;
 };
 
-struct ToolChangeEvent
-{
-	ImGuizmo::OPERATION GuizmoTool;
-};
-
 struct HardwareChangeEvent
 {
 	bool RenderDeviceChanged = false;
@@ -226,7 +221,7 @@ public:
 	}
 
 	void SetMenuBarCallback(const std::function<void()>& callback) { m_MenuBarCallback = callback; }
-	void SetToolBarCallback(const std::function<void()>& callback) { m_ToolBarCallback = callback; }
+	void AddToolBarCallback(const std::function<void()>& callback) { m_ToolBarCallbacks.push_back(callback); }
 
 	void ResetToDefaultLayout() { m_LayoutNeedsReset = true; }
 
@@ -245,7 +240,7 @@ private:
 	bool m_LayoutNeedsReset = true;
 
 	std::function<void()> m_MenuBarCallback = nullptr;
-	std::function<void()> m_ToolBarCallback = nullptr;
+	std::vector<std::function<void()>> m_ToolBarCallbacks;
 
 	std::vector<std::shared_ptr<EditorPanel>> m_FixedPanels;
 	std::vector<std::shared_ptr<DocumentTab>> m_DocumentTabs;

@@ -373,6 +373,7 @@ void Renderer::InitImGui()
 	vkDestroyRenderPass(m_Device->GetVulkanDevice(), bootstrapRenderPass, nullptr);
 }
 
+std::unique_ptr<GizmoMeshCache> DefaultRenderer::s_GizmoMeshCache;
 std::unique_ptr<RenderBuffer> DefaultRenderer::s_SphereVertexBuffer;
 std::unique_ptr<RenderBuffer> DefaultRenderer::s_SphereIndexBuffer;
 
@@ -417,6 +418,79 @@ struct BlurPushConstants
 {
 	int Horizontal;
 };
+
+void GizmoMeshCache::Initialize(RenderDevice* device)
+{
+	// Generate box mesh
+	{
+		MeshData boxMesh = GenerateBox(glm::vec3(1.0f));
+		BoxMesh.IndexCount = static_cast<uint32_t>(boxMesh.Indices.size());
+
+		BufferDescription vertexDesc{};
+		vertexDesc.size = boxMesh.Vertices.size() * sizeof(glm::vec3);
+		vertexDesc.type = BufferType::Vertex;
+		vertexDesc.cpuVisible = true;
+		BoxMesh.VertexBuffer = std::make_unique<RenderBuffer>(device, vertexDesc);
+		BoxMesh.VertexBuffer->UploadData(boxMesh.Vertices.data(), boxMesh.Vertices.size() * sizeof(glm::vec3));
+
+		BufferDescription indexDesc{};
+		indexDesc.size = boxMesh.Indices.size() * sizeof(uint32_t);
+		indexDesc.type = BufferType::Index;
+		indexDesc.cpuVisible = true;
+		BoxMesh.IndexBuffer = std::make_unique<RenderBuffer>(device, indexDesc);
+		BoxMesh.IndexBuffer->UploadData(boxMesh.Indices.data(), boxMesh.Indices.size() * sizeof(uint32_t));
+	}
+
+	// Generate sphere mesh
+	{
+		MeshData sphereMesh = GenerateSphere(1.0f, 16, 16);
+		SphereMesh.IndexCount = static_cast<uint32_t>(sphereMesh.Indices.size());
+
+		BufferDescription vertexDesc{};
+		vertexDesc.size = sphereMesh.Vertices.size() * sizeof(glm::vec3);
+		vertexDesc.type = BufferType::Vertex;
+		vertexDesc.cpuVisible = true;
+		SphereMesh.VertexBuffer = std::make_unique<RenderBuffer>(device, vertexDesc);
+		SphereMesh.VertexBuffer->UploadData(sphereMesh.Vertices.data(), sphereMesh.Vertices.size() * sizeof(glm::vec3));
+
+		BufferDescription indexDesc{};
+		indexDesc.size = sphereMesh.Indices.size() * sizeof(uint32_t);
+		indexDesc.type = BufferType::Index;
+		indexDesc.cpuVisible = true;
+		SphereMesh.IndexBuffer = std::make_unique<RenderBuffer>(device, indexDesc);
+		SphereMesh.IndexBuffer->UploadData(sphereMesh.Indices.data(), sphereMesh.Indices.size() * sizeof(uint32_t));
+	}
+
+	// Generate capsule mesh
+	{
+		MeshData capsuleMesh = GenerateCapsule(1.0f, 2.0f, 16, 8);
+		CapsuleMesh.IndexCount = static_cast<uint32_t>(capsuleMesh.Indices.size());
+
+		BufferDescription vertexDesc{};
+		vertexDesc.size = capsuleMesh.Vertices.size() * sizeof(glm::vec3);
+		vertexDesc.type = BufferType::Vertex;
+		vertexDesc.cpuVisible = true;
+		CapsuleMesh.VertexBuffer = std::make_unique<RenderBuffer>(device, vertexDesc);
+		CapsuleMesh.VertexBuffer->UploadData(capsuleMesh.Vertices.data(), capsuleMesh.Vertices.size() * sizeof(glm::vec3));
+
+		BufferDescription indexDesc{};
+		indexDesc.size = capsuleMesh.Indices.size() * sizeof(uint32_t);
+		indexDesc.type = BufferType::Index;
+		indexDesc.cpuVisible = true;
+		CapsuleMesh.IndexBuffer = std::make_unique<RenderBuffer>(device, indexDesc);
+		CapsuleMesh.IndexBuffer->UploadData(capsuleMesh.Indices.data(), capsuleMesh.Indices.size() * sizeof(uint32_t));
+	}
+}
+
+void GizmoMeshCache::Cleanup()
+{
+	BoxMesh.VertexBuffer.reset();
+	BoxMesh.IndexBuffer.reset();
+	SphereMesh.VertexBuffer.reset();
+	SphereMesh.IndexBuffer.reset();
+	CapsuleMesh.VertexBuffer.reset();
+	CapsuleMesh.IndexBuffer.reset();
+}
 
 RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
@@ -802,41 +876,116 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 			std::vector<BillboardInstanceData> instanceData;
 			std::vector<const Texture*> billboardTextures;
 
-			if (settings.Debug.Gizmos.size() > 0)
+			std::vector<Gizmo> billboardGizmos;
+			std::vector<Gizmo> wireframeGizmos;
+
+			for (const auto& gizmo : settings.Debug.Gizmos)
 			{
-				CollectGizmoRenderData(settings.Debug.Gizmos, instanceData, billboardTextures);
+				if (gizmo.GizmoType == Gizmo::Type::Billboard)
+				{
+					billboardGizmos.push_back(gizmo);
+				}
+				else
+				{
+					wireframeGizmos.push_back(gizmo);
+				}
+			}
+
+			auto drawDataList = CollectGizmoDrawData(wireframeGizmos);
+
+			if (!billboardGizmos.empty())
+			{
+				CollectGizmoRenderData(billboardGizmos, instanceData, billboardTextures);
 				uint32_t instanceCount = static_cast<uint32_t>(instanceData.size());
 
-				graph->AddPass("Gizmo",
+				graph->AddPass("Billboard Gizmo",
 					{
 						{ 0, DescriptorType::StorageBuffer, 1, ShaderStage::Vertex },
 						{ 1, DescriptorType::CombinedImageSampler, 1000, ShaderStage::Fragment, DescriptorBindingFlags::VariableDescriptorCount }
 					},
-
 					{
-						{ .Size = instanceData.size() * sizeof(BillboardInstanceData), .Data = (uint32_t*)instanceData.data() },
-						{ .Textures = billboardTextures }
+						{.Size = instanceData.size() * sizeof(BillboardInstanceData), .Data = (uint32_t*)instanceData.data() },
+						{.Textures = billboardTextures }
 					},
 
 					[&](RgPassBuilder& builder)
 					{
 						builder.WriteColor(sceneColor);
+						builder.WriteDepth(gBufferDepth);
 					},
 					[instanceCount](RgCommandList& cmd)
 					{
-						ZoneScopedN("Gizmo Pass");
+						ZoneScopedN("Billboard Gizmo Pass");
 
 						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BillboardVertexShader.glsl");
 						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("BillboardFragmentShader.glsl");
 
-						PipelineSpec billboardProcessingPipeline = {};
-						billboardProcessingPipeline.VertexBufferLayout = {};
-						billboardProcessingPipeline.PushConstants = {};
-						billboardProcessingPipeline.CullMode = ShaderCullMode::None;
-						billboardProcessingPipeline.ColorBlending = { BlendMode::Alpha };
+						PipelineSpec billboardPipeline = {};
+						billboardPipeline.VertexBufferLayout = {};
+						billboardPipeline.PushConstants = {};
+						billboardPipeline.CullMode = ShaderCullMode::None;
+						billboardPipeline.ColorBlending = { BlendMode::Alpha };
+						billboardPipeline.DepthSpec = { .DepthTest = true, .DepthWrite = false };
 
-						cmd.BindPipeline(vertexShader, fragmentShader, billboardProcessingPipeline);
+						cmd.BindPipeline(vertexShader, fragmentShader, billboardPipeline);
 						cmd.Draw(6, instanceCount);
+					});
+			}
+
+			if (!wireframeGizmos.empty())
+			{
+				graph->AddPass("Wireframe Gizmo", {}, {},
+					[&](RgPassBuilder& builder)
+					{
+						builder.WriteColor(sceneColor);
+						builder.WriteDepth(gBufferDepth);
+					},
+					[drawDataList](RgCommandList& cmd)
+					{
+						ZoneScopedN("Wireframe Gizmo Pass");
+
+						auto vertexShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("WireframeVertexShader.glsl");
+						auto fragmentShader = Application::Get()->MainAssetManager.GetAsset<ShaderAsset>("WireframeFragmentShader.glsl");
+
+						PipelineSpec wireframePipeline = {};
+						wireframePipeline.VertexBufferLayout = { { VertexElementType::Float3 } };
+						wireframePipeline.PushConstants = { { sizeof(glm::mat4) + sizeof(glm::vec3), (ShaderStage)((uint8_t)ShaderStage::Vertex | (uint8_t)ShaderStage::Fragment) } };
+						wireframePipeline.CullMode = ShaderCullMode::None;
+						wireframePipeline.ColorBlending = { BlendMode::Alpha };
+						wireframePipeline.PolygonMode = PolygonModeStyle::Line;
+						wireframePipeline.DepthSpec = { .DepthTest = true, .DepthWrite = false };
+
+						cmd.BindPipeline(vertexShader, fragmentShader, wireframePipeline);
+
+						for (const auto& drawData : drawDataList)
+						{
+							struct PushData { glm::mat4 model; glm::vec3 color; } pc = { drawData.ModelMatrix, drawData.Color };
+							cmd.PushConstants(&pc, sizeof(pc), 0, (ShaderStage)((uint8_t)ShaderStage::Vertex | (uint8_t)ShaderStage::Fragment));
+
+							switch (drawData.Type)
+							{
+							case Gizmo::Type::WireframeBox:
+								cmd.BindVertexBuffer(s_GizmoMeshCache->BoxMesh.VertexBuffer.get());
+								cmd.BindIndexBuffer(s_GizmoMeshCache->BoxMesh.IndexBuffer.get());
+								cmd.DrawIndexed(s_GizmoMeshCache->BoxMesh.IndexCount);
+								break;
+
+							case Gizmo::Type::WireframeSphere:
+								cmd.BindVertexBuffer(s_GizmoMeshCache->SphereMesh.VertexBuffer.get());
+								cmd.BindIndexBuffer(s_GizmoMeshCache->SphereMesh.IndexBuffer.get());
+								cmd.DrawIndexed(s_GizmoMeshCache->SphereMesh.IndexCount);
+								break;
+
+							case Gizmo::Type::WireframeCapsule:
+								cmd.BindVertexBuffer(s_GizmoMeshCache->CapsuleMesh.VertexBuffer.get());
+								cmd.BindIndexBuffer(s_GizmoMeshCache->CapsuleMesh.IndexBuffer.get());
+								cmd.DrawIndexed(s_GizmoMeshCache->CapsuleMesh.IndexCount);
+								break;
+
+							default:
+								break;
+							}
+						}
 					});
 			}
 
@@ -1102,4 +1251,51 @@ void DefaultRenderer::CollectGizmoRenderData(const std::vector<Gizmo>& gizmos, s
 
 		instanceData.push_back(instance);
 	}
+}
+
+std::vector<DefaultRenderer::GizmoDrawData> DefaultRenderer::CollectGizmoDrawData(const std::vector<Gizmo>& gizmos)
+{
+	if (!s_GizmoMeshCache)
+	{
+		s_GizmoMeshCache = std::make_unique<GizmoMeshCache>();
+		s_GizmoMeshCache->Initialize(Application::Get()->GetRenderDevice());
+	}
+
+	std::vector<GizmoDrawData> drawData;
+
+	for (const auto& gizmo : gizmos)
+	{
+		glm::mat4 model = glm::translate(glm::mat4(1.0f), gizmo.Position);
+		model *= glm::mat4_cast(gizmo.Rotation);
+
+		if (gizmo.GizmoType == Gizmo::Type::WireframeBox)
+		{
+			glm::mat4 boxModel = glm::scale(model, gizmo.BoxSize);
+			drawData.push_back({
+				boxModel,
+				gizmo.WireframeColor,
+				Gizmo::Type::WireframeBox
+				});
+		}
+		else if (gizmo.GizmoType == Gizmo::Type::WireframeSphere)
+		{
+			glm::mat4 sphereModel = glm::scale(model, glm::vec3(gizmo.SphereRadius));
+			drawData.push_back({
+				sphereModel,
+				gizmo.WireframeColor,
+				Gizmo::Type::WireframeSphere
+				});
+		}
+		else if (gizmo.GizmoType == Gizmo::Type::WireframeCapsule)
+		{
+			glm::mat4 capsuleModel = glm::scale(model, gizmo.BoxSize);
+			drawData.push_back({
+				capsuleModel,
+				gizmo.WireframeColor,
+				Gizmo::Type::WireframeCapsule
+				});
+		}
+	}
+
+	return drawData;
 }

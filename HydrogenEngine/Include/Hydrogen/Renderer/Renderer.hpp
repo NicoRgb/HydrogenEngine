@@ -62,9 +62,28 @@ namespace Hydrogen
 
 	struct Gizmo
 	{
+		enum class Type
+		{
+			Billboard,
+			WireframeBox,
+			WireframeSphere,
+			WireframeCapsule
+		};
+
+		Type GizmoType = Type::Billboard;
 		std::shared_ptr<TextureAsset> BillboardTexture;
 		glm::vec3 Position;
 		glm::vec2 Scale;
+
+		glm::vec3 WireframeColor = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::quat Rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+		glm::vec3 BoxSize = glm::vec3(1.0f);
+		float SphereRadius = 1.0f;
+		float CapsuleRadius = 0.5f;
+		float CapsuleHeight = 1.0f;
+		float CylinderRadius = 0.5f;
+		float CylinderHeight = 1.0f;
 	};
 
 	struct DebugSettings
@@ -110,6 +129,23 @@ namespace Hydrogen
 		glm::vec2 Padding;
 	};
 
+	struct GizmoMesh
+	{
+		std::unique_ptr<RenderBuffer> VertexBuffer;
+		std::unique_ptr<RenderBuffer> IndexBuffer;
+		uint32_t IndexCount = 0;
+	};
+
+	struct GizmoMeshCache
+	{
+		GizmoMesh BoxMesh;
+		GizmoMesh SphereMesh;
+		GizmoMesh CapsuleMesh;
+
+		void Initialize(RenderDevice* device);
+		void Cleanup();
+	};
+
 	class DefaultRenderer
 	{
 	public:
@@ -118,6 +154,7 @@ namespace Hydrogen
 
 		static void Reset()
 		{
+			s_GizmoMeshCache.reset();
 			s_SphereVertexBuffer.reset();
 			s_SphereIndexBuffer.reset();
 		}
@@ -133,6 +170,17 @@ namespace Hydrogen
 		static std::vector<DirectionalLight> GetDirectionalLights(Scene* scene);
 
 		static void CollectGizmoRenderData(const std::vector<Gizmo>& gizmos, std::vector<BillboardInstanceData>& instanceData, std::vector<const Texture*>& textures);
+
+		struct GizmoDrawData
+		{
+			glm::mat4 ModelMatrix;
+			glm::vec3 Color;
+			Gizmo::Type Type;
+		};
+
+		static std::vector<GizmoDrawData> CollectGizmoDrawData(const std::vector<Gizmo>& gizmos);
+
+		static std::unique_ptr<GizmoMeshCache> s_GizmoMeshCache;
 
 		static std::unique_ptr<RenderBuffer> s_SphereVertexBuffer;
 		static std::unique_ptr<RenderBuffer> s_SphereIndexBuffer;

@@ -63,7 +63,7 @@ void DockspaceManager::RenderMenuBar()
 
 void DockspaceManager::RenderToolBar()
 {
-	if (!m_ToolBarCallback) return;
+	if (m_ToolBarCallbacks.empty()) return;
 
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 
@@ -75,7 +75,18 @@ void DockspaceManager::RenderToolBar()
 
 	if (ImGui::BeginChild("##EngineToolBarStrip", ImVec2(0, 35.0f), false, flags))
 	{
-		m_ToolBarCallback();
+		bool first = true;
+		for (const auto& callback : m_ToolBarCallbacks)
+		{
+			if (!first)
+			{
+				ImGui::SameLine();
+				ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+				ImGui::SameLine();
+			}
+			first = false;
+			callback();
+		}
 	}
 	ImGui::EndChild();
 

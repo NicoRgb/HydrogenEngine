@@ -17,8 +17,20 @@ void SceneViewportPanel::OnAttach()
 		m_SelectedEntity = e.SelectedEntity;
 		});
 
-	Dockspace->GetEventBus().Subscribe<ToolChangeEvent>([this](const ToolChangeEvent& e) {
-		m_GuizmoTool = e.GuizmoTool;
+	Dockspace->AddToolBarCallback([this]() {
+		if (ImGui::RadioButton("Translate", m_GuizmoTool == ImGuizmo::TRANSLATE)) m_GuizmoTool = ImGuizmo::TRANSLATE;
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Rotate", m_GuizmoTool == ImGuizmo::ROTATE)) m_GuizmoTool = ImGuizmo::ROTATE;
+		ImGui::SameLine();
+		if (ImGui::RadioButton("Scale", m_GuizmoTool == ImGuizmo::SCALE)) m_GuizmoTool = ImGuizmo::SCALE;
+
+		ImGui::SameLine();
+		ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
+		ImGui::SameLine();
+
+		ImGui::Checkbox("Show Gizmos", &m_ShowGizmos);
+		ImGui::SameLine();
+		ImGui::Checkbox("Show Colliders", &m_ShowColliders);
 		});
 
 	m_FreeCam.ViewportWidth = 512;
@@ -133,19 +145,96 @@ void SceneViewportPanel::DrawGizmo()
 
 void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 {
-	m_Scene->IterateComponents([&gizmos](Entity entity)
-		{
-			if (entity.HasComponent<CameraComponent>())
+	if (m_ShowGizmos)
+	{
+		m_Scene->IterateComponents([&gizmos](Entity entity)
 			{
-				gizmos.push_back({ Application::Get()->MainAssetManager.GetAsset<TextureAsset>("camera.png"), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1}});
-			}
-			else if (entity.HasComponent<PointLightComponent>())
+				if (entity.HasComponent<CameraComponent>())
+				{
+					gizmos.push_back({
+						Gizmo::Type::Billboard,
+						Application::Get()->MainAssetManager.GetAsset<TextureAsset>("camera.png"),
+						entity.GetComponent<TransformComponent>().GetPosition(),
+						{1, 1}
+						});
+				}
+				else if (entity.HasComponent<PointLightComponent>())
+				{
+					gizmos.push_back({
+						Gizmo::Type::Billboard,
+						Application::Get()->MainAssetManager.GetAsset<TextureAsset>("point_light.png"),
+						entity.GetComponent<TransformComponent>().GetPosition(),
+						{1, 1}
+						});
+				}
+				else if (entity.HasComponent<DirectionalLightComponent>())
+				{
+					gizmos.push_back({
+						Gizmo::Type::Billboard,
+						Application::Get()->MainAssetManager.GetAsset<TextureAsset>("directional_light.png"),
+						entity.GetComponent<TransformComponent>().GetPosition(),
+						{1, 1}
+						});
+				}
+			});
+	}
+
+	if (m_ShowColliders)
+	{
+		m_Scene->IterateComponents<TransformComponent, ColliderComponent>([&gizmos](Entity entity, TransformComponent& transform, ColliderComponent& collider)
 			{
-				gizmos.push_back({ Application::Get()->MainAssetManager.GetAsset<TextureAsset>("point_light.png"), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1} });
-			}
-			else if (entity.HasComponent<DirectionalLightComponent>())
-			{
-				gizmos.push_back({ Application::Get()->MainAssetManager.GetAsset<TextureAsset>("directional_light.png"), entity.GetComponent<TransformComponent>().GetPosition(), {1, 1} });
-			}
-		});
+				glm::vec3 translation, rotation, scale;
+				TransformComponent::DecomposeTransform(transform.Transform, translation, rotation, scale);
+
+				glm::quat worldRot = glm::quat(rotation);
+				glm::vec3 colliderWorldPos = translation + worldRot * collider.LocalPosition;
+				glm::quat colliderWorldRot = worldRot * collider.LocalRotation;
+
+				if (collider.ColliderType == ColliderComponent::Type::Box)
+				{
+					gizmos.push_back({
+						Gizmo::Type::WireframeBox,
+						nullptr,
+						colliderWorldPos,
+						{1.0f, 1.0f},
+						glm::vec3(0.0f, 1.0f, 0.0f),
+						colliderWorldRot,
+						collider.Size * scale
+						});
+				}
+				else if (collider.ColliderType == ColliderComponent::Type::Sphere)
+				{
+					float maxScale = glm::max(glm::max(scale.x, scale.y), scale.z);
+					gizmos.push_back({
+						Gizmo::Type::WireframeSphere,
+						nullptr,
+						colliderWorldPos,
+						{1.0f, 1.0f},
+						glm::vec3(0.0f, 1.0f, 0.0f),
+						colliderWorldRot,
+						glm::vec3(1.0f),
+						collider.Radius * maxScale
+						});
+				}
+				else if (collider.ColliderType == ColliderComponent::Type::Capsule)
+				{
+					float maxScale = glm::max(glm::max(scale.x, scale.y), scale.z);
+					glm::vec3 capsuleScale = glm::vec3(
+						collider.Radius * maxScale,
+						(collider.Height + collider.Radius * 2.0f) * maxScale,
+						collider.Radius * maxScale
+					);
+
+					gizmos.push_back({
+						Gizmo::Type::WireframeCapsule,
+						nullptr,
+						colliderWorldPos,
+						{1.0f, 1.0f},
+						glm::vec3(0.0f, 0.7f, 1.0f),
+						colliderWorldRot,
+						capsuleScale
+						});
+				}
+			});
+	}
 }

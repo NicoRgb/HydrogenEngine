@@ -25,7 +25,6 @@ class ToolApp : public Application
 {
 private:
 	bool m_IsSimulating = false;
-	ImGuizmo::OPERATION m_GuizmoTool = ImGuizmo::TRANSLATE;
 	HardwareChangeEvent HardwareChange;
 
 	DockspaceManager EditorGUI;
@@ -70,10 +69,6 @@ public:
 
 		EditorGUI.Init("MainEngineDockspace");
 
-		EditorGUI.GetEventBus().Subscribe<ToolChangeEvent>([this](const ToolChangeEvent& e) {
-			m_GuizmoTool = e.GuizmoTool;
-			});
-
 		EditorGUI.GetEventBus().Subscribe<HardwareChangeEvent>([this](const HardwareChangeEvent& e) {
 			HardwareChange = e;
 			});
@@ -93,7 +88,7 @@ public:
 			});
 
 		// --- Setup ToolBar Callbacks ---
-		EditorGUI.SetToolBarCallback([this]() {
+		EditorGUI.AddToolBarCallback([this]() {
 			float buttonHeight = 23.0f;
 
 			ImGui::Image(TextureCache.GetTextureID(m_EngineLogoView, ImguiSampler), ImVec2(buttonHeight, buttonHeight));
@@ -113,16 +108,6 @@ public:
 
 			if (ImGui::Button("Launch Hydrogen Tools", ImVec2(0.0f, buttonHeight)))
 				LaunchTool("HydrogenTools.exe", "", (GetCurrentExecutablePath().parent_path()).string());
-
-			ImGui::SameLine();
-			ImGui::SeparatorEx(ImGuiSeparatorFlags_Vertical);
-			ImGui::SameLine();
-
-			if (ImGui::RadioButton("Translate", m_GuizmoTool == ImGuizmo::TRANSLATE)) EditorGUI.GetEventBus().Publish<ToolChangeEvent>({ .GuizmoTool = ImGuizmo::TRANSLATE });
-			ImGui::SameLine();
-			if (ImGui::RadioButton("Rotate", m_GuizmoTool == ImGuizmo::ROTATE)) EditorGUI.GetEventBus().Publish<ToolChangeEvent>({ .GuizmoTool = ImGuizmo::ROTATE });
-			ImGui::SameLine();
-			if (ImGui::RadioButton("Scale", m_GuizmoTool == ImGuizmo::SCALE)) EditorGUI.GetEventBus().Publish<ToolChangeEvent>({ .GuizmoTool = ImGuizmo::SCALE });
 			});
 
 		// --- Register Modular Panels ---
@@ -154,7 +139,6 @@ public:
 	{
 		HandleHardwareChanges();
 
-		CurrentScene->GetScene()->RenderPhysicsDebug();
 		if (m_IsSimulating)
 			PhysicsUpdate(deltaTime);
 

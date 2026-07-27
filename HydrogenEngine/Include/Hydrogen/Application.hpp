@@ -72,6 +72,8 @@ namespace Hydrogen
 		std::unique_ptr<RenderDevice> ActiveRenderDevice;
 		std::unique_ptr<SwapChain> ActiveSwapChain;
 
+		bool PhysicsSimulationEnabled = false;
+
 	private:
 		std::unique_ptr<RenderInstance> m_RenderInstance;
 

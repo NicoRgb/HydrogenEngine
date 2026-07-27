@@ -99,12 +99,10 @@ namespace Hydrogen
 		void UpdatePhysics(float timestep);
 		void Update(float dt);
 
-		void RenderPhysicsDebug() { m_PhysicsWorld.RenderDebugPrimitives(); }
-
 		json SerializeScene();
 		void DeserializeScene(const json& j, AssetManager* assetManager);
 
-		const PhysicsWorld& GetPhysicsWorld() { return m_PhysicsWorld; }
+		PhysicsWorld& GetPhysicsWorld() { return m_PhysicsWorld; }
 
 		void Clone(Scene& clone)
 		{

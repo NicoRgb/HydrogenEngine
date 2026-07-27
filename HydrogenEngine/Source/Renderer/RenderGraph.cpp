@@ -1249,7 +1249,7 @@ uint32_t RenderGraph::GetOrCreateBuffer(const RgBufferDesc& desc)
 
 	m_PhysicalBufferPool.push_back(pooled);
 
-	return m_PhysicalBufferPool.size()-1;
+	return (uint32_t)(m_PhysicalBufferPool.size()-1);
 }
 
 void RenderGraph::UploadDataToBuffer(void* data, size_t size, void* mapped)

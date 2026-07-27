@@ -32,5 +32,8 @@ private:
 
 	Hydrogen::Scene* m_Scene;
 	Hydrogen::Entity m_SelectedEntity;
+
 	ImGuizmo::OPERATION m_GuizmoTool;
+	bool m_ShowGizmos = true;
+	bool m_ShowColliders = false;
 };

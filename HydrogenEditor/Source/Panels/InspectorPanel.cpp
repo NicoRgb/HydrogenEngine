@@ -321,26 +321,56 @@ inline void DrawComponentUI<ColliderComponent>(ColliderComponent& comp)
 {
 	if (ImGui::TreeNode("Collider"))
 	{
-		const char* types[] = { "Box", "Sphere" };
+		const char* types[] = { "Box", "Sphere", "Capsule" };
 		int currentIndex = static_cast<int>(comp.ColliderType);
 
-		if (ImGui::Combo("Type", &currentIndex, types, IM_ARRAYSIZE(types)))
+		if (ImGui::Combo("Type##collider", &currentIndex, types, IM_ARRAYSIZE(types)))
 		{
 			comp.ColliderType = static_cast<ColliderComponent::Type>(currentIndex);
-
 			comp.CreateCollider(comp);
 		}
 
+		ImGui::Spacing();
+		ImGui::SeparatorText("Local Transform");
+
+		if (ImGui::DragFloat3("Local Position##collider", glm::value_ptr(comp.LocalPosition), 0.01f))
+		{
+			comp.CreateCollider(comp);
+		}
+
+		glm::vec3 eulerAngles = glm::eulerAngles(comp.LocalRotation);
+		glm::vec3 eulerDegrees = glm::degrees(eulerAngles);
+
+		if (ImGui::DragFloat3("Local Rotation##collider", glm::value_ptr(eulerDegrees), 1.0f, -180.0f, 180.0f))
+		{
+			comp.LocalRotation = glm::quat(glm::radians(eulerDegrees));
+			comp.CreateCollider(comp);
+		}
+
+		ImGui::Spacing();
+		ImGui::SeparatorText("Shape Properties");
+
 		if (comp.ColliderType == ColliderComponent::Type::Box)
 		{
-			if (ImGui::DragFloat3("Size", glm::value_ptr(comp.Size), 0.1f))
+			if (ImGui::DragFloat3("Box Size##collider", glm::value_ptr(comp.Size), 0.05f, 0.1f, 100.0f))
 			{
 				comp.CreateCollider(comp);
 			}
 		}
 		else if (comp.ColliderType == ColliderComponent::Type::Sphere)
 		{
-			if (ImGui::DragFloat("Radius", &comp.Radius, 0.1f))
+			if (ImGui::DragFloat("Sphere Radius##collider", &comp.Radius, 0.05f, 0.1f, 50.0f))
+			{
+				comp.CreateCollider(comp);
+			}
+		}
+		else if (comp.ColliderType == ColliderComponent::Type::Capsule)
+		{
+			if (ImGui::DragFloat("Capsule Radius##collider", &comp.Radius, 0.05f, 0.1f, 50.0f))
+			{
+				comp.CreateCollider(comp);
+			}
+			if (ImGui::DragFloat("Capsule Height##collider", &comp.Height, 0.05f, 0.1f, 100.0f))
 			{
 				comp.CreateCollider(comp);
 			}

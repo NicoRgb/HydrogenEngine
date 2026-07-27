@@ -2,8 +2,11 @@
 
 #include "ReactPhysicsWrapper.hpp"
 #include <imgui.h>
-#include <glm/glm.hpp>
 #include <json.hpp>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 using namespace nlohmann;
 
@@ -20,11 +23,6 @@ namespace Hydrogen
 
 		void UpdatePhysics(float timestep);
 		void Update();
-
-		void RenderDebugPrimitives() { m_PhysicsWorld->getDebugRenderer().computeDebugRenderingPrimitives(*m_PhysicsWorld); }
-
-		const reactphysics3d::Array<reactphysics3d::DebugRenderer::DebugLine>& GetDebugLines() const { return m_PhysicsWorld->getDebugRenderer().getLines(); }
-		const reactphysics3d::Array<reactphysics3d::DebugRenderer::DebugTriangle>& GetDebugTriangles() const { return m_PhysicsWorld->getDebugRenderer().getTriangles(); }
 
 		static reactphysics3d::PhysicsCommon PhysicsCommon;
 
@@ -97,6 +95,9 @@ namespace Hydrogen
 			rb.Rigidbody->setLinearDamping(j.at("linearDampening"));
 			rb.Rigidbody->setAngularDamping(j.at("angularDampening"));
 			rb.Rigidbody->enableGravity(j.at("gravity"));
+
+			rb.Rigidbody->updateLocalInertiaTensorFromColliders();
+			rb.Rigidbody->setLocalCenterOfMass(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
 		}
 	};
 
@@ -105,7 +106,8 @@ namespace Hydrogen
 		enum class Type
 		{
 			Box,
-			Sphere
+			Sphere,
+			Capsule
 		};
 
 		void CreateCollider(ColliderComponent& col);
@@ -117,7 +119,11 @@ namespace Hydrogen
 		Type ColliderType = Type::Box;
 
 		glm::vec3 Size = glm::vec3(1.0f);
-		float Radius = 1.0f;
+		float Radius = 0.5f;
+		float Height = 1.0f;
+
+		glm::vec3 LocalPosition = glm::vec3(0.0f);
+		glm::quat LocalRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 
 		static void ToJson(json& j, const ColliderComponent& col);
 		static void FromJson(const json& j, ColliderComponent& col, AssetManager* assetManager);
