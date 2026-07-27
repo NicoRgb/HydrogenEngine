@@ -99,6 +99,8 @@ namespace Hydrogen
 		void UpdatePhysics(float timestep);
 		void Update(float dt);
 
+		void ResetPhysics() { m_PhysicsWorld.Reset(); }
+
 		json SerializeScene();
 		void DeserializeScene(const json& j, AssetManager* assetManager);
 
@@ -107,6 +109,8 @@ namespace Hydrogen
 		void Clone(Scene& clone)
 		{
 		}
+
+		entt::registry& GetRegistry() { return m_Registry; }
 
 	private:
 		entt::registry m_Registry;
@@ -120,6 +124,7 @@ namespace Hydrogen
 	{
 	public:
 		Entity(Scene* scene, std::string name);
+		Entity(entt::entity id, Scene* scene);
 		Entity();
 		~Entity() = default;
 

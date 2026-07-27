@@ -118,16 +118,23 @@ void Application::Run()
 
 void Application::PhysicsUpdate(float deltaTime)
 {
-	float frameTime = deltaTime;
-
-	if (frameTime > 0.03f) frameTime = 0.03f;
+	float frameTime = std::min(deltaTime, 0.03f);
 	accumulator += frameTime;
+
+	bool physicsStepped = false;
 
 	while (accumulator >= timeStep)
 	{
-		CurrentScene->GetScene()->UpdatePhysics(timeStep);
+		CurrentScene->GetScene()->GetPhysicsWorld().UpdatePhysics(timeStep);
 		accumulator -= timeStep;
+		physicsStepped = true;
 	}
+
+	if (physicsStepped)
+	{
+		CurrentScene->GetScene()->GetPhysicsWorld().SyncTransforms();
+	}
+
 	CurrentScene->GetScene()->Update(deltaTime);
 }
 

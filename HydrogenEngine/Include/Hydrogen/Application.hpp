@@ -38,6 +38,7 @@ namespace Hydrogen
 		void ChangeRenderDevice(const RenderDeviceDescriptor& desc);
 		const SwapChainSpec& GetCurrentSwapChainSepc() const { return m_CurrentSwapChainSpec; }
 		void RecreateSwapchain(SwapChainSpec swapChainSepc);
+		void ResetPhysicsAccumulator() { accumulator = 0.0f; }
 
 		RenderDevice* GetRenderDevice() const { return ActiveRenderDevice.get(); }
 

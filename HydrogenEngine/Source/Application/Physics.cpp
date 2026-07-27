@@ -1,7 +1,6 @@
 #include "Hydrogen/Physics.hpp"
 #include "Hydrogen/Scene.hpp"
 #include "Hydrogen/Application.hpp"
-#include <glm/glm.hpp>
 
 using namespace Hydrogen;
 
@@ -10,11 +9,26 @@ reactphysics3d::PhysicsCommon PhysicsWorld::PhysicsCommon;
 PhysicsWorld::PhysicsWorld(Scene* scene, glm::vec3 gravity)
 	: m_Scene(scene), m_PhysicsWorld(PhysicsCommon.createPhysicsWorld())
 {
+	HY_ASSERT(m_PhysicsWorld, "Failed to create physics world!");
 	m_PhysicsWorld->setGravity({ gravity.x, gravity.y, gravity.z });
 }
 
 PhysicsWorld::~PhysicsWorld()
 {
+	if (m_PhysicsWorld)
+	{
+		PhysicsCommon.destroyPhysicsWorld(m_PhysicsWorld);
+		m_PhysicsWorld = nullptr;
+	}
+}
+
+void PhysicsWorld::Reset()
+{
+	for (uint32_t i = m_PhysicsWorld->getNbRigidBodies(); i > 0; --i)
+	{
+		reactphysics3d::RigidBody* body = m_PhysicsWorld->getRigidBody(i - 1);
+		m_PhysicsWorld->destroyRigidBody(body);
+	}
 }
 
 reactphysics3d::RigidBody* PhysicsWorld::CreateRigidbody(const TransformComponent& transform) const
@@ -24,35 +38,58 @@ reactphysics3d::RigidBody* PhysicsWorld::CreateRigidbody(const TransformComponen
 	glm::vec3 translation, scale;
 	glm::quat rotation;
 	TransformComponent::DecomposeTransform(transform.Transform, translation, rotation, scale);
+
+	if (glm::length(scale) < 0.001f)
+	{
+		scale = glm::vec3(1.0f);
+		rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+		HY_APP_WARN("Warning: Entity had 0 scale! Overriding to prevent NaN physics explosion.");
+	}
+
 	glm::quat normRot = glm::normalize(rotation);
+	if (std::isnan(translation.x) || std::isnan(normRot.x))
+	{
+		HY_APP_ERROR("CRITICAL: NaN transform detected before RigidBody creation!");
+		translation = glm::vec3(0.0f);
+		normRot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+	}
 
 	reactphysics3d::Vector3 position(translation.x, translation.y, translation.z);
 	reactphysics3d::Quaternion orientation(normRot.x, normRot.y, normRot.z, normRot.w);
+
 	reactphysics3d::Transform t(position, orientation);
-
 	auto body = m_PhysicsWorld->createRigidBody(t);
-	HY_ASSERT(body, "Failed to create rigidbody!");
 
+	HY_ASSERT(body, "Failed to create rigidbody!");
 	body->setType(reactphysics3d::BodyType::STATIC);
 
 	return body;
+}
+
+void PhysicsWorld::DestroyRigidbody(reactphysics3d::RigidBody* body)
+{
+	if (m_PhysicsWorld && body)
+	{
+		m_PhysicsWorld->destroyRigidBody(body);
+	}
 }
 
 void PhysicsWorld::UpdatePhysics(float timestep)
 {
 	if (m_PhysicsWorld)
 	{
-		m_PhysicsWorld->update((reactphysics3d::decimal)timestep);
+		HY_ENGINE_INFO("Num Rigidbodies: {}", m_PhysicsWorld->getNbRigidBodies());
+		m_PhysicsWorld->update(static_cast<reactphysics3d::decimal>(timestep));
 	}
 }
 
-void PhysicsWorld::Update()
+void PhysicsWorld::SyncTransforms()
 {
 	if (!m_PhysicsWorld || !m_Scene) return;
 
 	m_Scene->IterateComponents<TransformComponent, RigidbodyComponent>([](Entity entity, TransformComponent& transform, RigidbodyComponent& rb)
 		{
-			if (!rb.Rigidbody) return;
+			if (!rb.Rigidbody || rb.Type == reactphysics3d::BodyType::STATIC) return;
 
 			const reactphysics3d::Transform& t = rb.Rigidbody->getTransform();
 
@@ -76,60 +113,152 @@ RigidbodyComponent::RigidbodyComponent(Entity entity)
 	Rigidbody = Application::Get()->CurrentScene->GetScene()->GetPhysicsWorld().CreateRigidbody(entity.GetComponent<TransformComponent>());
 }
 
+void RigidbodyComponent::SetType(reactphysics3d::BodyType type)
+{
+	Type = type;
+	if (Rigidbody)
+	{
+		Rigidbody->setType(type);
+		if (type == reactphysics3d::BodyType::DYNAMIC)
+			Rigidbody->updateLocalInertiaTensorFromColliders();
+	}
+}
+
+void RigidbodyComponent::SetMass(float mass)
+{
+	Mass = glm::max(mass, 0.001f);
+	if (Rigidbody)
+	{
+		Rigidbody->setMass(Mass);
+		if (Type == reactphysics3d::BodyType::DYNAMIC)
+			Rigidbody->updateLocalInertiaTensorFromColliders();
+	}
+}
+
+void RigidbodyComponent::SetUseGravity(bool useGravity)
+{
+	UseGravity = useGravity;
+	if (Rigidbody) Rigidbody->enableGravity(UseGravity);
+}
+
+void RigidbodyComponent::ApplyForce(glm::vec3 force)
+{
+	if (Rigidbody && Type == reactphysics3d::BodyType::DYNAMIC)
+		Rigidbody->applyLocalForceAtCenterOfMass({ force.x, force.y, force.z });
+}
+
+void RigidbodyComponent::ApplyTorque(glm::vec3 torque)
+{
+	if (Rigidbody && Type == reactphysics3d::BodyType::DYNAMIC)
+		Rigidbody->applyLocalTorque({ torque.x, torque.y, torque.z });
+}
+
+void RigidbodyComponent::SetLinearVelocity(glm::vec3 velocity)
+{
+	if (Rigidbody) Rigidbody->setLinearVelocity({ velocity.x, velocity.y, velocity.z });
+}
+
+void RigidbodyComponent::SetAngularVelocity(glm::vec3 velocity)
+{
+	if (Rigidbody) Rigidbody->setAngularVelocity({ velocity.x, velocity.y, velocity.z });
+}
+
+void RigidbodyComponent::ToJson(json& j, const RigidbodyComponent& rb)
+{
+	j = json{
+		{ "type", static_cast<int>(rb.Type) },
+		{ "mass", rb.Mass },
+		{ "linearDampening", rb.LinearDamping },
+		{ "angularDampening", rb.AngularDamping },
+		{ "gravity", rb.UseGravity }
+	};
+}
+
+void RigidbodyComponent::FromJson(const json& j, RigidbodyComponent& rb, AssetManager* assetManager)
+{
+	rb.Type = static_cast<reactphysics3d::BodyType>(j.value("type", 0));
+	rb.Mass = j.value("mass", 1.0f);
+	rb.LinearDamping = j.value("linearDampening", 0.0f);
+	rb.AngularDamping = j.value("angularDampening", 0.0f);
+	rb.UseGravity = j.value("gravity", true);
+
+	if (rb.Rigidbody)
+	{
+		rb.Rigidbody->setType(rb.Type);
+		rb.Rigidbody->setMass(rb.Mass);
+		rb.Rigidbody->setLinearDamping(rb.LinearDamping);
+		rb.Rigidbody->setAngularDamping(rb.AngularDamping);
+		rb.Rigidbody->enableGravity(rb.UseGravity);
+
+		if (rb.Type == reactphysics3d::BodyType::DYNAMIC)
+		{
+			rb.Rigidbody->updateLocalInertiaTensorFromColliders();
+			rb.Rigidbody->setLocalCenterOfMass(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
+		}
+	}
+}
+
 ColliderComponent::ColliderComponent(Entity entity)
 	: Rigidbody(entity.TryGetComponent<RigidbodyComponent>()), Collider(nullptr)
 {
 	CreateCollider(*this);
 }
 
+void ColliderComponent::DestroyCollider()
+{
+	if (Rigidbody && Rigidbody->Rigidbody && Collider)
+	{
+		Rigidbody->Rigidbody->removeCollider(Collider);
+		Collider = nullptr;
+	}
+}
+
 void ColliderComponent::CreateCollider(ColliderComponent& col)
 {
-	if (Rigidbody == nullptr)
-	{
-		return;
-	}
+	if (!Rigidbody || !Rigidbody->Rigidbody) return;
+
 	auto body = Rigidbody->Rigidbody;
-	if (!body)
-	{
-		HY_ENGINE_WARN("Cannot create collider: rigidbody pointer is invalid!");
-		return;
-	}
 
-	if (col.Collider)
-	{
-		body->removeCollider(col.Collider);
-		col.Collider = nullptr;
-	}
+	col.DestroyCollider();
 
+	if (glm::length(col.LocalRotation) < 0.001f)
+	{
+		col.LocalRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+	}
 	glm::quat normRot = glm::normalize(col.LocalRotation);
 
 	reactphysics3d::Vector3 position(col.LocalPosition.x, col.LocalPosition.y, col.LocalPosition.z);
 	reactphysics3d::Quaternion orientation(normRot.x, normRot.y, normRot.z, normRot.w);
 	reactphysics3d::Transform localTransform(position, orientation);
 
-	reactphysics3d::Collider* newCollider = nullptr;
-
-	if (col.ColliderType == ColliderComponent::Type::Box)
+	if (col.ColliderType == Type::Box)
 	{
-		reactphysics3d::Vector3 halfExtents(col.Size.x * 0.5f, col.Size.y * 0.5f, col.Size.z * 0.5f);
-		reactphysics3d::BoxShape* boxShape = PhysicsWorld::PhysicsCommon.createBoxShape(halfExtents);
-		newCollider = body->addCollider(boxShape, localTransform);
+		glm::vec3 safeSize = glm::max(col.Size, glm::vec3(0.01f));
+		reactphysics3d::Vector3 halfExtents(safeSize.x * 0.5f, safeSize.y * 0.5f, safeSize.z * 0.5f);
+		col.Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createBoxShape(halfExtents), localTransform);
 	}
-	else if (col.ColliderType == ColliderComponent::Type::Sphere)
+	else if (col.ColliderType == Type::Sphere)
 	{
-		reactphysics3d::SphereShape* sphereShape = PhysicsWorld::PhysicsCommon.createSphereShape(col.Radius);
-		newCollider = body->addCollider(sphereShape, localTransform);
+		float safeRadius = glm::max(col.Radius, 0.01f);
+		col.Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createSphereShape(safeRadius), localTransform);
 	}
-	else if (col.ColliderType == ColliderComponent::Type::Capsule)
+	else if (col.ColliderType == Type::Capsule)
 	{
-		reactphysics3d::CapsuleShape* capsuleShape = PhysicsWorld::PhysicsCommon.createCapsuleShape(col.Radius, col.Height);
-		newCollider = body->addCollider(capsuleShape, localTransform);
+		float safeRadius = glm::max(col.Radius, 0.01f);
+		float safeHeight = glm::max(col.Height, 0.01f);
+		col.Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createCapsuleShape(safeRadius, safeHeight), localTransform);
 	}
 
-	col.Collider = newCollider;
+	if (Rigidbody->Type == reactphysics3d::BodyType::DYNAMIC)
+	{
+		body->setMass(glm::max(Rigidbody->Mass, 0.001f));
 
-	body->updateLocalInertiaTensorFromColliders();
-	body->setLocalCenterOfMass(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
+		body->updateLocalInertiaTensorFromColliders();
+		body->setLocalCenterOfMass(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
+	}
+
+	body->setLinearVelocity(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
+	body->setAngularVelocity(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
 }
 
 void ColliderComponent::ToJson(json& j, const ColliderComponent& col)

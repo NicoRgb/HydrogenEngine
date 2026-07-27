@@ -161,16 +161,20 @@ private:
 	{
 		if (m_IsSimulating)
 		{
+			CurrentScene->GetScene()->ResetPhysics();
 			CurrentScene->ClearScene();
 			CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene(), &MainAssetManager);
 			m_IsSimulating = false;
 		}
 		else
 		{
+			SavedScene->ResetPhysics();
 			SavedScene = std::make_shared<Scene>();
+			CurrentScene->GetScene()->ResetPhysics();
 			SavedScene->DeserializeScene(CurrentScene->GetScene()->SerializeScene(), &MainAssetManager);
 			CurrentScene->GetScene()->CreateScripts();
 			m_IsSimulating = true;
+			ResetPhysicsAccumulator();
 		}
 
 		EditorGUI.GetEventBus().Publish<SceneChangeEvent>({ CurrentScene->GetScene() });

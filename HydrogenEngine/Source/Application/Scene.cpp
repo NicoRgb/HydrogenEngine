@@ -16,6 +16,11 @@ Entity::Entity(Scene* scene, std::string name)
 	AddComponent<TransformComponent>(glm::mat4(1.0f));
 }
 
+Entity::Entity(entt::entity id, Scene* scene)
+	: m_Scene(scene), m_Entity(id)
+{
+}
+
 Entity::Entity()
 	: m_Scene(nullptr), m_Entity(entt::null)
 {
@@ -69,7 +74,7 @@ void Scene::UpdatePhysics(float timestep)
 
 void Scene::Update(float dt)
 {
-	m_PhysicsWorld.Update();
+	m_PhysicsWorld.SyncTransforms();
 	m_ScriptSystem.OnUpdate(dt);
 
 	IterateComponents<AnimatorComponent>([dt](Entity e, AnimatorComponent& anim)
