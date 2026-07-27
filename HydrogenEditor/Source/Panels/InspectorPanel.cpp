@@ -245,8 +245,7 @@ inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent & comp)
 	}
 }
 
-template<>
-inline void DrawComponentUI<RigidbodyComponent>(RigidbodyComponent& comp)
+template<>inline void DrawComponentUI<RigidbodyComponent>(RigidbodyComponent& comp)
 {
 	if (ImGui::TreeNode("Rigidbody"))
 	{
@@ -286,30 +285,52 @@ inline void DrawComponentUI<RigidbodyComponent>(RigidbodyComponent& comp)
 			}
 
 			comp.Rigidbody->setType(bodyType);
+			comp.Type = bodyType;
 		}
 
 		float mass = comp.Rigidbody->getMass();
 		if (ImGui::InputFloat("Mass", &mass))
 		{
+			comp.Mass = mass;
 			comp.Rigidbody->setMass(mass);
 		}
 
 		float linearDampening = comp.Rigidbody->getLinearDamping();
 		if (ImGui::InputFloat("Linear Dampening", &linearDampening))
 		{
+			comp.LinearDamping = linearDampening;
 			comp.Rigidbody->setLinearDamping(linearDampening);
 		}
 
 		float angularDampening = comp.Rigidbody->getAngularDamping();
 		if (ImGui::InputFloat("Angular Dampening", &angularDampening))
 		{
+			comp.AngularDamping = angularDampening;
 			comp.Rigidbody->setAngularDamping(angularDampening);
 		}
 
 		bool gravity = comp.Rigidbody->isGravityEnabled();
 		if (ImGui::Checkbox("Gravity", &gravity))
 		{
+			comp.UseGravity = gravity;
 			comp.Rigidbody->enableGravity(gravity);
+		}
+
+		ImGui::Separator();
+		ImGui::Text("Constraints");
+
+		if (ImGui::Checkbox("Lock Linear X", &comp.LockLinearX) ||
+			ImGui::Checkbox("Lock Linear Y", &comp.LockLinearY) ||
+			ImGui::Checkbox("Lock Linear Z", &comp.LockLinearZ))
+		{
+			comp.ApplyRotationLock();
+		}
+
+		if (ImGui::Checkbox("Lock Rotation X", &comp.LockAngularX) ||
+			ImGui::Checkbox("Lock Rotation Y", &comp.LockAngularY) ||
+			ImGui::Checkbox("Lock Rotation Z", &comp.LockAngularZ))
+		{
+			comp.ApplyRotationLock();
 		}
 
 		ImGui::TreePop();

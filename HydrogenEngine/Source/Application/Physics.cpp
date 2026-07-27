@@ -78,7 +78,6 @@ void PhysicsWorld::UpdatePhysics(float timestep)
 {
 	if (m_PhysicsWorld)
 	{
-		HY_ENGINE_INFO("Num Rigidbodies: {}", m_PhysicsWorld->getNbRigidBodies());
 		m_PhysicsWorld->update(static_cast<reactphysics3d::decimal>(timestep));
 	}
 }
@@ -106,6 +105,24 @@ void PhysicsWorld::SyncTransforms()
 				scale
 			);
 		});
+}
+
+void RigidbodyComponent::ApplyRotationLock()
+{
+	if (!Rigidbody)
+		return;
+
+	Rigidbody->setLinearLockAxisFactor(reactphysics3d::Vector3(
+		LockLinearX ? 0.0f : 1.0f,
+		LockLinearY ? 0.0f : 1.0f,
+		LockLinearZ ? 0.0f : 1.0f
+	));
+
+	Rigidbody->setAngularLockAxisFactor(reactphysics3d::Vector3(
+		LockAngularX ? 0.0f : 1.0f,
+		LockAngularY ? 0.0f : 1.0f,
+		LockAngularZ ? 0.0f : 1.0f
+	));
 }
 
 RigidbodyComponent::RigidbodyComponent(Entity entity)
@@ -170,7 +187,9 @@ void RigidbodyComponent::ToJson(json& j, const RigidbodyComponent& rb)
 		{ "mass", rb.Mass },
 		{ "linearDampening", rb.LinearDamping },
 		{ "angularDampening", rb.AngularDamping },
-		{ "gravity", rb.UseGravity }
+		{ "gravity", rb.UseGravity },
+		{ "linearLock", { rb.LockLinearX, rb.LockLinearY, rb.LockLinearZ } },
+		{ "angularLock", { rb.LockAngularX, rb.LockAngularY, rb.LockAngularZ } }
 	};
 }
 
@@ -182,6 +201,20 @@ void RigidbodyComponent::FromJson(const json& j, RigidbodyComponent& rb, AssetMa
 	rb.AngularDamping = j.value("angularDampening", 0.0f);
 	rb.UseGravity = j.value("gravity", true);
 
+	if (j.contains("linearLock") && j["linearLock"].is_array() && j["linearLock"].size() == 3)
+	{
+		rb.LockLinearX = j["linearLock"][0].get<bool>();
+		rb.LockLinearY = j["linearLock"][1].get<bool>();
+		rb.LockLinearZ = j["linearLock"][2].get<bool>();
+	}
+
+	if (j.contains("angularLock") && j["angularLock"].is_array() && j["angularLock"].size() == 3)
+	{
+		rb.LockAngularX = j["angularLock"][0].get<bool>();
+		rb.LockAngularY = j["angularLock"][1].get<bool>();
+		rb.LockAngularZ = j["angularLock"][2].get<bool>();
+	}
+
 	if (rb.Rigidbody)
 	{
 		rb.Rigidbody->setType(rb.Type);
@@ -189,6 +222,18 @@ void RigidbodyComponent::FromJson(const json& j, RigidbodyComponent& rb, AssetMa
 		rb.Rigidbody->setLinearDamping(rb.LinearDamping);
 		rb.Rigidbody->setAngularDamping(rb.AngularDamping);
 		rb.Rigidbody->enableGravity(rb.UseGravity);
+
+		rb.Rigidbody->setLinearLockAxisFactor(reactphysics3d::Vector3(
+			rb.LockLinearX ? 0.0f : 1.0f,
+			rb.LockLinearY ? 0.0f : 1.0f,
+			rb.LockLinearZ ? 0.0f : 1.0f
+		));
+
+		rb.Rigidbody->setAngularLockAxisFactor(reactphysics3d::Vector3(
+			rb.LockAngularX ? 0.0f : 1.0f,
+			rb.LockAngularY ? 0.0f : 1.0f,
+			rb.LockAngularZ ? 0.0f : 1.0f
+		));
 
 		if (rb.Type == reactphysics3d::BodyType::DYNAMIC)
 		{

@@ -45,6 +45,16 @@ namespace Hydrogen
 		float AngularDamping = 0.0f;
 		bool UseGravity = true;
 
+		bool LockLinearX = false;
+		bool LockLinearY = false;
+		bool LockLinearZ = false;
+
+		bool LockAngularX = false;
+		bool LockAngularY = false;
+		bool LockAngularZ = false;
+
+		void ApplyRotationLock();
+
 		RigidbodyComponent() = default;
 		RigidbodyComponent(class Entity entity);
 

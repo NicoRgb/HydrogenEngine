@@ -14,9 +14,11 @@ namespace Hydrogen
 			s_Lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::table, sol::lib::string);
 
 			BindMath();
+			BindPhysics();
 			BindComponents();
 			BindEntity();
 			BindInputSystem();
+			BindLogging();
 		}
 
 		static sol::state& GetLuaState() { return s_Lua; }
@@ -38,12 +40,16 @@ namespace Hydrogen
 					if (typeName == "Animator" && self.HasComponent<AnimatorComponent>())
 						return sol::make_object(luaState, &self.GetComponent<AnimatorComponent>());
 
+					if (typeName == "Rigidbody" && self.HasComponent<RigidbodyComponent>())
+						return sol::make_object(luaState, &self.GetComponent<RigidbodyComponent>());
+
 					return sol::nil;
 				},
 
 				"has_component", [](Entity& self, const std::string& typeName) -> bool {
 					if (typeName == "Transform") return self.HasComponent<TransformComponent>();
 					if (typeName == "Animator") return self.HasComponent<AnimatorComponent>();
+					if (typeName == "Rigidbody") return self.HasComponent<RigidbodyComponent>();
 					return false;
 				}
 			);
@@ -67,6 +73,7 @@ namespace Hydrogen
 
 			lua["Transform"] = "Transform";
 			lua["Animator"] = "Animator";
+			lua["Rigidbody"] = "Rigidbody";
 		}
 
 		static void BindMath()
@@ -147,6 +154,63 @@ namespace Hydrogen
 			inputTable.set_function("get_mouse_y", &Input::GetMouseY);
 			inputTable.set_function("get_mouse_delta_x", &Input::GetMouseDeltaX);
 			inputTable.set_function("get_mouse_delta_y", &Input::GetMouseDeltaY);
+		}
+
+		static void BindPhysics()
+		{
+			auto& lua = s_Lua;
+
+			lua.new_enum<reactphysics3d::BodyType>("BodyType",
+				{
+					{ "STATIC", reactphysics3d::BodyType::STATIC },
+					{ "KINEMATIC", reactphysics3d::BodyType::KINEMATIC },
+					{ "DYNAMIC", reactphysics3d::BodyType::DYNAMIC }
+				}
+			);
+
+			lua.new_usertype<RigidbodyComponent>("Rigidbody",
+				"SetLinearVelocity", [](RigidbodyComponent& rb, float x, float y, float z) {
+					if (rb.Rigidbody)
+					{
+						rb.Rigidbody->setLinearVelocity(reactphysics3d::Vector3(x, y, z));
+					}
+				},
+				"GetLinearVelocity", [](RigidbodyComponent& rb) {
+					if (rb.Rigidbody)
+					{
+						reactphysics3d::Vector3 v = rb.Rigidbody->getLinearVelocity();
+						return std::make_tuple(v.x, v.y, v.z);
+					}
+					return std::make_tuple(0.0f, 0.0f, 0.0f);
+				},
+				"ApplyForceToCenter", [](RigidbodyComponent& rb, float x, float y, float z) {
+					if (rb.Rigidbody)
+					{
+						rb.Rigidbody->applyWorldForceAtCenterOfMass(reactphysics3d::Vector3(x, y, z));
+					}
+				},
+				"SetMass", &RigidbodyComponent::SetMass,
+				"SetType", &RigidbodyComponent::SetType
+			);
+		}
+
+		static void BindLogging()
+		{
+			auto& lua = s_Lua;
+
+			auto logTable = lua.create_named_table("Log");
+
+			logTable.set_function("info", [](const std::string& message) {
+				HY_APP_INFO("Script: {}", message);
+				});
+
+			logTable.set_function("warn", [](const std::string& message) {
+				HY_APP_WARN("Script: {}", message);
+				});
+
+			logTable.set_function("error", [](const std::string& message) {
+				HY_APP_ERROR("Script: {}", message);
+				});
 		}
 
 	private:

@@ -199,12 +199,11 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 						{1.0f, 1.0f},
 						glm::vec3(0.0f, 1.0f, 0.0f),
 						colliderWorldRot,
-						collider.Size * scale
+						collider.Size
 						});
 				}
 				else if (collider.ColliderType == ColliderComponent::Type::Sphere)
 				{
-					float maxScale = glm::max(glm::max(scale.x, scale.y), scale.z);
 					gizmos.push_back({
 						Gizmo::Type::WireframeSphere,
 						nullptr,
@@ -213,16 +212,15 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 						glm::vec3(0.0f, 1.0f, 0.0f),
 						colliderWorldRot,
 						glm::vec3(1.0f),
-						collider.Radius * maxScale
+						collider.Radius
 						});
 				}
 				else if (collider.ColliderType == ColliderComponent::Type::Capsule)
 				{
-					float maxScale = glm::max(glm::max(scale.x, scale.y), scale.z);
 					glm::vec3 capsuleScale = glm::vec3(
-						collider.Radius * maxScale,
-						(collider.Height + collider.Radius * 2.0f) * maxScale,
-						collider.Radius * maxScale
+						collider.Radius,
+						(collider.Height + collider.Radius * 2.0f),
+						collider.Radius
 					);
 
 					gizmos.push_back({
