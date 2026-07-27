@@ -93,6 +93,7 @@ namespace Hydrogen
 		}
 
 		Entity GetEntityByEntityID(uint32_t id);
+		Entity GetEntityByUUID(uint64_t uuid);
 
 		void CreateScripts();
 
@@ -210,6 +211,32 @@ namespace Hydrogen
 		static void FromJson(const json& j, TagComponent& t, AssetManager* assetManager)
 		{
 			t.Name = j.at("name");
+		}
+	};
+
+	struct RelationshipComponent
+	{
+		RelationshipComponent(Entity entity)
+		{
+			(void)entity;
+		}
+
+		RelationshipComponent(Entity entity, uint64_t parentUUID)
+		{
+			(void)entity;
+			ParentUUID = parentUUID;
+		}
+
+		uint64_t ParentUUID;
+
+		static void ToJson(json& j, const RelationshipComponent& t)
+		{
+			j["parent"] = t.ParentUUID;
+		}
+
+		static void FromJson(const json& j, RelationshipComponent& t, AssetManager* assetManager)
+		{
+			t.ParentUUID = j.value("parent", 0);
 		}
 	};
 

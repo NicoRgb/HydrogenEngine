@@ -14,6 +14,7 @@ Entity::Entity(Scene* scene, std::string name)
 	AddComponent<UUIDComponent>();
 	AddComponent<TagComponent>(name);
 	AddComponent<TransformComponent>(glm::mat4(1.0f));
+	AddComponent<RelationshipComponent>(0);
 }
 
 Entity::Entity(entt::entity id, Scene* scene)
@@ -62,6 +63,20 @@ Entity Hydrogen::Scene::GetEntityByEntityID(uint32_t id)
 		return Entity();
 }
 
+Entity Scene::GetEntityByUUID(uint64_t uuid)
+{
+	Entity res;
+	IterateComponents([&res, uuid](Hydrogen::Entity entity)
+		{
+			if (entity.GetUUID() == uuid)
+			{
+				res = entity;
+			}
+		});
+
+	return res;
+}
+
 void Scene::CreateScripts()
 {
 	m_ScriptSystem.OnCreate();
@@ -99,6 +114,10 @@ json Scene::SerializeScene()
 		if (m_Registry.all_of<TransformComponent>(entity))
 		{
 			TransformComponent::ToJson(entityJson["TransformComponent"], m_Registry.get<TransformComponent>(entity));
+		}
+		if (m_Registry.all_of<RelationshipComponent>(entity))
+		{
+			RelationshipComponent::ToJson(entityJson["RelationshipComponent"], m_Registry.get<RelationshipComponent>(entity));
 		}
 		if (m_Registry.all_of<SkeletalMeshRendererComponent>(entity))
 		{
@@ -164,6 +183,15 @@ void Scene::DeserializeScene(const json& j, AssetManager* assetManager)
 		{
 			TransformComponent& component = m_Registry.emplace<TransformComponent>(entity, e);
 			TransformComponent::FromJson(value["TransformComponent"], component, assetManager);
+		}
+		if (value.contains("RelationshipComponent"))
+		{
+			RelationshipComponent& component = m_Registry.emplace<RelationshipComponent>(entity, e);
+			RelationshipComponent::FromJson(value["RelationshipComponent"], component, assetManager);
+		}
+		else
+		{
+			e.AddComponent<RelationshipComponent>(0);
 		}
 		if (value.contains("SkeletalMeshRendererComponent"))
 		{
