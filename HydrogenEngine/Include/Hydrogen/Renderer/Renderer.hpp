@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include "Hydrogen/Renderer/RenderGraph.hpp"
-#include "Hydrogen/Camera.hpp"
+#include "Hydrogen/Scene/Camera.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
 

@@ -8,13 +8,14 @@ extern ImGuiTextureCache TextureCache;
 void SceneViewportPanel::OnAttach()
 {
 	m_GuizmoTool = ImGuizmo::TRANSLATE;
+	m_SelectedEntityUUID = 0;
 
 	Dockspace->GetEventBus().Subscribe<SceneChangeEvent>([this](const SceneChangeEvent& e) {
 		m_Scene = e.Scene;
 		});
 
 	Dockspace->GetEventBus().Subscribe<EntitySelectedEvent>([this](const EntitySelectedEvent& e) {
-		m_SelectedEntity = e.SelectedEntity;
+		m_SelectedEntityUUID = e.SelectedEntityUUID;
 		});
 
 	Dockspace->AddToolBarCallback([this]() {
@@ -123,14 +124,15 @@ void SceneViewportPanel::OnImGuiRender()
 
 void SceneViewportPanel::DrawGizmo()
 {
-	if (!m_SelectedEntity.IsValid()) return;
+	auto selectedEntity = m_Scene->GetEntityByUUID(m_SelectedEntityUUID);
+	if (!selectedEntity.IsValid()) return;
 
 	ImGuizmo::SetDrawlist();
 	ImGuizmo::SetRect(m_ViewportBounds[0].x, m_ViewportBounds[0].y,
 		m_ViewportBounds[1].x - m_ViewportBounds[0].x,
 		m_ViewportBounds[1].y - m_ViewportBounds[0].y);
 
-	auto& tc = m_SelectedEntity.GetComponent<TransformComponent>();
+	auto& tc = selectedEntity.GetComponent<TransformComponent>();
 	glm::mat4 transform = tc.GetModel();
 	glm::mat4 view = m_FreeCam.View;
 	glm::mat4 proj = m_FreeCam.Proj;
@@ -202,7 +204,7 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 				glm::vec3 colliderWorldPos = translation + worldRot * collider.LocalPosition;
 				glm::quat colliderWorldRot = worldRot * collider.LocalRotation;
 
-				if (collider.ColliderType == ColliderComponent::Type::Box)
+				if ((ColliderComponent::Type)collider.ColliderType == ColliderComponent::Type::Box)
 				{
 					gizmos.push_back({
 						Gizmo::Type::WireframeBox,
@@ -214,7 +216,7 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 						collider.Size
 						});
 				}
-				else if (collider.ColliderType == ColliderComponent::Type::Sphere)
+				else if ((ColliderComponent::Type)collider.ColliderType == ColliderComponent::Type::Sphere)
 				{
 					gizmos.push_back({
 						Gizmo::Type::WireframeSphere,
@@ -227,7 +229,7 @@ void SceneViewportPanel::CollectGizmos(std::vector<Gizmo>& gizmos)
 						collider.Radius
 						});
 				}
-				else if (collider.ColliderType == ColliderComponent::Type::Capsule)
+				else if ((ColliderComponent::Type)collider.ColliderType == ColliderComponent::Type::Capsule)
 				{
 					glm::vec3 capsuleScale = glm::vec3(
 						collider.Radius,

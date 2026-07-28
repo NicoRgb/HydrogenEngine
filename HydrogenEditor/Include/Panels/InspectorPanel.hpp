@@ -22,5 +22,5 @@ public:
 
 private:
 	Hydrogen::Scene* m_Scene;
-	Hydrogen::Entity m_SelectedEntity;
+	uint64_t m_SelectedEntityUUID;
 };

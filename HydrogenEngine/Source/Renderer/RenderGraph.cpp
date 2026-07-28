@@ -1346,7 +1346,7 @@ VkDescriptorBufferInfo RenderGraph::PrepareAndUploadBuffer(const DescriptorBindi
 {
 	RgBufferDesc bufferDesc{};
 	bufferDesc.Type = type;
-	bufferDesc.Size = val.Size;
+	bufferDesc.Size = static_cast<uint32_t>(val.Size);
 
 	uint32_t idx = GetOrCreateBuffer(bufferDesc);
 	const auto& pooled = m_PhysicalBufferPool[idx];

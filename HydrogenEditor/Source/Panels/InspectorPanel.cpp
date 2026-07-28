@@ -1,6 +1,6 @@
 #include <imgui.h>
 #include "Panels/InspectorPanel.hpp"
-#include "Hydrogen/Animation.hpp"
+#include "Hydrogen/Scene/Animation.hpp"
 
 using namespace Hydrogen;
 
@@ -83,33 +83,35 @@ void DrawAddComponentMenu(Scene* scene, Entity entity)
 
 void InspectorPanel::OnAttach()
 {
+	m_SelectedEntityUUID = 0;
+
 	Dockspace->GetEventBus().Subscribe<SceneChangeEvent>([this](const SceneChangeEvent& e) {
 		m_Scene = e.Scene;
 		});
 
 	Dockspace->GetEventBus().Subscribe<EntitySelectedEvent>([this](const EntitySelectedEvent& e) {
-		m_SelectedEntity = e.SelectedEntity;
+		m_SelectedEntityUUID = e.SelectedEntityUUID;
 		});
 }
 
 void InspectorPanel::OnImGuiRender()
 {
-	if (m_SelectedEntity.IsValid())
+	auto selectedEntity = m_Scene->GetEntityByUUID(m_SelectedEntityUUID);
+	if (selectedEntity.IsValid())
 	{
 		if (ImGui::Button("Remove"))
 		{
-			auto e = m_SelectedEntity;
-			m_SelectedEntity = Entity();
-			e.Delete();
+			Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ 0 });
+			selectedEntity.Delete();
 			return;
 		}
 
 		ImGui::Separator();
 		DrawAllComponents<TagComponent, TransformComponent, SkeletalMeshRendererComponent, AnimatorComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptsComponent>
-			(m_SelectedEntity);
+			(selectedEntity);
 		ImGui::Separator();
 		DrawAddComponentMenu<SkeletalMeshRendererComponent, AnimatorComponent, MeshRendererComponent, DirectionalLightComponent, PointLightComponent, RigidbodyComponent, ColliderComponent, CameraComponent, ScriptsComponent>
-			(m_Scene, m_SelectedEntity);
+			(m_Scene, selectedEntity);
 	}
 	else
 	{
@@ -286,7 +288,7 @@ template<>inline void DrawComponentUI<RigidbodyComponent>(RigidbodyComponent& co
 			}
 
 			comp.Rigidbody->setType(bodyType);
-			comp.Type = bodyType;
+			comp.Type = (int)bodyType;
 		}
 
 		float mass = comp.Rigidbody->getMass();
@@ -344,12 +346,12 @@ inline void DrawComponentUI<ColliderComponent>(ColliderComponent& comp)
 	if (ImGui::TreeNode("Collider"))
 	{
 		const char* types[] = { "Box", "Sphere", "Capsule" };
-		int currentIndex = static_cast<int>(comp.ColliderType);
+		int currentIndex = comp.ColliderType;
 
 		if (ImGui::Combo("Type##collider", &currentIndex, types, IM_ARRAYSIZE(types)))
 		{
-			comp.ColliderType = static_cast<ColliderComponent::Type>(currentIndex);
-			comp.CreateCollider(comp);
+			comp.ColliderType = (currentIndex);
+			comp.CreateCollider();
 		}
 
 		ImGui::Spacing();
@@ -357,7 +359,7 @@ inline void DrawComponentUI<ColliderComponent>(ColliderComponent& comp)
 
 		if (ImGui::DragFloat3("Local Position##collider", glm::value_ptr(comp.LocalPosition), 0.01f))
 		{
-			comp.CreateCollider(comp);
+			comp.CreateCollider();
 		}
 
 		glm::vec3 eulerAngles = glm::eulerAngles(comp.LocalRotation);
@@ -366,35 +368,35 @@ inline void DrawComponentUI<ColliderComponent>(ColliderComponent& comp)
 		if (ImGui::DragFloat3("Local Rotation##collider", glm::value_ptr(eulerDegrees), 1.0f, -180.0f, 180.0f))
 		{
 			comp.LocalRotation = glm::quat(glm::radians(eulerDegrees));
-			comp.CreateCollider(comp);
+			comp.CreateCollider();
 		}
 
 		ImGui::Spacing();
 		ImGui::SeparatorText("Shape Properties");
 
-		if (comp.ColliderType == ColliderComponent::Type::Box)
+		if ((ColliderComponent::Type)comp.ColliderType == ColliderComponent::Type::Box)
 		{
 			if (ImGui::DragFloat3("Box Size##collider", glm::value_ptr(comp.Size), 0.05f, 0.1f, 100.0f))
 			{
-				comp.CreateCollider(comp);
+				comp.CreateCollider();
 			}
 		}
-		else if (comp.ColliderType == ColliderComponent::Type::Sphere)
+		else if ((ColliderComponent::Type)comp.ColliderType == ColliderComponent::Type::Sphere)
 		{
 			if (ImGui::DragFloat("Sphere Radius##collider", &comp.Radius, 0.05f, 0.1f, 50.0f))
 			{
-				comp.CreateCollider(comp);
+				comp.CreateCollider();
 			}
 		}
-		else if (comp.ColliderType == ColliderComponent::Type::Capsule)
+		else if ((ColliderComponent::Type)comp.ColliderType == ColliderComponent::Type::Capsule)
 		{
 			if (ImGui::DragFloat("Capsule Radius##collider", &comp.Radius, 0.05f, 0.1f, 50.0f))
 			{
-				comp.CreateCollider(comp);
+				comp.CreateCollider();
 			}
 			if (ImGui::DragFloat("Capsule Height##collider", &comp.Height, 0.05f, 0.1f, 100.0f))
 			{
-				comp.CreateCollider(comp);
+				comp.CreateCollider();
 			}
 		}
 

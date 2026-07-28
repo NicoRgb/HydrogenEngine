@@ -24,7 +24,7 @@ struct SceneChangeEvent
 
 struct EntitySelectedEvent
 {
-	Hydrogen::Entity SelectedEntity;
+	uint64_t SelectedEntityUUID;
 };
 
 struct HardwareChangeEvent

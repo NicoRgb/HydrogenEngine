@@ -1,7 +1,8 @@
 #include "Hydrogen/Renderer/Renderer.hpp"
 #include "Hydrogen/Application.hpp"
 #include "Hydrogen/ProceduralMesh.hpp"
-#include "Hydrogen/Animation.hpp"
+#include "Hydrogen/Scene/Animation.hpp"
+#include "Hydrogen/Scene/Components.hpp"
 #include "Tracy/Tracy.hpp"
 
 #include <backends/imgui_impl_vulkan.h>

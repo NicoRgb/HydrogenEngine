@@ -1,5 +1,5 @@
 #include "Hydrogen/AssetManager.hpp"
-#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Scene/Scene.hpp"
 #include "Hydrogen/Application.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -145,7 +145,7 @@ void AssetManager::LoadAsset(const std::filesystem::path& path)
 		assetConfig["type"] = assetType;
 
 		std::ofstream fout(assetFilePath);
-		fout << assetConfig.dump();
+		fout << assetConfig.dump(4);
 		fout.close();
 	}
 
@@ -552,12 +552,12 @@ void AnimationAsset::ReadAssetFile(const std::string& path)
 void SceneAsset::Load(AssetManager* assetManager)
 {
 	m_Scene = std::make_shared<Scene>();
-	m_Scene->DeserializeScene(json::parse(m_Content), assetManager);
+	m_Scene->DeserializeScene(json::parse(m_Content));
 }
 
 void SceneAsset::Save() const
 {
-	std::string content = m_Scene->SerializeScene().dump();
+	std::string content = m_Scene->SerializeScene().dump(4);
 
 	std::ofstream fout(m_Filepath);
 	fout << content;

@@ -5,7 +5,7 @@
 #include <Hydrogen/Logger.hpp>
 #include <Hydrogen/Viewport.hpp>
 #include <Hydrogen/AssetManager.hpp>
-#include <Hydrogen/Scene.hpp>
-#include <Hydrogen/Physics.hpp>
-#include <Hydrogen/Camera.hpp>
+#include <Hydrogen/Scene/Scene.hpp>
+#include <Hydrogen/Scene/Physics.hpp>
+#include <Hydrogen/Scene/Camera.hpp>
 #include "Hydrogen/Input.hpp"

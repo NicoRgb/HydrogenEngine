@@ -3,20 +3,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
-#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Scene/Components.hpp"
 #include "Hydrogen/Input.hpp"
 
 namespace Hydrogen
 {
-	struct CameraComponent
+	struct CameraComponent : GenericComponent
 	{
-		CameraComponent()
-		{
-		}
-
 		CameraComponent(Entity entity)
+			: GenericComponent(entity)
 		{
-			(void)entity;
 			Active = false;
 			NearPlane = 0.1f;
 			FarPlane = 1000.0f;
@@ -58,27 +54,20 @@ namespace Hydrogen
 			Proj[1][1] *= -1;
 		}
 
-		static void ToJson(json& j, const CameraComponent& c)
-		{
-			j["Active"] = c.Active;
-			j["NearPlane"] = c.NearPlane;
-			j["FarPlane"] = c.FarPlane;
-			j["FOV"] = c.FOV;
-		}
-
-		static void FromJson(const json& j, CameraComponent& c, AssetManager* assetManager)
-		{
-			c.Active = j.at("Active");
-			c.NearPlane = j.at("NearPlane");
-			c.FarPlane = j.at("FarPlane");
-			c.FOV = j.at("FOV");
-		}
+		BEGIN_COMPONENT_REFLECTION(CameraComponent)
+			REFLECT_MEMBER(Active)
+			REFLECT_MEMBER(NearPlane)
+			REFLECT_MEMBER(FarPlane)
+			REFLECT_MEMBER(FOV)
+		END_COMPONENT_REFLECTION()
 	};
+	REGISTER_COMPONENT(CameraComponent, "CameraComponent")
 
 	class FreeCamera : public CameraComponent
 	{
 	public:
 		FreeCamera()
+			: CameraComponent(Entity())
 		{
 			Active = false;
 			NearPlane = 0.1f;
@@ -139,6 +128,9 @@ namespace Hydrogen
 
 		glm::vec3 GetPosition() const { return m_CameraPos; }
 		void SetPosition(glm::vec3 position) { m_CameraPos = position; }
+
+		virtual void Serialize(json&) const override {}
+		virtual void Deserialize(const json&) override {}
 
 	private:
 		glm::vec3 m_CameraPos;

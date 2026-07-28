@@ -7,57 +7,26 @@
       "NearPlane": 0.1
     },
     "TagComponent": {
-      "name": "Main Camera"
+      "Name": "Main Camera"
     },
     "TransformComponent": {
-      "rotation": {
-        "x": -0.36812454521656036,
-        "y": 0.0,
-        "z": 0.0,
-        "w": 0.9297764893450954
-      },
-      "scale": {
-        "x": 1,
-        "y": 1,
-        "z": 1
-      },
-      "translation": {
-        "x": -3,
-        "y": 2.5,
-        "z": 0
-      }
+      "Rotation": [ -0.36812454521656036, 0.0, 0.0, 0.9297764893450954 ],
+      "Scale": [ 1, 1, 1 ],
+      "Translation": [ -3, 2.5, 0 ]
     }
   },
   "15025973543738608336": {
     "PointLightComponent": {
-      "Color": {
-        "b": 1.0,
-        "g": 1.0,
-        "r": 1.0
-      },
       "Intensity": 1.1449999809265137,
       "Radius": 100.0
     },
     "TagComponent": {
-      "name": "PointLight"
+      "Name": "PointLight"
     },
     "TransformComponent": {
-      "rotation": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0,
-        "w": 1.0
-      },
-      "scale": {
-        "x": 0.10000000149011612,
-        "y": 0.10000000149011612,
-        "z": 0.10000000149011612
-      },
-      "translation": {
-        "x": -2.2,
-        "y": 11,
-        "z": 9.6
-      }
+      "Rotation": [ 0.0, 0.0, 0.0, 1.0 ],
+      "Scale": [ 0.10000000149011612, 0.10000000149011612, 0.10000000149011612 ],
+      "Translation": [ -2.2, 11, 9.6 ]
     }
   },
   "3001": {
@@ -76,25 +45,12 @@
       "VertexShader": "VertexShader.glsl"
     },
     "TagComponent": {
-      "name": "FloatingCube2"
+      "Name": "FloatingCube2"
     },
     "TransformComponent": {
-      "rotation": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0,
-        "w": 1.0
-      },
-      "scale": {
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0
-      },
-      "translation": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-      }
+      "Rotation": [ 0.0, 0.0, 0.0, 1.0 ],
+      "Scale": [ 1.0, 1.0, 1.0 ],
+      "Translation": [ 0.0, 0.0, 0.0 ]
     }
   }
 }

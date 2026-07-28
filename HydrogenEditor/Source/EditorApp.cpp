@@ -163,15 +163,21 @@ private:
 		{
 			CurrentScene->GetScene()->ResetPhysics();
 			CurrentScene->ClearScene();
-			CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene(), &MainAssetManager);
+			CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene());
 			m_IsSimulating = false;
 		}
 		else
 		{
-			SavedScene->ResetPhysics();
+			json j = CurrentScene->GetScene()->SerializeScene();
+
+			if (SavedScene) SavedScene->ResetPhysics();
 			SavedScene = std::make_shared<Scene>();
+			SavedScene->DeserializeScene(j);
+
 			CurrentScene->GetScene()->ResetPhysics();
-			SavedScene->DeserializeScene(CurrentScene->GetScene()->SerializeScene(), &MainAssetManager);
+			CurrentScene->ClearScene();
+			CurrentScene->GetScene()->DeserializeScene(j);
+
 			CurrentScene->GetScene()->CreateScripts();
 			m_IsSimulating = true;
 			ResetPhysicsAccumulator();

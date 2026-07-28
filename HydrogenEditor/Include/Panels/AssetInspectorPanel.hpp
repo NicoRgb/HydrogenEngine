@@ -6,7 +6,7 @@
 
 #include "GUISystem.hpp"
 
-#include <Hydrogen/Camera.hpp>
+#include <Hydrogen/Scene/Camera.hpp>
 #include <Hydrogen/Renderer/RenderBuffer.hpp>
 
 class AssetInspectorPanel : public EditorPanel

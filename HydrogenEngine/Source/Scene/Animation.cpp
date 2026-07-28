@@ -1,80 +1,17 @@
 #include "Hydrogen/Application.hpp"
-#include "Hydrogen/Animation.hpp"
 #include "Hydrogen/AssetManager.hpp"
-#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Scene/Animation.hpp"
+#include "Hydrogen/Scene/Scene.hpp"
 
 using namespace Hydrogen;
 
-SkeletalMeshRendererComponent::SkeletalMeshRendererComponent(Entity entity)
-{
-}
-
-const std::shared_ptr<class SkeletonAsset>& SkeletalMeshRendererComponent::GetSkeleton() const
-{
-	return Skeleton;
-}
-
-void SkeletalMeshRendererComponent::ToJson(json& j, const SkeletalMeshRendererComponent& t)
-{
-	j = json();
-	if (t.Material)
-		j["Material"] = std::filesystem::path(t.Material->GetPath()).filename().string();
-	if (t.SkeletalMesh)
-		j["SkeletalMesh"] = std::filesystem::path(t.SkeletalMesh->GetPath()).filename().string();
-	if (t.Skeleton)
-		j["Skeleton"] = std::filesystem::path(t.Skeleton->GetPath()).filename().string();
-}
-
-void SkeletalMeshRendererComponent::FromJson(const json& j, SkeletalMeshRendererComponent& t, AssetManager* assetManager)
-{
-	auto materialPath = j.value("Material", "");
-	auto meshPath = j.value("SkeletalMesh", "");
-	auto skeletonPath = j.value("Skeleton", "");
-
-	if (!materialPath.empty())
-	{
-		t.Material = assetManager->GetAsset<MaterialAsset>(materialPath);
-	}
-	if (!meshPath.empty())
-	{
-		t.SkeletalMesh = assetManager->GetAsset<SkeletalMeshAsset>(meshPath);
-	}
-	if (!skeletonPath.empty())
-	{
-		t.Skeleton = assetManager->GetAsset<SkeletonAsset>(skeletonPath);
-		t.Bones.resize(t.Skeleton->GetJoints().size());
-	}
-}
-
-AnimatorComponent::AnimatorComponent(Entity entity)
-{
-	m_Entity = entity;
-}
-
-void AnimatorComponent::ToJson(json& j, const AnimatorComponent& a)
-{
-	j = json();
-	if (a.AnimationGraph)
-		j["AnimationGraph"] = std::filesystem::path(a.AnimationGraph->GetPath()).filename().string();
-}
-
-void AnimatorComponent::FromJson(const json& j, AnimatorComponent& a, AssetManager* assetManager)
-{
-	auto animationGraph = j.value("AnimationGraph", "");
-	if (!animationGraph.empty())
-	{
-		a.AnimationGraph = assetManager->GetAsset<AnimationGraphAsset>(animationGraph);
-		a.UpdateGraph();
-	}
-}
-
 void AnimatorComponent::UpdateAnimation(float dt)
 {
-	if (!m_Entity.HasComponent<SkeletalMeshRendererComponent>())
+	if (!GetEntity().HasComponent<SkeletalMeshRendererComponent>())
 		return;
 
-	const auto& skeleton = m_Entity.GetComponent<SkeletalMeshRendererComponent>().GetSkeleton();
-	auto& bones = m_Entity.GetComponent<SkeletalMeshRendererComponent>().GetBones();
+	const auto& skeleton = GetEntity().GetComponent<SkeletalMeshRendererComponent>().GetSkeleton();
+	auto& bones = GetEntity().GetComponent<SkeletalMeshRendererComponent>().GetBones();
 	const auto& joints = skeleton->GetJoints();
 
 	if (CurrentStateID == 0)
@@ -191,11 +128,11 @@ void AnimatorComponent::UpdateGraph()
 
 void AnimatorComponent::SetBindPose()
 {
-	if (!m_Entity.HasComponent<SkeletalMeshRendererComponent>())
+	if (!GetEntity().HasComponent<SkeletalMeshRendererComponent>())
 		return;
 
-	const auto& skeleton = m_Entity.GetComponent<SkeletalMeshRendererComponent>().GetSkeleton();
-	auto& bones = m_Entity.GetComponent<SkeletalMeshRendererComponent>().GetBones();
+	const auto& skeleton = GetEntity().GetComponent<SkeletalMeshRendererComponent>().GetSkeleton();
+	auto& bones = GetEntity().GetComponent<SkeletalMeshRendererComponent>().GetBones();
 
 	if (!skeleton)
 		return;

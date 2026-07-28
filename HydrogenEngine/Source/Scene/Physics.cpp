@@ -1,5 +1,5 @@
-#include "Hydrogen/Physics.hpp"
-#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Scene/Physics.hpp"
+#include "Hydrogen/Scene/Components.hpp"
 #include "Hydrogen/Application.hpp"
 
 using namespace Hydrogen;
@@ -24,8 +24,18 @@ PhysicsWorld::~PhysicsWorld()
 
 void PhysicsWorld::Reset()
 {
+	m_Scene->IterateComponents<TransformComponent, RigidbodyComponent>([this](Entity entity, TransformComponent& transform, RigidbodyComponent& rb)
+		{
+			if (!rb.Rigidbody)
+				return;
+
+			m_PhysicsWorld->destroyRigidBody(rb.Rigidbody);
+			rb.Rigidbody = nullptr;
+		});
+
 	for (uint32_t i = m_PhysicsWorld->getNbRigidBodies(); i > 0; --i)
 	{
+		HY_ENGINE_ERROR("dangling reactphysics3d::RigidBody found");
 		reactphysics3d::RigidBody* body = m_PhysicsWorld->getRigidBody(i - 1);
 		m_PhysicsWorld->destroyRigidBody(body);
 	}
@@ -84,11 +94,15 @@ void PhysicsWorld::UpdatePhysics(float timestep)
 
 void PhysicsWorld::SyncTransforms()
 {
-	if (!m_PhysicsWorld || !m_Scene) return;
+	if (!m_PhysicsWorld || !m_Scene)
+	{
+		HY_ENGINE_ERROR("SyncTransform failure");
+		return;
+	}
 
 	m_Scene->IterateComponents<TransformComponent, RigidbodyComponent>([](Entity entity, TransformComponent& transform, RigidbodyComponent& rb)
 		{
-			if (!rb.Rigidbody || rb.Type == reactphysics3d::BodyType::STATIC) return;
+			if (!rb.Rigidbody || (reactphysics3d::BodyType)rb.Type == reactphysics3d::BodyType::STATIC) return;
 
 			const reactphysics3d::Transform& t = rb.Rigidbody->getTransform();
 
@@ -119,13 +133,14 @@ void RigidbodyComponent::ApplyRotationLock()
 }
 
 RigidbodyComponent::RigidbodyComponent(Entity entity)
+	: GenericComponent(entity)
 {
-	Rigidbody = Application::Get()->CurrentScene->GetScene()->GetPhysicsWorld().CreateRigidbody(entity.GetComponent<TransformComponent>());
+	Rigidbody = entity.GetScene()->GetPhysicsWorld().CreateRigidbody(entity.GetComponent<TransformComponent>());
 }
 
 void RigidbodyComponent::SetType(reactphysics3d::BodyType type)
 {
-	Type = type;
+	Type = (int)type;
 	if (Rigidbody)
 	{
 		Rigidbody->setType(type);
@@ -140,7 +155,7 @@ void RigidbodyComponent::SetMass(float mass)
 	if (Rigidbody)
 	{
 		Rigidbody->setMass(Mass);
-		if (Type == reactphysics3d::BodyType::DYNAMIC)
+		if ((reactphysics3d::BodyType)Type == reactphysics3d::BodyType::DYNAMIC)
 			Rigidbody->updateLocalInertiaTensorFromColliders();
 	}
 }
@@ -153,13 +168,13 @@ void RigidbodyComponent::SetUseGravity(bool useGravity)
 
 void RigidbodyComponent::ApplyForce(glm::vec3 force)
 {
-	if (Rigidbody && Type == reactphysics3d::BodyType::DYNAMIC)
+	if (Rigidbody && (reactphysics3d::BodyType)Type == reactphysics3d::BodyType::DYNAMIC)
 		Rigidbody->applyLocalForceAtCenterOfMass({ force.x, force.y, force.z });
 }
 
 void RigidbodyComponent::ApplyTorque(glm::vec3 torque)
 {
-	if (Rigidbody && Type == reactphysics3d::BodyType::DYNAMIC)
+	if (Rigidbody && (reactphysics3d::BodyType)Type == reactphysics3d::BodyType::DYNAMIC)
 		Rigidbody->applyLocalTorque({ torque.x, torque.y, torque.z });
 }
 
@@ -173,73 +188,45 @@ void RigidbodyComponent::SetAngularVelocity(glm::vec3 velocity)
 	if (Rigidbody) Rigidbody->setAngularVelocity({ velocity.x, velocity.y, velocity.z });
 }
 
-void RigidbodyComponent::ToJson(json& j, const RigidbodyComponent& rb)
+void RigidbodyComponent::Deserialize(const json& j)
 {
-	j = json{
-		{ "type", static_cast<int>(rb.Type) },
-		{ "mass", rb.Mass },
-		{ "linearDampening", rb.LinearDamping },
-		{ "angularDampening", rb.AngularDamping },
-		{ "gravity", rb.UseGravity },
-		{ "linearLock", { rb.LockLinearX, rb.LockLinearY, rb.LockLinearZ } },
-		{ "angularLock", { rb.LockAngularX, rb.LockAngularY, rb.LockAngularZ } }
-	};
-}
-
-void RigidbodyComponent::FromJson(const json& j, RigidbodyComponent& rb, AssetManager* assetManager)
-{
-	rb.Type = static_cast<reactphysics3d::BodyType>(j.value("type", 0));
-	rb.Mass = j.value("mass", 1.0f);
-	rb.LinearDamping = j.value("linearDampening", 0.0f);
-	rb.AngularDamping = j.value("angularDampening", 0.0f);
-	rb.UseGravity = j.value("gravity", true);
-
-	if (j.contains("linearLock") && j["linearLock"].is_array() && j["linearLock"].size() == 3)
+	GenericComponent::Deserialize(j);
+	if (Rigidbody)
 	{
-		rb.LockLinearX = j["linearLock"][0].get<bool>();
-		rb.LockLinearY = j["linearLock"][1].get<bool>();
-		rb.LockLinearZ = j["linearLock"][2].get<bool>();
-	}
+		Rigidbody->setType((reactphysics3d::BodyType)Type);
+		Rigidbody->setMass(Mass);
+		Rigidbody->setLinearDamping(LinearDamping);
+		Rigidbody->setAngularDamping(AngularDamping);
+		Rigidbody->enableGravity(UseGravity);
 
-	if (j.contains("angularLock") && j["angularLock"].is_array() && j["angularLock"].size() == 3)
-	{
-		rb.LockAngularX = j["angularLock"][0].get<bool>();
-		rb.LockAngularY = j["angularLock"][1].get<bool>();
-		rb.LockAngularZ = j["angularLock"][2].get<bool>();
-	}
-
-	if (rb.Rigidbody)
-	{
-		rb.Rigidbody->setType(rb.Type);
-		rb.Rigidbody->setMass(rb.Mass);
-		rb.Rigidbody->setLinearDamping(rb.LinearDamping);
-		rb.Rigidbody->setAngularDamping(rb.AngularDamping);
-		rb.Rigidbody->enableGravity(rb.UseGravity);
-
-		rb.Rigidbody->setLinearLockAxisFactor(reactphysics3d::Vector3(
-			rb.LockLinearX ? 0.0f : 1.0f,
-			rb.LockLinearY ? 0.0f : 1.0f,
-			rb.LockLinearZ ? 0.0f : 1.0f
+		Rigidbody->setLinearLockAxisFactor(reactphysics3d::Vector3(
+			LockLinearX ? 0.0f : 1.0f,
+			LockLinearY ? 0.0f : 1.0f,
+			LockLinearZ ? 0.0f : 1.0f
 		));
 
-		rb.Rigidbody->setAngularLockAxisFactor(reactphysics3d::Vector3(
-			rb.LockAngularX ? 0.0f : 1.0f,
-			rb.LockAngularY ? 0.0f : 1.0f,
-			rb.LockAngularZ ? 0.0f : 1.0f
+		Rigidbody->setAngularLockAxisFactor(reactphysics3d::Vector3(
+			LockAngularX ? 0.0f : 1.0f,
+			LockAngularY ? 0.0f : 1.0f,
+			LockAngularZ ? 0.0f : 1.0f
 		));
 
-		if (rb.Type == reactphysics3d::BodyType::DYNAMIC)
+		if ((reactphysics3d::BodyType)Type == reactphysics3d::BodyType::DYNAMIC)
 		{
-			rb.Rigidbody->updateLocalInertiaTensorFromColliders();
-			rb.Rigidbody->setLocalCenterOfMass(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
+			Rigidbody->updateLocalInertiaTensorFromColliders();
+			Rigidbody->setLocalCenterOfMass(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
 		}
+	}
+	else
+	{
+		//createrigidbody
 	}
 }
 
 ColliderComponent::ColliderComponent(Entity entity)
-	: Rigidbody(entity.TryGetComponent<RigidbodyComponent>()), Collider(nullptr)
+	: GenericComponent(entity), Rigidbody(entity.TryGetComponent<RigidbodyComponent>()), Collider(nullptr)
 {
-	CreateCollider(*this);
+	CreateCollider();
 }
 
 void ColliderComponent::DestroyCollider()
@@ -251,43 +238,43 @@ void ColliderComponent::DestroyCollider()
 	}
 }
 
-void ColliderComponent::CreateCollider(ColliderComponent& col)
+void ColliderComponent::CreateCollider()
 {
 	if (!Rigidbody || !Rigidbody->Rigidbody) return;
 
 	auto body = Rigidbody->Rigidbody;
 
-	col.DestroyCollider();
+	DestroyCollider();
 
-	if (glm::length(col.LocalRotation) < 0.001f)
+	if (glm::length(LocalRotation) < 0.001f)
 	{
-		col.LocalRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+		LocalRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 	}
-	glm::quat normRot = glm::normalize(col.LocalRotation);
+	glm::quat normRot = glm::normalize(LocalRotation);
 
-	reactphysics3d::Vector3 position(col.LocalPosition.x, col.LocalPosition.y, col.LocalPosition.z);
+	reactphysics3d::Vector3 position(LocalPosition.x, LocalPosition.y, LocalPosition.z);
 	reactphysics3d::Quaternion orientation(normRot.x, normRot.y, normRot.z, normRot.w);
 	reactphysics3d::Transform localTransform(position, orientation);
 
-	if (col.ColliderType == Type::Box)
+	if ((ColliderComponent::Type)ColliderType == Type::Box)
 	{
-		glm::vec3 safeSize = glm::max(col.Size, glm::vec3(0.01f));
+		glm::vec3 safeSize = glm::max(Size, glm::vec3(0.01f));
 		reactphysics3d::Vector3 halfExtents(safeSize.x * 0.5f, safeSize.y * 0.5f, safeSize.z * 0.5f);
-		col.Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createBoxShape(halfExtents), localTransform);
+		Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createBoxShape(halfExtents), localTransform);
 	}
-	else if (col.ColliderType == Type::Sphere)
+	else if ((ColliderComponent::Type)ColliderType == Type::Sphere)
 	{
-		float safeRadius = glm::max(col.Radius, 0.01f);
-		col.Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createSphereShape(safeRadius), localTransform);
+		float safeRadius = glm::max(Radius, 0.01f);
+		Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createSphereShape(safeRadius), localTransform);
 	}
-	else if (col.ColliderType == Type::Capsule)
+	else if ((ColliderComponent::Type)ColliderType == Type::Capsule)
 	{
-		float safeRadius = glm::max(col.Radius, 0.01f);
-		float safeHeight = glm::max(col.Height, 0.01f);
-		col.Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createCapsuleShape(safeRadius, safeHeight), localTransform);
+		float safeRadius = glm::max(Radius, 0.01f);
+		float safeHeight = glm::max(Height, 0.01f);
+		Collider = body->addCollider(PhysicsWorld::PhysicsCommon.createCapsuleShape(safeRadius, safeHeight), localTransform);
 	}
 
-	if (Rigidbody->Type == reactphysics3d::BodyType::DYNAMIC)
+	if ((reactphysics3d::BodyType)Rigidbody->Type == reactphysics3d::BodyType::DYNAMIC)
 	{
 		body->setMass(glm::max(Rigidbody->Mass, 0.001f));
 
@@ -299,58 +286,8 @@ void ColliderComponent::CreateCollider(ColliderComponent& col)
 	body->setAngularVelocity(reactphysics3d::Vector3(0.0f, 0.0f, 0.0f));
 }
 
-void ColliderComponent::ToJson(json& j, const ColliderComponent& col)
+void ColliderComponent::Deserialize(const json& j)
 {
-	j["type"] = static_cast<int>(col.ColliderType);
-	j["localPosition"] = { col.LocalPosition.x, col.LocalPosition.y, col.LocalPosition.z };
-	j["localRotation"] = { col.LocalRotation.x, col.LocalRotation.y, col.LocalRotation.z, col.LocalRotation.w };
-
-	if (col.ColliderType == Type::Box)
-	{
-		j["size"] = { col.Size.x, col.Size.y, col.Size.z };
-	}
-	else if (col.ColliderType == Type::Sphere)
-	{
-		j["radius"] = col.Radius;
-	}
-	else if (col.ColliderType == Type::Capsule)
-	{
-		j["radius"] = col.Radius;
-		j["height"] = col.Height;
-	}
-}
-
-void ColliderComponent::FromJson(const json& j, ColliderComponent& col, AssetManager* assetManager)
-{
-	col.ColliderType = static_cast<Type>(j.at("type"));
-
-	if (j.contains("localPosition"))
-	{
-		auto pos = j.at("localPosition");
-		col.LocalPosition = glm::vec3(pos[0], pos[1], pos[2]);
-	}
-
-	if (j.contains("localRotation"))
-	{
-		auto rot = j.at("localRotation");
-		col.LocalRotation = glm::quat(rot[3], rot[0], rot[1], rot[2]);
-	}
-
-	if (col.ColliderType == Type::Box)
-	{
-		col.Size.x = j.at("size")[0];
-		col.Size.y = j.at("size")[1];
-		col.Size.z = j.at("size")[2];
-	}
-	else if (col.ColliderType == Type::Sphere)
-	{
-		col.Radius = j.at("radius");
-	}
-	else if (col.ColliderType == Type::Capsule)
-	{
-		col.Radius = j.at("radius");
-		col.Height = j.at("height");
-	}
-
-	col.CreateCollider(col);
+	GenericComponent::Deserialize(j);
+	CreateCollider();
 }

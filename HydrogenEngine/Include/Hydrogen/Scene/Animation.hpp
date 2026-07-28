@@ -1,42 +1,56 @@
 #pragma once
 
-#include "Hydrogen/Scene.hpp"
+#include "Hydrogen/Scene/Components.hpp"
+#include "Hydrogen/AssetManager.hpp"
 #include <algorithm>
 
 using json = nlohmann::json;
 
 namespace Hydrogen
 {
-	struct SkeletalMeshRendererComponent
+	struct SkeletalMeshRendererComponent : public GenericComponent
 	{
-		SkeletalMeshRendererComponent(Entity entity);
+		SkeletalMeshRendererComponent(Entity entity)
+			: GenericComponent(entity)
+		{
+		}
 
-		std::shared_ptr<class SkeletonAsset> Skeleton;
-		std::shared_ptr<class SkeletalMeshAsset> SkeletalMesh;
-		std::shared_ptr<class MaterialAsset> Material;
+		std::shared_ptr<SkeletonAsset> Skeleton;
+		std::shared_ptr<SkeletalMeshAsset> SkeletalMesh;
+		std::shared_ptr<MaterialAsset> Material;
 
 		std::vector<glm::mat4> Bones;
 
 		std::vector<glm::mat4>& GetBones() { return Bones; }
-		const std::shared_ptr<class SkeletonAsset>& GetSkeleton() const;
+		const std::shared_ptr<SkeletonAsset>& GetSkeleton() const { return Skeleton; }
 
-		static void ToJson(json& j, const SkeletalMeshRendererComponent& t);
-		static void FromJson(const json& j, SkeletalMeshRendererComponent& t, class AssetManager* assetManager);
+		BEGIN_COMPONENT_REFLECTION(SkeletalMeshRendererComponent)
+			REFLECT_MEMBER(Skeleton)
+			REFLECT_MEMBER(SkeletalMesh)
+			REFLECT_MEMBER(Material)
+		END_COMPONENT_REFLECTION()
 	};
+	REGISTER_COMPONENT(SkeletalMeshRendererComponent, "SkeletalMeshRendererComponent")
 
 	struct AnimPose
 	{
 		std::vector<glm::mat4> LocalTransforms;
 	};
 
-	struct AnimatorComponent
+	struct AnimatorComponent : public GenericComponent
 	{
-		AnimatorComponent(Entity entity);
+		AnimatorComponent(Entity entity)
+			: GenericComponent(entity)
+		{
+		}
 
-		std::shared_ptr<class AnimationGraphAsset> AnimationGraph;
+		virtual void Deserialize(const json& j) override
+		{
+			GenericComponent::Deserialize(j);
+			UpdateGraph();
+		}
 
-		static void ToJson(json& j, const AnimatorComponent& a);
-		static void FromJson(const json& j, AnimatorComponent& a, class AssetManager* assetManager);
+		std::shared_ptr<AnimationGraphAsset> AnimationGraph;
 
 		void SetFloat(const std::string& name, float val) { m_Parameters[name].Value = val; }
 		void SetBool(const std::string& name, bool val) { m_Parameters[name].Value = val; }
@@ -48,8 +62,8 @@ namespace Hydrogen
 	private:
 		void SetBindPose();
 
-		AnimPose SamplePose(const std::shared_ptr<AnimationAsset>& clip, float time, const std::shared_ptr<class SkeletonAsset>& skeleton);
-		glm::mat4 GetBindPoseTransform(const Joint& joint, const std::shared_ptr<class SkeletonAsset>& skeleton);
+		AnimPose SamplePose(const std::shared_ptr<AnimationAsset>& clip, float time, const std::shared_ptr<SkeletonAsset>& skeleton);
+		glm::mat4 GetBindPoseTransform(const Joint& joint, const std::shared_ptr<SkeletonAsset>& skeleton);
 		AnimPose BlendPoses(const AnimPose& poseA, const AnimPose& poseB, float factor);
 		bool EvaluateCondition(const Condition& cond);
 		glm::mat4 GetChannelTransform(const std::shared_ptr<AnimationAsset>& clip, const Joint& joint, const std::shared_ptr<SkeletonAsset>& skeleton, float time);
@@ -80,8 +94,6 @@ namespace Hydrogen
 			return index;
 		}
 
-		Entity m_Entity;
-
 		// State Machine
 
 		uint64_t m_DefaultStateID = 0;
@@ -107,5 +119,10 @@ namespace Hydrogen
 		};
 
 		std::unordered_map<std::string, CachedChannelState> m_ChannelCache;
+
+		BEGIN_COMPONENT_REFLECTION(AnimatorComponent)
+			REFLECT_MEMBER(AnimationGraph)
+		END_COMPONENT_REFLECTION()
 	};
+	REGISTER_COMPONENT(AnimatorComponent, "AnimatorComponent")
 }

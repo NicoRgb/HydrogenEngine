@@ -29,6 +29,10 @@ void SceneHierarchyPanel::OnAttach()
 	Dockspace->GetEventBus().Subscribe<SceneChangeEvent>([this](const SceneChangeEvent& e) {
 		m_Scene = e.Scene;
 		});
+
+	Dockspace->GetEventBus().Subscribe<EntitySelectedEvent>([this](const EntitySelectedEvent& e) {
+		m_SelectedEntityUUID = e.SelectedEntityUUID;
+		});
 }
 
 static bool CheckCycle(Hydrogen::Scene* scene, uint64_t entityUUID, uint64_t targetParentUUID)
@@ -73,7 +77,7 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entity)
 	if (ImGui::IsItemClicked())
 	{
 		m_SelectedEntityUUID = entity.GetUUID();
-		Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ entity });
+		Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ m_SelectedEntityUUID });
 	}
 
 	if (ImGui::BeginDragDropSource())
@@ -128,7 +132,7 @@ void SceneHierarchyPanel::DrawSceneHierarchyPanel(Scene* scene)
 		if (ImGui::IsItemClicked())
 		{
 			m_SelectedEntityUUID = 0;
-			Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ Entity() });
+			Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ 0 });
 		}
 
 		if (ImGui::BeginDragDropTarget())

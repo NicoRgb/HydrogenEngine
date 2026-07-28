@@ -43,6 +43,12 @@ namespace Hydrogen
 		json m_Config;
 	};
 
+	template <typename T>
+	struct is_asset_pointer : std::false_type {};
+
+	template <typename T>
+	struct is_asset_pointer<std::shared_ptr<T>> : std::is_base_of<Asset, T> {};
+
 	class ShaderAsset : public Asset
 	{
 	public:
@@ -575,6 +581,17 @@ namespace Hydrogen
 			if (it != m_Assets.end())
 			{
 				return std::dynamic_pointer_cast<T>(it->second);
+			}
+
+			return nullptr;
+		}
+
+		std::shared_ptr<Asset> TryGetAsset(const std::string& name)
+		{
+			auto it = m_Assets.find(name);
+			if (it != m_Assets.end())
+			{
+				return it->second;
 			}
 
 			return nullptr;
