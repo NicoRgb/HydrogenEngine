@@ -2,7 +2,7 @@
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Scene/Camera.hpp"
 #include "Hydrogen/Input.hpp"
-#include "Hydrogen/Scene/ScriptEngine.hpp"
+#include "Hydrogen/Scripting/ScriptEngine.hpp"
 
 #include <ImGuizmo.h>
 #include <reactphysics3d/reactphysics3d.h>

@@ -1,0 +1,76 @@
+-- ==========================================
+-- AUTO-GENERATED HYDROGEN ENGINE LUA STUBS
+-- ==========================================
+
+---@class BodyType
+---@field STATIC integer
+---@field KINEMATIC integer
+---@field DYNAMIC integer
+BodyType = {}
+
+---@class Key
+---@field Unknown integer
+---@field A integer
+---@field B integer
+---@field Space integer
+---@field Escape integer
+Key = {}
+
+---@class Log
+Log = {}
+
+--- Logs an info message.
+function Log.info(string) end
+--- Logs a warning message.
+function Log.warn(string) end
+--- Logs an error message.
+function Log.error(string) end
+
+---@class Input
+Input = {}
+
+function Input.is_key_down() end
+function Input.is_mouse_button_down() end
+function Input.get_mouse_x() end
+function Input.get_mouse_y() end
+function Input.get_mouse_delta_x() end
+function Input.get_mouse_delta_y() end
+
+---@class vec3
+---@field x number
+---@field y number
+---@field z number
+vec3 = {}
+
+function vec3.newconstructor() return vec3 end
+function vec3.newconstructor(number) return vec3 end
+function vec3.newconstructor(number, number, number) return vec3 end
+
+---@class Rigidbody
+Rigidbody = {}
+
+function Rigidbody:SetMassSetMass(number) end
+function Rigidbody:SetTypeSetType(number) end
+function Rigidbody:SetLinearVelocitySetLinearVelocity(number, number, number) end
+function Rigidbody:GetLinearVelocityGetLinearVelocity() end
+function Rigidbody:ApplyForceToCenterApplyForceToCenter(number, number, number) end
+
+---@class Transform
+---@field pos vec3
+---@field rot quat
+---@field scale vec3
+Transform = {}
+
+
+---@class Animator
+Animator = {}
+
+function Animator:set_floatset_float(number) end
+function Animator:set_boolset_bool(boolean) end
+function Animator:set_intset_int(number) end
+
+---@class Entity
+Entity = {}
+
+function Entity:GetUUIDGetUUID() end
+

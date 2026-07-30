@@ -1,9 +1,19 @@
-local speed = 5.0
-local jumpForce = 4.0
+local character_controller = {
+    Properties = {
+        speed = {
+            type = "float",
+            value = 5.0
+        },
+        jump_force = {
+            type = "float",
+            value = 4.0
+        }
+    }
+}
 
-local scriptData = {}
+local script_data = {}
 
-function on_create()
+function character_controller:on_create()
     Log.info("[CharacterController] Initializing script on entity...")
     
     if entity == nil then
@@ -16,49 +26,54 @@ function on_create()
         return
     end
 
-    scriptData.rb = entity:get_component("Rigidbody")
-    if scriptData.rb then
+    script_data.rb = entity:get_component("Rigidbody")
+    if script_data.rb then
         Log.info("[CharacterController] Successfully acquired Rigidbody component.")
     else
         Log.error("[CharacterController] ERROR: Failed to get Rigidbody component.")
     end
 end
 
-function on_update(dt)
-    if not scriptData.rb then return end
+function character_controller:on_update(dt)
+    if not script_data.rb then return end
 
-    local vx, vy, vz = scriptData.rb:GetLinearVelocity()
+    local current_speed = self.Properties.speed.value
+    local current_jump_force = self.Properties.jump_force.value
+
+    local vx, vy, vz = script_data.rb:GetLinearVelocity()
     
-    local moveX = 0.0
-    local moveZ = 0.0
+    local move_x = 0.0
+    local move_z = 0.0
 
     if Input.is_key_down(Key.W) then
-        moveZ = -1.0
+        move_z = -1.0
     elseif Input.is_key_down(Key.S) then
-        moveZ = 1.0
+        move_z = 1.0
     end
 
     if Input.is_key_down(Key.A) then
-        moveX = -1.0
+        move_x = -1.0
     elseif Input.is_key_down(Key.D) then
-        moveX = 1.0
+        move_x = 1.0
     end
 
-    local length = math.sqrt(moveX * moveX + moveZ * moveZ)
+    local length = math.sqrt(move_x * move_x + move_z * move_z)
     if length > 0 then
-        moveX = (moveX / length) * speed
-        moveZ = (moveZ / length) * speed
+        move_x = (move_x / length) * current_speed
+        move_z = (move_z / length) * current_speed
     else
         vx = vx * 0.9
         vz = vz * 0.9
     end
 
-    scriptData.rb:SetLinearVelocity(moveX, vy, moveZ)
+    script_data.rb:SetLinearVelocity(move_x, vy, move_z)
 
     if Input.is_key_down(Key.Space) then
         if math.abs(vy) < 0.1 then
             Log.info("[CharacterController] Jump executed!")
-            scriptData.rb:ApplyForceToCenter(0.0, jumpForce * 100.0, 0.0)
+            script_data.rb:ApplyForceToCenter(0.0, current_jump_force * 100.0, 0.0)
         end
     end
 end
+
+return character_controller

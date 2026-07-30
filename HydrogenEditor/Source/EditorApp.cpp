@@ -65,8 +65,6 @@ public:
 
 		ImguiSampler = m_ImGuiRenderer->GetImguiSampler();
 
-		CurrentScene->GetScene()->CreateScripts();
-
 		EditorGUI.Init("MainEngineDockspace");
 
 		EditorGUI.GetEventBus().Subscribe<HardwareChangeEvent>([this](const HardwareChangeEvent& e) {
@@ -178,7 +176,6 @@ private:
 			CurrentScene->ClearScene();
 			CurrentScene->GetScene()->DeserializeScene(j);
 
-			CurrentScene->GetScene()->CreateScripts();
 			m_IsSimulating = true;
 			ResetPhysicsAccumulator();
 		}

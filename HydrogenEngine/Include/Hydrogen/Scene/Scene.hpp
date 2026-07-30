@@ -11,7 +11,7 @@
 #include <sol/sol.hpp>
 
 #include "Physics.hpp"
-#include "ScriptEngine.hpp"
+#include "Hydrogen/Scripting/ScriptEngine.hpp"
 
 #include <random>
 #include <memory>
@@ -78,8 +78,6 @@ namespace Hydrogen
 
 		Entity GetEntityByEntityID(uint32_t id);
 		Entity GetEntityByUUID(uint64_t uuid);
-
-		void CreateScripts();
 
 		void UpdatePhysics(float timestep);
 		void Update(float dt);

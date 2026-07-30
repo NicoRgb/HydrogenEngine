@@ -75,11 +75,6 @@ Entity Scene::GetEntityByUUID(uint64_t uuid)
 	return res;
 }
 
-void Scene::CreateScripts()
-{
-	m_ScriptSystem.OnCreate();
-}
-
 void Scene::UpdatePhysics(float timestep)
 {
 	m_PhysicsWorld.UpdatePhysics(timestep);

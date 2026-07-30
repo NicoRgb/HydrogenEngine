@@ -300,14 +300,11 @@ namespace Hydrogen
 
 	struct ScriptDesc
 	{
-		ScriptDesc()
-		{
-			Script = nullptr;
-		}
+		ScriptDesc() = default;
 
-		std::shared_ptr<ScriptAsset> Script;
-		sol::environment Environment;
-		sol::load_result Chunk;
+		std::shared_ptr<ScriptAsset> Script = nullptr;
+		std::unique_ptr<ScriptInstance> Instance = nullptr;
+		std::unordered_map<std::string, ScriptFieldMetadata> ExposedFields;
 	};
 
 	struct ScriptsComponent : public GenericComponent
