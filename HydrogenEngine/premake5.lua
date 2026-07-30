@@ -50,4 +50,4 @@ project "HydrogenEngine"
 		links { "shaderc_combined", "reactphysics3d-release", "TracyClient-Release" }
 
 	filter "action:vs*"
-		buildoptions { "/utf-8" }
+		buildoptions { "/utf-8", "/bigobj" }

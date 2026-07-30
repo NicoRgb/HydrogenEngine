@@ -333,7 +333,7 @@ namespace Hydrogen
 		ClassBuilder<T, Ctors..., Ctor> Constructor(std::string signature)
 		{
 			m_Info.Constructors.push_back({
-				"constructor" + signature
+				signature
 				});
 
 			auto binding = std::dynamic_pointer_cast<ClassBinding<T>>(m_Info.Binding);
@@ -346,7 +346,7 @@ namespace Hydrogen
 		ClassBuilder& Method(std::string name, Func function, std::string signature, std::string documentation = "")
 		{
 			m_Info.Methods.push_back({
-				name, name + signature, documentation, false,
+				name, signature, documentation, false,
 				std::make_shared<MethodBinding<Func>>(name, function)
 				});
 			return *this;
@@ -356,7 +356,7 @@ namespace Hydrogen
 		ClassBuilder& StaticMethod(std::string name, Func function, std::string signature, std::string documentation = "")
 		{
 			m_Info.Methods.push_back({
-				name, name + signature, documentation, true,
+				name, signature, documentation, true,
 				std::make_shared<FunctionBinding<Func>>(name, function)
 				});
 			return *this;
