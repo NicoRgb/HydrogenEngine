@@ -24,11 +24,6 @@ namespace Hydrogen
 
 			sol::table usertype = scriptClass.Binding->BindToSol(m_Lua, dummyTable);
 
-			for (const auto& ctor : scriptClass.Constructors)
-			{
-				if (ctor.Binding) ctor.Binding->BindToSol(m_Lua, usertype);
-			}
-
 			for (const auto& method : scriptClass.Methods)
 			{
 				if (method.Binding) method.Binding->BindToSol(m_Lua, usertype);

@@ -1,5 +1,5 @@
 local character_controller = {
-    Properties = {
+    properties = {
         speed = {
             type = "float",
             value = 5.0
@@ -16,17 +16,17 @@ local script_data = {}
 function character_controller:on_create()
     Log.info("[CharacterController] Initializing script on entity...")
     
-    if entity == nil then
+    if self.entity == nil then
         Log.error("[CharacterController] ERROR: 'entity' is nil!")
         return
     end
 
-    if not entity:has_component("Rigidbody") then
+    if not self.entity:has_component("Rigidbody") then
         Log.warn("[CharacterController] WARNING: Entity does not have a Rigidbody component!")
         return
     end
 
-    script_data.rb = entity:get_component("Rigidbody")
+    script_data.rb = self.entity:get_component("Rigidbody")
     if script_data.rb then
         Log.info("[CharacterController] Successfully acquired Rigidbody component.")
     else
@@ -37,8 +37,8 @@ end
 function character_controller:on_update(dt)
     if not script_data.rb then return end
 
-    local current_speed = self.Properties.speed.value
-    local current_jump_force = self.Properties.jump_force.value
+    local current_speed = self.properties.speed.value
+    local current_jump_force = self.properties.jump_force.value
 
     local vx, vy, vz = script_data.rb:GetLinearVelocity()
     

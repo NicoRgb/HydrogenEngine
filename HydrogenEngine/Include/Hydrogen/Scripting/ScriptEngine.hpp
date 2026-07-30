@@ -9,7 +9,7 @@
 namespace Hydrogen
 {
 	enum class ScriptFieldType { Float, Int, Bool, String };
-	struct ScriptFieldMetadata { std::string Name; ScriptFieldType Type; std::vector<char> Buffer; };
+	struct ScriptFieldMetadata { std::string Name; ScriptFieldType Type; };
 
 	class ScriptInstance
 	{

@@ -83,7 +83,6 @@ namespace Hydrogen
 	struct ScriptConstructor
 	{
 		std::string Signature;
-		std::shared_ptr<IScriptBinding> Binding;
 	};
 
 	struct ScriptOperatorInfo
@@ -141,6 +140,7 @@ namespace Hydrogen
 	{
 	public:
 		void Build(const ScriptDatabase& database) override;
+		sol::state_view& GetState() { return m_Lua; }
 
 	private:
 		sol::state m_Lua;
@@ -160,11 +160,7 @@ namespace Hydrogen
 		std::string m_OutputPath;
 	};
 
-	// ------------------------------------------------------------
-	// Bindings (Self-contained with Names and Return Tables)
-	// ------------------------------------------------------------
-
-	template<typename T, typename... CtorArgs>
+	template<typename T>
 	struct ClassBinding : IScriptBinding
 	{
 		std::string ClassName;
@@ -175,27 +171,25 @@ namespace Hydrogen
 
 		sol::table BindToSol(sol::state_view& state, sol::table& table) override
 		{
-			if constexpr (sizeof...(CtorArgs) > 0)
-			{
-				state.new_usertype<T>(ClassName, sol::constructors<CtorArgs...>());
-			}
-			else
-			{
-				state.new_usertype<T>(ClassName, sol::no_constructor);
-			}
-			return state[ClassName];
+			return Create(state);
 		}
-	};
 
-	template<typename T, typename... Args>
-	struct ConstructorBinding : IScriptBinding
-	{
-		BindingType Type() const override { return BindingType::Constructor; }
-
-		sol::table BindToSol(sol::state_view& state, sol::table& table) override
+		template<typename... Ctors>
+		void SetConstructors()
 		{
-			return table;
+			Create = [this](sol::state_view& lua)
+				{
+					lua.new_usertype<T>(
+						ClassName,
+						sol::constructors<Ctors...>()
+					);
+
+					return lua[ClassName];
+				};
 		}
+
+	private:
+		std::function<sol::table(sol::state_view&)> Create;
 	};
 
 	template<typename T>
@@ -322,28 +316,30 @@ namespace Hydrogen
 		}
 	};
 
-	// ------------------------------------------------------------
-	// Builders
-	// ------------------------------------------------------------
-
 	class ScriptRegistry;
 
-	template<typename T>
+	template<typename T, typename... Ctors>
 	class ClassBuilder
 	{
 	public:
 		ClassBuilder(ScriptRegistry& registry, ScriptClass& info)
-			: m_Registry(registry), m_Info(info) {
+			: m_Registry(registry), m_Info(info)
+		{
+			const auto& binding = std::dynamic_pointer_cast<ClassBinding<T>>(m_Info.Binding);
+			binding->SetConstructors();
 		}
 
-		template<typename... Args>
-		ClassBuilder& Constructor(std::string signature)
+		template<typename Ctor>
+		ClassBuilder<T, Ctors..., Ctor> Constructor(std::string signature)
 		{
 			m_Info.Constructors.push_back({
-				"constructor" + signature,
-				std::make_shared<ConstructorBinding<T, Args...>>()
+				"constructor" + signature
 				});
-			return *this;
+
+			auto binding = std::dynamic_pointer_cast<ClassBinding<T>>(m_Info.Binding);
+			binding->template SetConstructors<Ctors..., Ctor>();
+
+			return ClassBuilder<T, Ctors..., Ctor>(m_Registry, m_Info);
 		}
 
 		template<typename Func>
@@ -467,12 +463,12 @@ namespace Hydrogen
 	class ScriptRegistry
 	{
 	public:
-		template<typename T, typename... CtorArgs>
+		template<typename T>
 		ClassBuilder<T> BeginClass(std::string name)
 		{
 			m_Classes.push_back({
 				name, name, "", "", {}, {}, {}, {}, {},
-				std::make_shared<ClassBinding<T, CtorArgs...>>(name)
+				std::make_shared<ClassBinding<T>>(name)
 				});
 			return ClassBuilder<T>(*this, m_Classes.back());
 		}

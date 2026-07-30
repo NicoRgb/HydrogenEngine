@@ -14,26 +14,103 @@ public:
 	LuaScriptInstance(std::shared_ptr<ScriptAsset> asset, Entity entity)
 		: m_Asset(asset), m_Entity(entity)
 	{
+		if (!m_Asset)
+			return;
+
+		auto& lua = s_SolBackend.GetState();
+
+		std::string scriptSource = m_Asset->GetContent();
+
+		sol::load_result loadedScript = lua.load(scriptSource);
+		if (!loadedScript.valid())
+		{
+			sol::error err = loadedScript;
+			HY_ENGINE_ERROR("[LUA LOAD ERROR]: {}", err.what());
+			return;
+		}
+
+		sol::protected_function_result result = loadedScript();
+		if (!result.valid())
+		{
+			sol::error err = result;
+			return;
+		}
+
+		m_ScriptTable = result;
+		m_ScriptTable["entity"] = m_Entity;
 	}
 
 	virtual void OnCreate() override
 	{
-		// TODO
+		if (!m_ScriptTable.valid())
+			return;
+
+		sol::protected_function onCreate = m_ScriptTable["on_create"];
+		if (onCreate.valid())
+		{
+			sol::protected_function_result result = onCreate(m_ScriptTable);
+			if (!result.valid())
+			{
+				sol::error err = result;
+				HY_ENGINE_ERROR("[LUA RUNTIME ERROR]: {}", err.what());
+			}
+		}
 	}
 
 	virtual void OnUpdate(float dt) override
 	{
-		// TODO
+		if (!m_ScriptTable.valid())
+			return;
+
+		sol::protected_function onUpdate = m_ScriptTable["OnUpdate"];
+		if (onUpdate.valid())
+		{
+			sol::protected_function_result result = onUpdate(m_ScriptTable, dt);
+			if (!result.valid())
+			{
+				sol::error err = result;
+				HY_ENGINE_ERROR("[LUA RUNTIME ERROR]: {}", err.what());
+			}
+		}
 	}
 
 	virtual void ParseMetadata(std::unordered_map<std::string, ScriptFieldMetadata>& outFields) override
 	{
-		// TODO
+		if (!m_ScriptTable.valid())
+			return;
+
+		sol::table fieldsTable = m_ScriptTable["properties"];
+		if (!fieldsTable.valid())
+			return;
+
+		fieldsTable.for_each([&outFields](sol::object key, sol::object value) {
+			if (key.is<std::string>() && value.is<sol::table>())
+			{
+				std::string fieldName = key.as<std::string>();
+				sol::table fieldDef = value.as<sol::table>();
+
+				ScriptFieldMetadata metadata;
+				metadata.Name = fieldName;
+				metadata.Type = ScriptFieldType::Float; // default
+
+				std::string typeName = fieldDef["type"].get_or<std::string>("float");
+				if (typeName == "int")
+					metadata.Type = ScriptFieldType::Int;
+				if (typeName == "bool")
+					metadata.Type = ScriptFieldType::Bool;
+				if (typeName == "string")
+					metadata.Type = ScriptFieldType::String;
+
+				outFields[fieldName] = metadata;
+			}
+			});
 	}
 
 private:
 	std::shared_ptr<ScriptAsset> m_Asset;
 	Entity m_Entity;
+
+	sol::table m_ScriptTable;
 };
 
 std::unique_ptr<ScriptInstance> Hydrogen::CreateLuaScriptInstance(std::shared_ptr<ScriptAsset> asset, Entity entity)
@@ -86,15 +163,10 @@ class MathScriptModule : public ScriptModule
 public:
 	void RegisterBindings(ScriptRegistry& registry) override
 	{
-		registry.BeginClass<
-			glm::vec3,
-			glm::vec3(),
-			glm::vec3(float),
-			glm::vec3(float, float, float)
-		>("vec3")
-			.Constructor<>("()")
-			.Constructor<float>("(number)")
-			.Constructor<float, float, float>("(number, number, number)")
+		registry.BeginClass<glm::vec3>("vec3")
+			.Constructor<glm::vec3(void)>("()")
+			.Constructor<glm::vec3(float)>("(number)")
+			.Constructor<glm::vec3(float, float, float)>("(number, number, number)")
 			.Property("x", "number", [](const glm::vec3& v) { return v.x; }, [](glm::vec3& v, float x) { v.x = x; })
 			.Property("y", "number", [](const glm::vec3& v) { return v.y; }, [](glm::vec3& v, float y) { v.y = y; })
 			.Property("z", "number", [](const glm::vec3& v) { return v.z; }, [](glm::vec3& v, float z) { v.z = z; })
@@ -207,5 +279,5 @@ void ScriptEngine::Init()
 	}
 
 	s_SolBackend.Build(registry.Database());
-	StubBackend("HydrogenEngine.stub").Build(registry.Database());
+	//StubBackend("HydrogenEngine.stub").Build(registry.Database());
 }
