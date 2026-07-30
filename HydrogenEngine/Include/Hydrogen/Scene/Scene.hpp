@@ -80,6 +80,7 @@ namespace Hydrogen
 		Entity GetEntityByUUID(uint64_t uuid);
 
 		void UpdatePhysics(float timestep);
+		void InitScripts() { m_ScriptSystem.OnInit(); }
 		void Update(float dt);
 
 		void ResetPhysics() { m_PhysicsWorld.Reset(); }
@@ -94,6 +95,8 @@ namespace Hydrogen
 		}
 
 		entt::registry& GetRegistry() { return m_Registry; }
+		
+		void IndexScripts() { m_ScriptSystem.IndexScripts(); }
 
 	private:
 		entt::registry m_Registry;

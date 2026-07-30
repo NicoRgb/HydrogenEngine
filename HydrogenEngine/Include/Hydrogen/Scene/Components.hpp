@@ -304,7 +304,7 @@ namespace Hydrogen
 
 		std::shared_ptr<ScriptAsset> Script = nullptr;
 		std::unique_ptr<ScriptInstance> Instance = nullptr;
-		std::unordered_map<std::string, ScriptFieldMetadata> ExposedFields;
+		std::vector<ScriptFieldMetadata> ExposedFields;
 	};
 
 	struct ScriptsComponent : public GenericComponent

@@ -119,6 +119,65 @@ void InspectorPanel::OnImGuiRender()
 	}
 }
 
+static void DrawScriptField(ScriptFieldMetadata& field)
+{
+	ImGui::PushID(field.Name.c_str());
+
+	switch (field.Type)
+	{
+	case ScriptFieldType::Float:
+	{
+		double& val = std::get<double>(field.Value);
+		float fVal = static_cast<float>(val);
+		if (ImGui::DragFloat(field.Name.c_str(), &fVal, 0.1f))
+		{
+			val = static_cast<double>(fVal);
+		}
+		break;
+	}
+	case ScriptFieldType::Int:
+	{
+		int64_t& val = std::get<int64_t>(field.Value);
+		int iVal = static_cast<int>(val);
+		if (ImGui::DragInt(field.Name.c_str(), &iVal, 1.0f))
+		{
+			val = static_cast<int64_t>(iVal);
+		}
+		break;
+	}
+	case ScriptFieldType::Bool:
+	{
+		bool& val = std::get<bool>(field.Value);
+		ImGui::Checkbox(field.Name.c_str(), &val);
+		break;
+	}
+	case ScriptFieldType::String:
+	{
+		std::string& val = std::get<std::string>(field.Value);
+		char buffer[256];
+		memset(buffer, 0, sizeof(buffer));
+		strncpy_s(buffer, val.c_str(), sizeof(buffer) - 1);
+
+		if (ImGui::InputText(field.Name.c_str(), buffer, sizeof(buffer)))
+		{
+			val = std::string(buffer);
+		}
+		break;
+	}
+	case ScriptFieldType::Entity:
+	{
+		uint64_t& val = std::get<uint64_t>(field.Value);
+		ImGui::Text("%s: Entity UUID [%llu]", field.Name.c_str(), val);
+		break;
+	}
+	default:
+		ImGui::Text("%s: Unsupported Type", field.Name.c_str());
+		break;
+	}
+
+	ImGui::PopID();
+}
+
 template<>
 inline void DrawComponentUI<TagComponent>(TagComponent& comp)
 {
@@ -221,7 +280,8 @@ inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent & comp)
 		}
 		ImGui::SameLine();
 
-		bool nodeOpen = ImGui::TreeNode((scriptName + "##" + std::to_string(i)).c_str());
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DefaultOpen;
+		bool nodeOpen = ImGui::TreeNodeEx((scriptName + "##" + std::to_string(i)).c_str(), flags);
 
 		if (ImGui::BeginPopupContextItem("ScriptContext"))
 		{
@@ -235,6 +295,14 @@ inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent & comp)
 		if (nodeOpen)
 		{
 			AssetPicker("Script", script->Script);
+
+			if (script->Script)
+			{
+				for (auto& field : script->ExposedFields)
+				{
+					DrawScriptField(field);
+				}
+			}
 
 			ImGui::TreePop();
 		}

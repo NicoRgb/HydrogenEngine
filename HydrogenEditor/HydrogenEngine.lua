@@ -246,6 +246,14 @@ function Animator:set_float(value) end
 function Animator:set_bool(value) end
 function Animator:set_int(value) end
 
+---@class Camera
+---@field active boolean
+---@field fov number
+---@field near_plane number
+---@field far_plane number
+Camera = {}
+
+
 ---@class Entity
 Entity = {}
 

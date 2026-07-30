@@ -163,6 +163,7 @@ private:
 			CurrentScene->ClearScene();
 			CurrentScene->GetScene()->DeserializeScene(SavedScene->SerializeScene());
 			m_IsSimulating = false;
+			CurrentScene->GetScene()->IndexScripts();
 		}
 		else
 		{
@@ -178,6 +179,8 @@ private:
 
 			m_IsSimulating = true;
 			ResetPhysicsAccumulator();
+
+			CurrentScene->GetScene()->InitScripts();
 		}
 
 		EditorGUI.GetEventBus().Publish<SceneChangeEvent>({ CurrentScene->GetScene() });

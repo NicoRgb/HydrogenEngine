@@ -75,7 +75,7 @@ public:
 		}
 	}
 
-	virtual void ParseMetadata(std::unordered_map<std::string, ScriptFieldMetadata>& outFields) override
+	virtual void ParseMetadata(std::vector<ScriptFieldMetadata>& outFields) override
 	{
 		if (!m_ScriptTable.valid())
 			return;
@@ -84,7 +84,7 @@ public:
 		if (!fieldsTable.valid())
 			return;
 
-		fieldsTable.for_each([&outFields](sol::object key, sol::object value) {
+		fieldsTable.for_each([this, &outFields](sol::object key, sol::object value) {
 			if (key.is<std::string>() && value.is<sol::table>())
 			{
 				std::string fieldName = key.as<std::string>();
@@ -92,19 +92,63 @@ public:
 
 				ScriptFieldMetadata metadata;
 				metadata.Name = fieldName;
-				metadata.Type = ScriptFieldType::Float; // default
+				metadata.Type = ScriptFieldType::Unknown;
 
 				std::string typeName = fieldDef["type"].get_or<std::string>("float");
+				if (typeName == "float")
+				{
+					metadata.Type = ScriptFieldType::Float;
+					metadata.Value = fieldDef["value"].get_or<double>(0.0f);
+				}
 				if (typeName == "int")
+				{
 					metadata.Type = ScriptFieldType::Int;
+					metadata.Value = fieldDef["value"].get_or<int64_t>(0);
+				}
 				if (typeName == "bool")
+				{
 					metadata.Type = ScriptFieldType::Bool;
+					metadata.Value = fieldDef["value"].get_or(false);
+				}
 				if (typeName == "string")
+				{
 					metadata.Type = ScriptFieldType::String;
+					metadata.Value = fieldDef["value"].get_or<std::string>("");
+				}
 
-				outFields[fieldName] = metadata;
+				if (typeName == "entity")
+				{
+					metadata.Type = ScriptFieldType::Entity;
+					metadata.Value = fieldDef["value"].get_or<uint64_t>(0);
+				}
+
+				outFields.push_back(metadata);
 			}
 			});
+	}
+
+	virtual void UpdateMetadata(const std::vector<ScriptFieldMetadata>& fields) override
+	{
+		if (!m_ScriptTable.valid())
+			return;
+
+		sol::table fieldsTable = m_ScriptTable["properties"];
+		if (!fieldsTable.valid())
+			return;
+
+		for (const auto& field : fields)
+		{
+			if (fieldsTable[field.Name] == sol::nil)
+				continue;
+
+			sol::table fieldDef = fieldsTable[field.Name];
+			if (!fieldDef.valid())
+				continue;
+
+			std::visit([&fieldDef](auto&& arg) {
+				fieldDef["value"] = arg;
+				}, field.Value);
+		}
 	}
 
 private:
@@ -119,6 +163,43 @@ std::unique_ptr<ScriptInstance> Hydrogen::CreateLuaScriptInstance(std::shared_pt
 	return std::make_unique<LuaScriptInstance>(asset, entity);
 }
 
+void ScriptSystem::IndexScripts()
+{
+	HY_ENGINE_INFO("Reloading scripting");
+
+	m_Scene->IterateComponents<ScriptsComponent>([](Entity entity, ScriptsComponent& scripts)
+		{
+			for (const auto& scriptDesc : scripts.Scripts)
+			{
+				if (!scriptDesc->Script) return;
+				if (scriptDesc->Instance) scriptDesc->Instance.reset();
+
+
+				scriptDesc->Instance = CreateLuaScriptInstance(scriptDesc->Script, entity);
+				scriptDesc->Instance->ParseMetadata(scriptDesc->ExposedFields);
+			}
+		});
+}
+
+void ScriptSystem::OnInit()
+{
+	m_Scene->IterateComponents<ScriptsComponent>([](Entity entity, ScriptsComponent& scripts)
+		{
+			for (const auto& scriptDesc : scripts.Scripts)
+			{
+				if (!scriptDesc->Script) return;
+
+				if (!scriptDesc->Instance)
+				{
+					scriptDesc->Instance = CreateLuaScriptInstance(scriptDesc->Script, entity);
+					scriptDesc->Instance->ParseMetadata(scriptDesc->ExposedFields);
+				}
+
+				scriptDesc->Instance->OnCreate();
+			}
+		});
+}
+
 void ScriptSystem::OnUpdate(float dt)
 {
 	m_Scene->IterateComponents<ScriptsComponent>([dt](Entity entity, ScriptsComponent& scripts)
@@ -130,9 +211,11 @@ void ScriptSystem::OnUpdate(float dt)
 				if (!scriptDesc->Instance)
 				{
 					scriptDesc->Instance = CreateLuaScriptInstance(scriptDesc->Script, entity);
+					scriptDesc->Instance->ParseMetadata(scriptDesc->ExposedFields);
 					scriptDesc->Instance->OnCreate();
 				}
 
+				scriptDesc->Instance->UpdateMetadata(scriptDesc->ExposedFields);
 				scriptDesc->Instance->OnUpdate(dt);
 			}
 		});
@@ -456,6 +539,12 @@ public:
 			.Method("set_bool", &AnimatorComponent::SetBool, "(value)")
 			.Method("set_int", &AnimatorComponent::SetInt, "(value)");
 
+		registry.BeginClass<CameraComponent>("Camera")
+			.Property("active", "boolean", &CameraComponent::GetActive, &CameraComponent::SetActive)
+			.Property("fov", "number", &CameraComponent::GetFOV, &CameraComponent::SetFOV)
+			.Property("near_plane", "number", &CameraComponent::GetNearPlane, &CameraComponent::SetNearPlane)
+			.Property("far_plane", "number", &CameraComponent::GetFarPlane, &CameraComponent::SetFarPlane);
+
 		registry.BeginClass<Entity>("Entity")
 			.Method("GetUUID", &Entity::GetUUID, "()")
 
@@ -466,6 +555,8 @@ public:
 				return entity.HasComponent<TransformComponent>();
 			if (typeName == "Animator")
 				return entity.HasComponent<AnimatorComponent>();
+			if (typeName == "Camera")
+				return entity.HasComponent<CameraComponent>();
 			return false;
 				}, "(component_type)")
 
@@ -477,6 +568,8 @@ public:
 				return sol::make_object(lua, std::ref(entity.GetComponent<TransformComponent>()));
 			if (typeName == "Animator" && entity.HasComponent<AnimatorComponent>())
 				return sol::make_object(lua, std::ref(entity.GetComponent<AnimatorComponent>()));
+			if (typeName == "Camera" && entity.HasComponent<CameraComponent>())
+				return sol::make_object(lua, std::ref(entity.GetComponent<CameraComponent>()));
 
 			return sol::nil;
 			}, "(component_type)");

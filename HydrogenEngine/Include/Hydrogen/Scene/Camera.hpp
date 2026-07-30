@@ -26,6 +26,18 @@ namespace Hydrogen
 		float NearPlane, FarPlane;
 		float FOV;
 
+		bool GetActive() const { return Active; }
+		void SetActive(bool active) { Active = active; }
+
+		float GetFOV() const { return FOV; }
+		void SetFOV(float fov) { FOV = fov; }
+
+		float GetNearPlane() const { return NearPlane; }
+		void SetNearPlane(float nearPlane) { NearPlane = nearPlane; }
+
+		float GetFarPlane() const { return FarPlane; }
+		void SetFarPlane(float farPlane) { FarPlane = farPlane; }
+
 		virtual void CalculateView(Entity entity)
 		{
 			const auto& transform = entity.GetComponent<TransformComponent>();

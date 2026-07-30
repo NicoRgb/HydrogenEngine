@@ -48,6 +48,8 @@ void Application::Run()
 	CurrentScene = MainAssetManager.GetAsset<SceneAsset>("Scene.hyscene");
 	CurrentScene->Load(&MainAssetManager);
 
+	CurrentScene->GetScene()->IndexScripts();
+
 	RenderInstanceCreateInfo createInfo{};
 	createInfo.ApplicationName = ApplicationSpec.Name.c_str();
 	createInfo.ApplicationVersion = VK_MAKE_VERSION(ApplicationSpec.Version.x, ApplicationSpec.Version.y, 0);
