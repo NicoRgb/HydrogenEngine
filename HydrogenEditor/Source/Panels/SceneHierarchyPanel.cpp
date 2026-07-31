@@ -74,18 +74,18 @@ void SceneHierarchyPanel::DrawEntityNode(Entity entity)
 
 	bool opened = ImGui::TreeNodeEx((void*)(uint64_t)entity.GetUUID(), flags, "%s", tag.Name.c_str());
 
-	if (ImGui::IsItemClicked())
-	{
-		m_SelectedEntityUUID = entity.GetUUID();
-		Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ m_SelectedEntityUUID });
-	}
-
 	if (ImGui::BeginDragDropSource())
 	{
 		uint64_t entityUUID = entity.GetUUID();
 		ImGui::SetDragDropPayload("HIERARCHY_NODE", &entityUUID, sizeof(uint64_t));
 		ImGui::Text("Moving %s", tag.Name.c_str());
 		ImGui::EndDragDropSource();
+	}
+
+	if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !ImGui::GetDragDropPayload())
+	{
+		m_SelectedEntityUUID = entity.GetUUID();
+		Dockspace->GetEventBus().Publish<EntitySelectedEvent>({ m_SelectedEntityUUID });
 	}
 
 	if (ImGui::BeginDragDropTarget())

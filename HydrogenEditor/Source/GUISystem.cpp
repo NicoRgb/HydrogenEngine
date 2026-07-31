@@ -316,6 +316,21 @@ bool EntityPicker(const std::string& name, Scene* scene, Entity& dest)
 		ImGui::OpenPopup("EntityPickerPopup");
 	}
 
+	if (ImGui::BeginDragDropTarget())
+	{
+		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("HIERARCHY_NODE"))
+		{
+			uint64_t droppedEntityUUID = *(const uint64_t*)payload->Data;
+			Entity droppedEntity = scene->GetEntityByUUID(droppedEntityUUID);
+
+			if (droppedEntity.IsValid())
+			{
+				dest = droppedEntity;
+			}
+		}
+		ImGui::EndDragDropTarget();
+	}
+
 	if (dest.IsValid())
 	{
 		ImGui::SameLine();
