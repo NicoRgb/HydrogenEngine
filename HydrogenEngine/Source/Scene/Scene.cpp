@@ -2,6 +2,7 @@
 #include "Hydrogen/Scene/Camera.hpp"
 #include "Hydrogen/Scene/Scene.hpp"
 #include "Hydrogen/Scene/Animation.hpp"
+#include "Hydrogen/Scripting/ScriptEngine.hpp"
 #include "Hydrogen/Scene/Components.hpp"
 
 #include <string>
@@ -30,7 +31,7 @@ Entity::Entity()
 {
 }
 
-uint64_t Entity::GetUUID()
+uint64_t Entity::GetUUID() const
 {
 	return GetComponent<UUIDComponent>().UUID;
 }
@@ -45,8 +46,9 @@ void Entity::Delete()
 	m_Scene->m_Registry.destroy(m_Entity);
 }
 Scene::Scene()
-	: m_PhysicsWorld(PhysicsWorld(this, { 0.0f, -9.81f, 0.0f })), m_ScriptSystem(this)
+	: m_PhysicsWorld(PhysicsWorld(this, { 0.0f, -9.81f, 0.0f }))
 {
+	m_ScriptSystem = std::make_unique<ScriptSystem>(this);
 }
 
 Entity Scene::GetEntityByEntityID(uint32_t id)
@@ -80,10 +82,23 @@ void Scene::UpdatePhysics(float timestep)
 	m_PhysicsWorld.UpdatePhysics(timestep);
 }
 
+void Scene::IndexScripts()
+{
+	if (!m_ScriptSystem) return;
+	m_ScriptSystem->IndexScripts();
+}
+
+void Scene::InitScripts()
+{
+	if (!m_ScriptSystem) return;
+	m_ScriptSystem->OnInit();
+}
+
 void Scene::Update(float dt)
 {
 	m_PhysicsWorld.SyncTransforms();
-	m_ScriptSystem.OnUpdate(dt);
+	if (m_ScriptSystem)
+		m_ScriptSystem->OnUpdate(dt);
 
 	IterateComponents<AnimatorComponent>([dt](Entity e, AnimatorComponent& anim)
 		{

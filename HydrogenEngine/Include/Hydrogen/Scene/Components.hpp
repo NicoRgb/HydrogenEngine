@@ -2,6 +2,7 @@
 
 #include "Scene.hpp"
 #include "Physics.hpp"
+#include "Hydrogen/Scripting/ScriptEngine.hpp"
 #include "Hydrogen/AssetManager.hpp"
 
 #define BEGIN_COMPONENT_REFLECTION(ClassName) \
@@ -298,13 +299,15 @@ namespace Hydrogen
 	};
 	REGISTER_COMPONENT(PointLightComponent, "PointLightComponent")
 
-	struct ScriptDesc
+	struct ScriptContainer
 	{
-		ScriptDesc() = default;
+		ScriptContainer() = default;
 
 		std::shared_ptr<ScriptAsset> Script = nullptr;
 		std::unique_ptr<ScriptInstance> Instance = nullptr;
 		std::vector<ScriptFieldMetadata> ExposedFields;
+
+		bool ExposedFieldsDirty = false;
 	};
 
 	struct ScriptsComponent : public GenericComponent
@@ -316,7 +319,7 @@ namespace Hydrogen
 		ScriptsComponent(const ScriptsComponent&) = delete;
 		ScriptsComponent& operator=(const ScriptsComponent&) = delete;
 
-		std::vector<std::unique_ptr<ScriptDesc>> Scripts;
+		std::vector<std::unique_ptr<ScriptContainer>> Scripts;
 
 		// empty because of custom serializer
 		BEGIN_COMPONENT_REFLECTION(GenericComponent)

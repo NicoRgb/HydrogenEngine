@@ -77,6 +77,9 @@ public:
 
 	virtual void ParseMetadata(std::vector<ScriptFieldMetadata>& outFields) override
 	{
+		UpdateMetadata(outFields); // serialized fields set their initial values
+		outFields.clear();
+
 		if (!m_ScriptTable.valid())
 			return;
 
@@ -119,7 +122,16 @@ public:
 				if (typeName == "entity")
 				{
 					metadata.Type = ScriptFieldType::Entity;
-					metadata.Value = fieldDef["value"].get_or<uint64_t>(0);
+
+					sol::object valObj = fieldDef["value"];
+					if (valObj.is<Entity>())
+					{
+						metadata.Value = valObj.as<Entity>();
+					}
+					else
+					{
+						metadata.Value = Entity();
+					}
 				}
 
 				outFields.push_back(metadata);
@@ -204,19 +216,23 @@ void ScriptSystem::OnUpdate(float dt)
 {
 	m_Scene->IterateComponents<ScriptsComponent>([dt](Entity entity, ScriptsComponent& scripts)
 		{
-			for (const auto& scriptDesc : scripts.Scripts)
+			for (const auto& script : scripts.Scripts)
 			{
-				if (!scriptDesc->Script) return;
+				if (!script->Script) return;
 
-				if (!scriptDesc->Instance)
+				if (!script->Instance)
 				{
-					scriptDesc->Instance = CreateLuaScriptInstance(scriptDesc->Script, entity);
-					scriptDesc->Instance->ParseMetadata(scriptDesc->ExposedFields);
-					scriptDesc->Instance->OnCreate();
+					script->Instance = CreateLuaScriptInstance(script->Script, entity);
+					script->Instance->ParseMetadata(script->ExposedFields);
+					script->Instance->OnCreate();
 				}
 
-				scriptDesc->Instance->UpdateMetadata(scriptDesc->ExposedFields);
-				scriptDesc->Instance->OnUpdate(dt);
+				if (script->ExposedFieldsDirty)
+				{
+					script->Instance->UpdateMetadata(script->ExposedFields);
+					script->ExposedFieldsDirty = false;
+				}
+				script->Instance->OnUpdate(dt);
 			}
 		});
 }

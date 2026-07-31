@@ -1,5 +1,6 @@
 #include <imgui.h>
 #include "Panels/InspectorPanel.hpp"
+#include "Hydrogen/Application.hpp"
 #include "Hydrogen/Scene/Animation.hpp"
 
 using namespace Hydrogen;
@@ -119,40 +120,56 @@ void InspectorPanel::OnImGuiRender()
 	}
 }
 
-static void DrawScriptField(ScriptFieldMetadata& field)
+static bool DrawScriptField(ScriptFieldMetadata& field)
 {
+	bool dirty = false;
 	ImGui::PushID(field.Name.c_str());
 
 	switch (field.Type)
 	{
 	case ScriptFieldType::Float:
 	{
+		ImGui::Text("Float");
+		ImGui::SameLine();
+
 		double& val = std::get<double>(field.Value);
 		float fVal = static_cast<float>(val);
-		if (ImGui::DragFloat(field.Name.c_str(), &fVal, 0.1f))
+		if (ImGui::InputFloat(field.Name.c_str(), &fVal, 0.1f))
 		{
 			val = static_cast<double>(fVal);
+			dirty = true;
 		}
 		break;
 	}
 	case ScriptFieldType::Int:
 	{
+		ImGui::Text("Int");
+		ImGui::SameLine();
+
 		int64_t& val = std::get<int64_t>(field.Value);
 		int iVal = static_cast<int>(val);
-		if (ImGui::DragInt(field.Name.c_str(), &iVal, 1.0f))
+		if (ImGui::InputInt(field.Name.c_str(), &iVal, 1.0f))
 		{
 			val = static_cast<int64_t>(iVal);
+			dirty = true;
 		}
 		break;
 	}
 	case ScriptFieldType::Bool:
 	{
+		ImGui::Text("Bool");
+		ImGui::SameLine();
+
 		bool& val = std::get<bool>(field.Value);
-		ImGui::Checkbox(field.Name.c_str(), &val);
+		if (ImGui::Checkbox(field.Name.c_str(), &val))
+			dirty = true;
 		break;
 	}
 	case ScriptFieldType::String:
 	{
+		ImGui::Text("String");
+		ImGui::SameLine();
+
 		std::string& val = std::get<std::string>(field.Value);
 		char buffer[256];
 		memset(buffer, 0, sizeof(buffer));
@@ -161,13 +178,18 @@ static void DrawScriptField(ScriptFieldMetadata& field)
 		if (ImGui::InputText(field.Name.c_str(), buffer, sizeof(buffer)))
 		{
 			val = std::string(buffer);
+			dirty = true;
 		}
 		break;
 	}
 	case ScriptFieldType::Entity:
 	{
-		uint64_t& val = std::get<uint64_t>(field.Value);
-		ImGui::Text("%s: Entity UUID [%llu]", field.Name.c_str(), val);
+		ImGui::Text("Entity");
+		ImGui::SameLine();
+
+		Entity& val = std::get<Entity>(field.Value);
+		if (EntityPicker(field.Name, Application::Get()->CurrentScene->GetScene(), val))
+			dirty = true;
 		break;
 	}
 	default:
@@ -176,6 +198,8 @@ static void DrawScriptField(ScriptFieldMetadata& field)
 	}
 
 	ImGui::PopID();
+
+	return dirty;
 }
 
 template<>
@@ -253,11 +277,12 @@ inline void DrawComponentUI<PointLightComponent>(PointLightComponent& comp)
 }
 
 template<>
-inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent & comp)
+inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent& comp)
 {
 	if (ImGui::Button("+ Add Script"))
 	{
-		comp.Scripts.push_back(std::make_unique<ScriptDesc>());
+		comp.Scripts.push_back(std::make_unique<ScriptContainer>());
+		Application::Get()->CurrentScene->GetScene()->IndexScripts();
 	}
 
 	ImGui::Separator();
@@ -294,13 +319,15 @@ inline void DrawComponentUI<ScriptsComponent>(ScriptsComponent & comp)
 
 		if (nodeOpen)
 		{
-			AssetPicker("Script", script->Script);
+			if (AssetPicker("Script", script->Script))
+				Application::Get()->CurrentScene->GetScene()->IndexScripts();
 
 			if (script->Script)
 			{
 				for (auto& field : script->ExposedFields)
 				{
-					DrawScriptField(field);
+					if (DrawScriptField(field))
+						script->ExposedFieldsDirty = true;
 				}
 			}
 

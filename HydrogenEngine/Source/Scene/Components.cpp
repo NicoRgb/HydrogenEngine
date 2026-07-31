@@ -133,11 +133,37 @@ void ScriptsComponent::Serialize(json& j) const
 	j["Scripts"] = json::array();
 	for (const auto& scriptItem : Scripts)
 	{
-		if (scriptItem->Script)
+		if (!scriptItem->Script)
+			continue;
+
+		json scriptJson = json::object();
+
+		std::string filename = std::filesystem::path(scriptItem->Script->GetPath()).filename().string();
+		scriptJson["File"] = filename;
+
+		scriptJson["Fields"] = json::array();
+		for (const auto& field : scriptItem->ExposedFields)
 		{
-			std::string filename = std::filesystem::path(scriptItem->Script->GetPath()).filename().string();
-			j["Scripts"].push_back(filename);
+			json fieldJson = json::object();
+			fieldJson["Name"] = field.Name;
+			fieldJson["Type"] = static_cast<int>(field.Type);
+
+			std::visit([&fieldJson](auto&& arg) {
+				using T = std::decay_t<decltype(arg)>;
+				if constexpr (std::is_same_v<T, Entity>)
+				{
+					fieldJson["Value"] = arg.IsValid() ? arg.GetUUID() : 0;
+				}
+				else
+				{
+					fieldJson["Value"] = arg;
+				}
+				}, field.Value);
+
+			scriptJson["Fields"].push_back(fieldJson);
 		}
+
+		j["Scripts"].push_back(scriptJson);
 	}
 }
 
@@ -145,17 +171,64 @@ void ScriptsComponent::Deserialize(const json& j)
 {
 	Scripts.clear();
 
-	if (j.contains("Scripts") && j["Scripts"].is_array())
+	if (!j.contains("Scripts") || !j["Scripts"].is_array())
+		return;
+
+	for (const auto& scriptJson : j["Scripts"])
 	{
-		for (const auto& scriptPathJson : j["Scripts"])
+		std::string scriptPath = "";
+
+		if (scriptJson.is_string())
 		{
-			std::string scriptPath = scriptPathJson.get<std::string>();
-			if (!scriptPath.empty())
+			scriptPath = scriptJson.get<std::string>();
+		}
+		else if (scriptJson.contains("File") && scriptJson["File"].is_string())
+		{
+			scriptPath = scriptJson["File"].get<std::string>();
+		}
+
+		if (scriptPath.empty())
+			continue;
+
+		auto script = std::make_unique<ScriptContainer>();
+		script->Script = Application::Get()->MainAssetManager.TryGetAsset<ScriptAsset>(scriptPath);
+
+		if (scriptJson.contains("Fields") && scriptJson["Fields"].is_array())
+		{
+			for (const auto& fieldJson : scriptJson["Fields"])
 			{
-				auto script = std::make_unique<ScriptDesc>();
-				script->Script = Application::Get()->MainAssetManager.TryGetAsset<ScriptAsset>(scriptPath);
-				Scripts.push_back(std::move(script));
+				ScriptFieldMetadata field;
+				field.Name = fieldJson["Name"].get<std::string>();
+				field.Type = static_cast<ScriptFieldType>(fieldJson["Type"].get<int>());
+
+				switch (field.Type)
+				{
+				case ScriptFieldType::Float:
+					field.Value = fieldJson["Value"].get<double>();
+					break;
+				case ScriptFieldType::Int:
+					field.Value = fieldJson["Value"].get<int64_t>();
+					break;
+				case ScriptFieldType::Bool:
+					field.Value = fieldJson["Value"].get<bool>();
+					break;
+				case ScriptFieldType::String:
+					field.Value = fieldJson["Value"].get<std::string>();
+					break;
+				case ScriptFieldType::Entity:
+				{
+					uint64_t uuid = fieldJson["Value"].get<uint64_t>();
+					field.Value = GetEntity().GetScene()->GetEntityByUUID(uuid);
+					break;
+				}
+				default:
+					break;
+				}
+
+				script->ExposedFields.push_back(field);
 			}
 		}
+
+		Scripts.push_back(std::move(script));
 	}
 }

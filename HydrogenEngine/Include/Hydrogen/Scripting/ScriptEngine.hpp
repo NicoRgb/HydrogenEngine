@@ -5,11 +5,12 @@
 #include <unordered_map>
 
 #include "ScriptBindings.hpp"
+#include "Hydrogen/Scene/Scene.hpp"
 
 namespace Hydrogen
 {
 	enum class ScriptFieldType { Float, Int, Bool, String, Entity, Unknown };
-	using ScriptFieldValue = std::variant<double, int64_t, bool, std::string, uint64_t /*Entity UUID*/>;
+	using ScriptFieldValue = std::variant<double, int64_t, bool, std::string, Entity>;
 
 	struct ScriptFieldMetadata
 	{

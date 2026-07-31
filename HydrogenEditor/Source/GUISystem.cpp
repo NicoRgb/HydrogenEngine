@@ -1,5 +1,7 @@
 #include "GUISystem.hpp"
 
+using namespace Hydrogen;
+
 void EditorPanel::SetDockspace(DockspaceManager* dockspace)
 {
 	Dockspace = dockspace;
@@ -299,4 +301,73 @@ void DockspaceManager::ApplyHydrogenTheme()
 	colors[ImGuiCol_ResizeGripHovered] = deepBlueHover;
 	colors[ImGuiCol_ResizeGripActive] = electricCyan;
 	colors[ImGuiCol_DockingPreview] = electricCyanMuted;
+}
+
+bool EntityPicker(const std::string& name, Scene* scene, Entity& dest)
+{
+	bool valueChanged = false;
+	ImGui::PushID(name.c_str());
+
+	std::string assetName = dest.IsValid() ? dest.GetComponent<TagComponent>().Name : "None";
+	std::string text = assetName;
+
+	if (ImGui::Button(text.c_str(), ImVec2(180, 0)))
+	{
+		ImGui::OpenPopup("EntityPickerPopup");
+	}
+
+	if (dest.IsValid())
+	{
+		ImGui::SameLine();
+		if (ImGui::Button("X##Clear"))
+		{
+			dest = Entity();
+			valueChanged = true;
+		}
+	}
+
+	ImGui::SameLine();
+	ImGui::Text("%s", name.c_str());
+
+	if (ImGui::BeginPopup("EntityPickerPopup"))
+	{
+		static ImGuiTextFilter filter;
+		filter.Draw("Search...", 180.0f);
+		ImGui::Separator();
+
+		if (ImGui::Selectable("None", dest.IsValid()))
+		{
+			dest = Entity();
+			valueChanged = true;
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::Separator();
+
+		scene->IterateComponents([&](Entity e)
+			{
+				const auto& entityName = e.GetComponent<TagComponent>().Name;
+				if (filter.PassFilter(entityName.c_str()))
+				{
+					bool isSelected = (dest == e);
+					if (ImGui::Selectable(entityName.c_str(), isSelected))
+					{
+						dest = e;
+						valueChanged = true;
+						ImGui::CloseCurrentPopup();
+					}
+
+					if (isSelected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+			});
+
+		ImGui::EndPopup();
+	}
+
+	ImGui::PopID();
+
+	return valueChanged;
 }

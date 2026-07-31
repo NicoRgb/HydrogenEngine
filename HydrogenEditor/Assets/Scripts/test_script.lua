@@ -1,5 +1,8 @@
 local character_controller = {
     properties = {
+        test = {
+            type = "entity"
+        },
         speed = {
             type = "float",
             value = 5.0

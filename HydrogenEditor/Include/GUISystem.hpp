@@ -360,3 +360,5 @@ bool AssetPicker(const std::string& name, std::shared_ptr<T>& dest)
 
 	return valueChanged;
 }
+
+bool EntityPicker(const std::string& name, Hydrogen::Scene* scene, Hydrogen::Entity& dest);

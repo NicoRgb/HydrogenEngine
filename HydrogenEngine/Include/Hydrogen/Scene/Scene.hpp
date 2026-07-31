@@ -11,7 +11,6 @@
 #include <sol/sol.hpp>
 
 #include "Physics.hpp"
-#include "Hydrogen/Scripting/ScriptEngine.hpp"
 
 #include <random>
 #include <memory>
@@ -80,7 +79,8 @@ namespace Hydrogen
 		Entity GetEntityByUUID(uint64_t uuid);
 
 		void UpdatePhysics(float timestep);
-		void InitScripts() { m_ScriptSystem.OnInit(); }
+		void IndexScripts();
+		void InitScripts();
 		void Update(float dt);
 
 		void ResetPhysics() { m_PhysicsWorld.Reset(); }
@@ -96,12 +96,10 @@ namespace Hydrogen
 
 		entt::registry& GetRegistry() { return m_Registry; }
 		
-		void IndexScripts() { m_ScriptSystem.IndexScripts(); }
-
 	private:
 		entt::registry m_Registry;
 		PhysicsWorld m_PhysicsWorld;
-		ScriptSystem m_ScriptSystem;
+		std::unique_ptr<class ScriptSystem> m_ScriptSystem;
 
 		friend class Entity;
 	};
@@ -126,12 +124,12 @@ namespace Hydrogen
 			return !(*this == other);
 		}
 
-		bool IsValid()
+		bool IsValid() const
 		{
 			return m_Entity != entt::null && m_Scene->m_Registry.valid(m_Entity);
 		}
 
-		uint64_t GetUUID();
+		uint64_t GetUUID() const;
 		void SetUUID(uint64_t uuid);
 
 		uint32_t GetID() const { return (uint32_t)m_Entity; }
@@ -142,6 +140,12 @@ namespace Hydrogen
 		void AddComponent(Args&&... args)
 		{
 			m_Scene->m_Registry.emplace<T>(m_Entity, *this, std::forward<Args>(args)...);
+		}
+
+		template <typename T>
+		const T& GetComponent() const
+		{
+			return m_Scene->m_Registry.get<T>(m_Entity);
 		}
 
 		template <typename T>
