@@ -258,6 +258,7 @@ Camera = {}
 Entity = {}
 
 function Entity:GetUUID() end
+function Entity:is_valid() end
 function Entity:has_component(component_type) end
 function Entity:get_component(component_type) end
 

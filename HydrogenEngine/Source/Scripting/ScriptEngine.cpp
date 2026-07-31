@@ -34,6 +34,7 @@ public:
 		if (!result.valid())
 		{
 			sol::error err = result;
+			HY_ENGINE_ERROR("[LUA RUNTIME ERROR]: {}", err.what());
 			return;
 		}
 
@@ -563,6 +564,7 @@ public:
 
 		registry.BeginClass<Entity>("Entity")
 			.Method("GetUUID", &Entity::GetUUID, "()")
+			.Method("is_valid", &Entity::IsValid, "()")
 
 			.Method("has_component", [](Entity& entity, const std::string& typeName) {
 			if (typeName == "Rigidbody")

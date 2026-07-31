@@ -53,12 +53,12 @@ namespace
 	std::string GetIconFilenameForExtension(const std::filesystem::path& path)
 	{
 		std::string ext = path.extension().string();
-		if (ext == ".png" || ext == ".jpg" || ext == ".hdr" || ext == ".tga") return "icon_texture.png";
-		if (ext == ".glsl" || ext == ".vert" || ext == ".frag")               return "icon_shader.png";
-		if (ext == ".lua")                                                    return "icon_script.png";
-		if (ext == ".hymaterial")                                             return "icon_material.png";
-		if (ext == ".hyscene")                                                return "icon_scene.png";
-		if (ext == ".hyanim")                                                 return "icon_animation.png";
+		if (ext == ".png" || ext == ".jpg" || ext == ".hdr" || ext == ".tga")	return "icon_texture.png";
+		if (ext == ".glsl" || ext == ".vert" || ext == ".frag")					return "icon_shader.png";
+		if (ext == ".lua")														return "icon_script.png";
+		if (ext == ".hymat")													return "icon_material.png";
+		if (ext == ".hyscene")													return "icon_scene.png";
+		if (ext == ".hyanim")													return "icon_animation.png";
 
 		return "icon_file.png";
 	}
@@ -395,8 +395,8 @@ void AssetBrowserPanel::OnImGuiRender()
 					StartRenaming(filePath);
 				};
 
-			if (ImGui::MenuItem("Material (.hymaterial)"))
-				CreateAndRenameAsset("NewMaterial.hymaterial", "{\n  \"Tint\": [1.0, 1.0, 1.0],\n  \"Roughness\": 0.5,\n  \"Metallic\": 0.0\n}");
+			if (ImGui::MenuItem("Material (.hymat)"))
+				CreateAndRenameAsset("NewMaterial.hymat", "{\n  \"Tint\": [1.0, 1.0, 1.0],\n  \"Roughness\": 0.5,\n  \"Metallic\": 0.0\n}");
 
 			if (ImGui::MenuItem("Scene (.hyscene)"))
 				CreateAndRenameAsset("NewScene.hyscene", "{}");

@@ -1,6 +1,8 @@
 #include <Hydrogen/Scripting/ScriptBindings.hpp>
 #include <fstream>
 
+#include <glm/glm.hpp>
+
 namespace Hydrogen
 {
 	void SolScriptBackend::Build(const ScriptDatabase& database)

@@ -326,7 +326,6 @@ namespace Hydrogen
 			: m_Registry(registry), m_Info(info)
 		{
 			const auto& binding = std::dynamic_pointer_cast<ClassBinding<T>>(m_Info.Binding);
-			binding->SetConstructors();
 		}
 
 		template<typename Ctor>
@@ -466,9 +465,12 @@ namespace Hydrogen
 		template<typename T>
 		ClassBuilder<T> BeginClass(std::string name)
 		{
+			std::shared_ptr<ClassBinding<T>> binding = std::make_shared<ClassBinding<T>>(name);
+			binding->SetConstructors();
+
 			m_Classes.push_back({
 				name, name, "", "", {}, {}, {}, {}, {},
-				std::make_shared<ClassBinding<T>>(name)
+				binding
 				});
 			return ClassBuilder<T>(*this, m_Classes.back());
 		}
