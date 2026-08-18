@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include "MeshImporter.hpp"
+#include "TextureBaker.hpp"
 
 using namespace Hydrogen;
 
@@ -19,6 +20,23 @@ struct ExportOptions
 	bool ExportAnimation = true;
 
 	std::string ModelName = "NewAsset";
+};
+
+
+struct TextureExportOptions
+{
+	std::wstring AlbedoPath = L"";
+	std::wstring NormalPath = L"";
+	std::wstring RoughnessPath = L"";
+	std::wstring MetallicPath = L"";
+	std::wstring OcclusionPath = L"";
+	std::wstring EmissivePath = L"";
+
+	std::wstring OutputDirectory = L"";
+	std::string AssetName = "NewMaterial";
+
+	bool FlipNormalY = false;
+	bool InvertRoughness = false;
 };
 
 class AssetExtractor
@@ -129,6 +147,7 @@ public:
 		SetupDockspace(viewport->WorkPos, viewport->WorkSize, viewport->ID);
 
 		DrawAssetCompilerPanel();
+		DrawTextureBakerPanel();
 		DrawLogMessages();
 	}
 
@@ -323,6 +342,78 @@ private:
 		ImGui::End();
 	}
 
+	TextureExportOptions m_TextureOptions;
+	std::string m_TextureStatusMessage = "Ready";
+
+	void DrawTextureBakerPanel()
+	{
+		ImGui::Begin("Material Texture Baker");
+
+		ImGui::Text("Input Material Maps");
+		ImGui::Separator();
+		ImGui::Spacing();
+
+		auto drawTextureSlot = [&](const char* label, std::wstring& pathVar, const char* browseId) {
+			std::string pathStr = WStringToString(pathVar);
+			char buf[512];
+			strncpy_s(buf, pathStr.c_str(), sizeof(buf));
+			ImGui::InputText(label, buf, sizeof(buf), ImGuiInputTextFlags_ReadOnly);
+			ImGui::SameLine();
+			if (ImGui::Button(browseId))
+			{
+				pathVar = OpenFileDialog(L"Image Files\0*.png;*.jpg;*.tga;*.bmp\0All Files\0*.*\0");
+			}
+		};
+	
+		drawTextureSlot("Albedo Map", m_TextureOptions.AlbedoPath, "Browse...##Albedo");
+		drawTextureSlot("Normal Map", m_TextureOptions.NormalPath, "Browse...##Normal");
+		drawTextureSlot("Roughness Map", m_TextureOptions.RoughnessPath, "Browse...##Rough");
+		drawTextureSlot("Metallic Map", m_TextureOptions.MetallicPath, "Browse...##Metal");
+		drawTextureSlot("Ambient Occlusion", m_TextureOptions.OcclusionPath, "Browse...##AO");
+		drawTextureSlot("Emissive Map", m_TextureOptions.EmissivePath, "Browse...##Emissive");
+
+		ImGui::Spacing();
+		ImGui::Text("Export Settings");
+		ImGui::Separator();
+
+		std::string outDirStr = WStringToString(m_TextureOptions.OutputDirectory);
+		char outDirBuf[512];
+		strncpy_s(outDirBuf, outDirStr.c_str(), sizeof(outDirBuf));
+		ImGui::InputText("Output Directory", outDirBuf, sizeof(outDirBuf), ImGuiInputTextFlags_ReadOnly);
+		ImGui::SameLine();
+		if (ImGui::Button("Browse...##TexDest"))
+		{
+			m_TextureOptions.OutputDirectory = OpenFolderDialog();
+		}
+
+		char nameBuf[128];
+		strncpy_s(nameBuf, m_TextureOptions.AssetName.c_str(), sizeof(nameBuf));
+		if (ImGui::InputText("Material Name", nameBuf, sizeof(nameBuf)))
+		{
+			m_TextureOptions.AssetName = nameBuf;
+		}
+
+		ImGui::Spacing();
+		ImGui::Text("Baker Options");
+		ImGui::Separator();
+		ImGui::Checkbox("Flip Normal Map Y (DirectX -> OpenGL)", &m_TextureOptions.FlipNormalY);
+		ImGui::Checkbox("Invert Roughness (if input is Smoothness)", &m_TextureOptions.InvertRoughness);
+
+		ImGui::Spacing();
+		ImGui::Text("Actions");
+		ImGui::Separator();
+
+		if (ImGui::Button("Execute Texture Bake", ImVec2(200, 40)))
+		{
+			ExecuteTextureBake();
+		}
+
+		ImGui::Spacing();
+		ImGui::TextColored(ImVec4(0.24f, 0.86f, 1.00f, 1.00f), "Status: %s", m_TextureStatusMessage.c_str());
+
+		ImGui::End();
+	}
+
 	void DrawLogMessages()
 	{
 		ImGui::Begin("Console Output");
@@ -413,6 +504,63 @@ private:
 		colors[ImGuiCol_ResizeGripHovered] = deepBlueHover;
 		colors[ImGuiCol_ResizeGripActive] = electricCyan;
 		colors[ImGuiCol_DockingPreview] = electricCyanMuted;
+	}
+
+	void ExecuteTextureBake()
+	{
+		if (m_TextureOptions.OutputDirectory.empty())
+		{
+			m_TextureStatusMessage = "Error: No output directory selected.";
+			HY_APP_ERROR("Texture Baker failed: Output path missing.");
+			return;
+		}
+
+		TextureBakerConfig config;
+		config.FlipNormalY = m_TextureOptions.FlipNormalY;
+		config.InvertRoughness = m_TextureOptions.InvertRoughness;
+
+		std::filesystem::path outDir(m_TextureOptions.OutputDirectory);
+		std::string prefix = m_TextureOptions.AssetName;
+
+		auto addInput = [&](const std::wstring& path) -> int {
+			if (path.empty()) return -1;
+			config.InputPaths.push_back(WStringToString(path));
+			return static_cast<int>(config.InputPaths.size()) - 1;
+			};
+
+		config.AlbedoInputIndex = addInput(m_TextureOptions.AlbedoPath);
+		if (config.AlbedoInputIndex >= 0)
+			config.OutputAlbedoPath = (outDir / (prefix + "_Albedo.png")).string();
+
+		config.NormalInputIndex = addInput(m_TextureOptions.NormalPath);
+		if (config.NormalInputIndex >= 0)
+			config.OutputNormalPath = (outDir / (prefix + "_Normal.png")).string();
+
+		config.OcclusionInputIndex = addInput(m_TextureOptions.OcclusionPath);
+		config.RoughnessInputIndex = addInput(m_TextureOptions.RoughnessPath);
+		config.MetallicInputIndex = addInput(m_TextureOptions.MetallicPath);
+
+		if (config.OcclusionInputIndex >= 0 || config.RoughnessInputIndex >= 0 || config.MetallicInputIndex >= 0)
+		{
+			config.OutputOrmPath = (outDir / (prefix + "_ORM.png")).string();
+		}
+
+		config.EmissiveInputIndex = addInput(m_TextureOptions.EmissivePath);
+		if (config.EmissiveInputIndex >= 0)
+			config.OutputEmissivePath = (outDir / (prefix + "_Emissive.png")).string();
+
+		try
+		{
+			HY_APP_INFO("Starting texture baking pipeline...");
+			TextureBaker::Bake(config);
+			m_TextureStatusMessage = "Texture bake complete successfully!";
+			HY_APP_INFO("Texture bake completed and saved to: {}", WStringToString(m_TextureOptions.OutputDirectory));
+		}
+		catch (const std::exception& e)
+		{
+			m_TextureStatusMessage = std::string("Error: ") + e.what();
+			HY_APP_ERROR("Texture bake failed: {}", e.what());
+		}
 	}
 };
 
