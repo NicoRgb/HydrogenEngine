@@ -169,6 +169,10 @@ void ScriptsComponent::Serialize(json& j) const
 
 void ScriptsComponent::Deserialize(const json& j)
 {
+}
+
+void ScriptsComponent::PostDeserialize(const json& j)
+{
 	Scripts.clear();
 
 	if (!j.contains("Scripts") || !j["Scripts"].is_array())

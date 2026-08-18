@@ -67,6 +67,8 @@ namespace Hydrogen
 		virtual void Serialize(json& j) const;
 		virtual void Deserialize(const json& j);
 
+		virtual void PostDeserialize(const json& j) {}
+
 	private:
 		Entity m_Entity;
 	};
@@ -78,6 +80,7 @@ namespace Hydrogen
 		{
 			std::function<void(json& j, Entity entity)> Serialize;
 			std::function<void(const json& j, Entity entity)> Deserialize;
+			std::function<void(const json& j, Entity entity)> PostDeserialize;
 		};
 
 		static ComponentRegistry& Get()
@@ -115,6 +118,13 @@ namespace Hydrogen
 				[componentName](const json& j, Entity entity) {
 					auto& comp = entity.GetOrAddComponent<T>();
 					comp.Deserialize(j);
+				},
+				[componentName](const json& j, Entity entity) {
+					if (entity.HasComponent<T>())
+					{
+						auto& comp = entity.GetComponent<T>();
+						comp.PostDeserialize(j);
+					}
 				}
 				});
 		}
@@ -190,7 +200,7 @@ namespace Hydrogen
 			return ModelCache;
 		}
 
-		glm::vec3 GetTranslation() const
+		const glm::vec3& GetTranslation() const
 		{
 			return Translation;
 		}
@@ -201,7 +211,7 @@ namespace Hydrogen
 			Dirty = true;
 		}
 
-		glm::quat GetRotation() const
+		const glm::quat& GetRotation() const
 		{
 			return Rotation;
 		}
@@ -212,7 +222,7 @@ namespace Hydrogen
 			Dirty = true;
 		}
 
-		glm::vec3 GetScale() const
+		const glm::vec3& GetScale() const
 		{
 			return Scale;
 		}
@@ -327,6 +337,7 @@ namespace Hydrogen
 
 		virtual void Serialize(json& j) const override;
 		virtual void Deserialize(const json& j) override;
+		virtual void PostDeserialize(const json& j) override;
 	};
 	REGISTER_COMPONENT(ScriptsComponent, "ScriptsComponent")
 

@@ -175,6 +175,19 @@ void Scene::DeserializeScene(const json& j)
 				handlers.Deserialize(value[name], e);
 		}
 	}
+
+	for (auto& [key, value] : j.items())
+	{
+		Entity e = GetEntityByUUID(std::stoull(key));
+		if (!e.IsValid())
+			continue;
+
+		for (const auto& [name, handlers] : ComponentRegistry::Get().GetAllHandlers())
+		{
+			if (value.contains(name))
+				handlers.PostDeserialize(value[name], e);
+		}
+	}
 }
 
 UUIDComponent::UUIDComponent(Entity)

@@ -40,7 +40,7 @@ namespace Hydrogen
 
 		virtual void CalculateView(Entity entity)
 		{
-			const auto& transform = entity.GetComponent<TransformComponent>();
+			auto& transform = entity.GetComponent<TransformComponent>();
 
 			glm::vec3 translation = transform.GetTranslation();
 			glm::quat rotation = transform.GetRotation();
