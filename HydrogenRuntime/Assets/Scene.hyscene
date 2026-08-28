@@ -1,1 +1,348 @@
-{"1001":{"CameraComponent":{"Active":true,"FOV":60.0,"FarPlane":1000.0,"NearPlane":0.10000000149011612},"TagComponent":{"name":"Main Camera"},"TransformComponent":{"rotation":{"x":-0.3000035881996155,"y":-0.9000385999679565,"z":2.8976851140782856e-08},"scale":{"x":0.9999830722808838,"y":0.9999946355819702,"z":0.999988317489624},"translation":{"x":-1.399999976158142,"y":1.7000000476837158,"z":2.5}}},"1002":{"DirectionalLightComponent":{"Color":{"b":1.0,"g":1.0,"r":1.0},"Intensity":0.3059999942779541},"TagComponent":{"name":"Sun Light"},"TransformComponent":{"rotation":{"x":-90.98322296142578,"y":48.83663558959961,"z":161.0393829345703},"scale":{"x":0.9999993443489075,"y":0.9999992847442627,"z":1.0},"translation":{"x":4.393446445465088,"y":3.6316399574279785,"z":-0.6160761117935181}}},"15025973543738608336":{"PointLightComponent":{"Color":{"b":1.0,"g":1.0,"r":1.0},"Intensity":1.1449999809265137,"Radius":100.0},"TagComponent":{"name":"PointLight"},"TransformComponent":{"rotation":{"x":0.0,"y":-0.0,"z":0.0},"scale":{"x":0.10000000149011612,"y":0.10000000149011612,"z":0.10000000149011612},"translation":{"x":-2.200000047683716,"y":11.0,"z":9.600000381469727}}},"3001":{"ColliderComponent":{"size":[1.0,1.0,1.0],"type":0},"MeshRendererComponent":{"FragmentShader":"FragmentShader.glsl","Material":"DefaultMaterial.hymat","Mesh":"Fox.hymesh","VertexShader":"VertexShader.glsl"},"TagComponent":{"name":"Fox"},"TransformComponent":{"rotation":{"x":0.0,"y":-3.4150946248701075e-06,"z":0.0},"scale":{"x":0.020214969292283058,"y":0.020394299179315567,"z":0.020107408985495567},"translation":{"x":0.0,"y":0.0,"z":0.0}}}}
+{
+    "10236098046338154245": {
+        "MeshRendererComponent": {
+            "Material": "Protection.hymat",
+            "Mesh": "Protection.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Protection0"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.7071,
+                0.0,
+                0.7071
+            ],
+            "Scale": [
+                0.9999,
+                1.0,
+                0.9999
+            ],
+            "Translation": [
+                -0.8054,
+                0.0363,
+                1.8444
+            ]
+        }
+    },
+    "11439109407425553830": {
+        "DirectionalLightComponent": {
+            "Color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Intensity": 0.991
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Sun"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.204,
+                -0.2249,
+                0.4187,
+                0.8559
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                2.321,
+                0.186,
+                0.546
+            ]
+        }
+    },
+    "17484285142182885270": {
+        "CameraComponent": {
+            "Active": true,
+            "FOV": 60.0,
+            "FarPlane": 1000.0,
+            "NearPlane": 0.1
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Camera"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                -0.1416,
+                -0.1616,
+                -0.0234,
+                0.9764
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                -0.4893,
+                0.6612,
+                3.1834
+            ]
+        }
+    },
+    "1885791233330677757": {
+        "MeshRendererComponent": {
+            "Material": "Cone.hymat",
+            "Mesh": "TrafficCone.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Cone1"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                -0.0008,
+                0.0207,
+                0.0161,
+                0.9997
+            ],
+            "Scale": [
+                0.05,
+                0.05,
+                0.05
+            ],
+            "Translation": [
+                0.2335,
+                0.1417,
+                -1.1117
+            ]
+        }
+    },
+    "1964543830699353042": {
+        "PointLightComponent": {
+            "Color": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "Intensity": 1.681,
+            "Radius": 3.11
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "RedLight"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Scale": [
+                0.01,
+                0.01,
+                0.01
+            ],
+            "Translation": [
+                -0.7875,
+                0.1984,
+                -1.1144
+            ]
+        }
+    },
+    "4438547604789827990": {
+        "MeshRendererComponent": {
+            "Material": "Barrier.hymat",
+            "Mesh": "Barriers.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Barrier"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.7779,
+                0.0,
+                0.6284
+            ],
+            "Scale": [
+                0.15,
+                0.15,
+                0.15
+            ],
+            "Translation": [
+                -0.0402,
+                0.0364,
+                -1.7449
+            ]
+        }
+    },
+    "5332118345302642587": {
+        "MeshRendererComponent": {
+            "Material": "Protection.hymat",
+            "Mesh": "Protection.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Protection1"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                -0.7071,
+                0.0,
+                0.7071
+            ],
+            "Scale": [
+                0.9999,
+                1.0,
+                0.9999
+            ],
+            "Translation": [
+                0.8029,
+                0.036,
+                1.6625
+            ]
+        }
+    },
+    "6049406363415721122": {
+        "PointLightComponent": {
+            "Color": [
+                0.0181,
+                0.0,
+                1.0
+            ],
+            "Intensity": 1.681,
+            "Radius": 2.249
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "BlueLight"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                0.8042,
+                0.3316,
+                -1.3797
+            ]
+        }
+    },
+    "6127889858252311171": {
+        "MeshRendererComponent": {
+            "Material": "Cone.hymat",
+            "Mesh": "TrafficCone.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Cone0"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                -0.1127,
+                0.0,
+                0.9936
+            ],
+            "Scale": [
+                0.05,
+                0.05,
+                0.05
+            ],
+            "Translation": [
+                -0.3062,
+                0.142,
+                -0.8451
+            ]
+        }
+    },
+    "6182090004199455567": {
+        "MeshRendererComponent": {
+            "Material": "Asphalt.hymat",
+            "Mesh": "Road.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Road0"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    },
+    "8757492035585521368": {
+        "MeshRendererComponent": {
+            "Material": "Asphalt.hymat",
+            "Mesh": "Road.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Road1"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                0.0,
+                -0.0001,
+                2.4496
+            ]
+        }
+    }
+}

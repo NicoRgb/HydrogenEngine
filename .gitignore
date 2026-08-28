@@ -58,6 +58,8 @@
 *.ilk
 *.recipe
 *.idb
+*bin/
+*bin-int/
 
 !*Extern/bin/*/*.lib
 !*Extern/bin/*/*.dll

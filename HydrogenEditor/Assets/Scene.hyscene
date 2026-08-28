@@ -1,5 +1,69 @@
 {
-    "1001": {
+    "10236098046338154245": {
+        "MeshRendererComponent": {
+            "Material": "Protection.hymat",
+            "Mesh": "Protection.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Protection0"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.7071,
+                0.0,
+                0.7071
+            ],
+            "Scale": [
+                0.9999,
+                1.0,
+                0.9999
+            ],
+            "Translation": [
+                -0.8054,
+                0.0363,
+                1.8444
+            ]
+        }
+    },
+    "11439109407425553830": {
+        "DirectionalLightComponent": {
+            "Color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Intensity": 0.991
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Sun"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.204,
+                -0.2249,
+                0.4187,
+                0.8559
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                2.321,
+                0.186,
+                0.546
+            ]
+        }
+    },
+    "17484285142182885270": {
         "CameraComponent": {
             "Active": true,
             "FOV": 60.0,
@@ -9,59 +73,15 @@
         "RelationshipComponent": {
             "ParentUUID": 0
         },
-        "ScriptsComponent": {
-            "Scripts": [
-                {
-                    "Fields": [
-                        {
-                            "Name": "sensitivity",
-                            "Type": 0,
-                            "Value": 0.1
-                        },
-                        {
-                            "Name": "min_distance",
-                            "Type": 0,
-                            "Value": 2.0
-                        },
-                        {
-                            "Name": "height_offset",
-                            "Type": 0,
-                            "Value": 1.5
-                        },
-                        {
-                            "Name": "target",
-                            "Type": 4,
-                            "Value": 3001
-                        },
-                        {
-                            "Name": "distance",
-                            "Type": 0,
-                            "Value": 6.0
-                        },
-                        {
-                            "Name": "smooth_speed",
-                            "Type": 0,
-                            "Value": 10.0
-                        },
-                        {
-                            "Name": "max_distance",
-                            "Type": 0,
-                            "Value": 15.0
-                        }
-                    ],
-                    "File": "third_person_camera.lua"
-                }
-            ]
-        },
         "TagComponent": {
-            "Name": "Main Camera"
+            "Name": "Camera"
         },
         "TransformComponent": {
             "Rotation": [
-                -0.15,
-                -0.4,
-                0.0,
-                0.9
+                -0.1416,
+                -0.1616,
+                -0.0234,
+                0.9764
             ],
             "Scale": [
                 1.0,
@@ -69,121 +89,57 @@
                 1.0
             ],
             "Translation": [
-                -1.4,
-                1.7,
-                2.5
+                -0.4893,
+                0.6612,
+                3.1834
             ]
         }
     },
-    "1002": {
-        "DirectionalLightComponent": {
-            "Color": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "Intensity": 0.3
+    "1885791233330677757": {
+        "MeshRendererComponent": {
+            "Material": "Cone.hymat",
+            "Mesh": "TrafficCone.hymesh"
         },
         "RelationshipComponent": {
             "ParentUUID": 0
         },
         "TagComponent": {
-            "Name": "Sun Light"
+            "Name": "Cone1"
         },
         "TransformComponent": {
             "Rotation": [
-                -0.7,
-                0.4,
-                0.5,
-                0.5
+                -0.0008,
+                0.0207,
+                0.0161,
+                0.9997
             ],
             "Scale": [
-                1.0,
-                1.0,
-                1.0
+                0.05,
+                0.05,
+                0.05
             ],
             "Translation": [
-                4.4,
-                3.6,
-                -0.6
+                0.2335,
+                0.1417,
+                -1.1117
             ]
         }
     },
-    "13301882589550070935": {
-        "ColliderComponent": {
-            "ColliderType": 0,
-            "Height": 1.0,
-            "LocalPosition": [
-                0.0,
-                0.0,
-                0.0
-            ],
-            "LocalRotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "Radius": 0.5,
-            "Size": [
-                50.0,
-                1.0,
-                50.0
-            ]
-        },
-        "RelationshipComponent": {
-            "ParentUUID": 0
-        },
-        "RigidbodyComponent": {
-            "AngularDamping": 0.0,
-            "LinearDamping": 0.0,
-            "LockAngularX": false,
-            "LockAngularY": false,
-            "LockAngularZ": false,
-            "LockLinearX": false,
-            "LockLinearY": false,
-            "LockLinearZ": false,
-            "Mass": 1.0,
-            "Type": 0,
-            "UseGravity": true
-        },
-        "TagComponent": {
-            "Name": "Floor"
-        },
-        "TransformComponent": {
-            "Rotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "Scale": [
-                1.0,
-                1.0,
-                1.0
-            ],
-            "Translation": [
-                0.0,
-                -0.65,
-                0.0
-            ]
-        }
-    },
-    "15025973543738608336": {
+    "1964543830699353042": {
         "PointLightComponent": {
             "Color": [
                 1.0,
-                1.0,
-                1.0
+                0.0,
+                0.0
             ],
-            "Intensity": 1.2,
-            "Radius": 4.8
+            "Intensity": 1.681,
+            "Radius": 3.11
         },
         "RelationshipComponent": {
             "ParentUUID": 0
         },
         "TagComponent": {
-            "Name": "PointLight"
+            "Name": "RedLight"
         },
         "TransformComponent": {
             "Rotation": [
@@ -193,106 +149,199 @@
                 1.0
             ],
             "Scale": [
-                0.1,
-                0.1,
-                0.1
+                0.01,
+                0.01,
+                0.01
             ],
             "Translation": [
-                -1.0,
-                1.5,
-                1.8
+                -0.7875,
+                0.1984,
+                -1.1144
             ]
         }
     },
-    "3001": {
-        "AnimatorComponent": {
-            "AnimationGraph": "animscript.hygraph"
-        },
-        "ColliderComponent": {
-            "ColliderType": 0,
-            "Height": 1.0,
-            "LocalPosition": [
-                0.0,
-                0.56,
-                0.15
-            ],
-            "LocalRotation": [
-                0.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "Radius": 0.5,
-            "Size": [
-                0.6,
-                1.0,
-                2.0
-            ]
+    "4438547604789827990": {
+        "MeshRendererComponent": {
+            "Material": "Barrier.hymat",
+            "Mesh": "Barriers.hymesh"
         },
         "RelationshipComponent": {
             "ParentUUID": 0
         },
-        "RigidbodyComponent": {
-            "AngularDamping": 0.0,
-            "LinearDamping": 0.0,
-            "LockAngularX": true,
-            "LockAngularY": false,
-            "LockAngularZ": true,
-            "LockLinearX": false,
-            "LockLinearY": false,
-            "LockLinearZ": false,
-            "Mass": 1.0,
-            "Type": 2,
-            "UseGravity": true
-        },
-        "ScriptsComponent": {
-            "Scripts": [
-                {
-                    "Fields": [
-                        {
-                            "Name": "test",
-                            "Type": 4,
-                            "Value": 0
-                        },
-                        {
-                            "Name": "jump_force",
-                            "Type": 0,
-                            "Value": 4.0
-                        },
-                        {
-                            "Name": "speed",
-                            "Type": 0,
-                            "Value": 5.0
-                        }
-                    ],
-                    "File": "test_script.lua"
-                }
-            ]
-        },
-        "SkeletalMeshRendererComponent": {
-            "Material": "Fox.hymat",
-            "SkeletalMesh": "Fox.hydynmesh",
-            "Skeleton": "Fox.hyskel"
-        },
         "TagComponent": {
-            "Name": "Fox"
+            "Name": "Barrier"
         },
         "TransformComponent": {
             "Rotation": [
                 0.0,
-                -0.0,
+                0.7779,
+                0.0,
+                0.6284
+            ],
+            "Scale": [
+                0.15,
+                0.15,
+                0.15
+            ],
+            "Translation": [
+                -0.0402,
+                0.0364,
+                -1.7449
+            ]
+        }
+    },
+    "5332118345302642587": {
+        "MeshRendererComponent": {
+            "Material": "Protection.hymat",
+            "Mesh": "Protection.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Protection1"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                -0.7071,
+                0.0,
+                0.7071
+            ],
+            "Scale": [
+                0.9999,
+                1.0,
+                0.9999
+            ],
+            "Translation": [
+                0.8029,
+                0.036,
+                1.6625
+            ]
+        }
+    },
+    "6049406363415721122": {
+        "PointLightComponent": {
+            "Color": [
+                0.0181,
+                0.0,
+                1.0
+            ],
+            "Intensity": 1.681,
+            "Radius": 2.249
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "BlueLight"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
                 0.0,
                 1.0
             ],
             "Scale": [
-                0.02,
-                0.02,
-                0.02
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                0.8042,
+                0.3316,
+                -1.3797
+            ]
+        }
+    },
+    "6127889858252311171": {
+        "MeshRendererComponent": {
+            "Material": "Cone.hymat",
+            "Mesh": "TrafficCone.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Cone0"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                -0.1127,
+                0.0,
+                0.9936
+            ],
+            "Scale": [
+                0.05,
+                0.05,
+                0.05
+            ],
+            "Translation": [
+                -0.3062,
+                0.142,
+                -0.8451
+            ]
+        }
+    },
+    "6182090004199455567": {
+        "MeshRendererComponent": {
+            "Material": "Asphalt.hymat",
+            "Mesh": "Road.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Road0"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
             ],
             "Translation": [
                 0.0,
                 0.0,
                 0.0
+            ]
+        }
+    },
+    "8757492035585521368": {
+        "MeshRendererComponent": {
+            "Material": "Asphalt.hymat",
+            "Mesh": "Road.hymesh"
+        },
+        "RelationshipComponent": {
+            "ParentUUID": 0
+        },
+        "TagComponent": {
+            "Name": "Road1"
+        },
+        "TransformComponent": {
+            "Rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "Scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "Translation": [
+                0.0,
+                -0.0001,
+                2.4496
             ]
         }
     }

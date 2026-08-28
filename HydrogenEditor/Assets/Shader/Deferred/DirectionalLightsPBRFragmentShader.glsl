@@ -30,6 +30,11 @@ layout(binding = 0, set = 0) uniform UniformBufferObject
     float pad;
 } ubo;
 
+layout(push_constant) uniform constants
+{
+    vec3 ambientFactor;
+} PushConstants;
+
 layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
@@ -48,11 +53,11 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float a2 = a*a;
     float NdotH = max(dot(N, H), 0.0);
     float NdotH2 = NdotH*NdotH;
-	
+    
     float num = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
-	
+    
     return num / denom;
 }
 
@@ -63,7 +68,7 @@ float GeometrySchlickGGX(float NdotV, float roughness)
 
     float num = NdotV;
     float denom = NdotV * (1.0 - k) + k;
-	
+    
     return num / denom;
 }
 
@@ -73,7 +78,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float NdotL = max(dot(N, L), 0.0);
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
-	
+    
     return ggx1 * ggx2;
 }
 
@@ -131,7 +136,7 @@ void main()
         lighting += CalculateDirectionalLight(N, viewDir, int(i), albedo, roughness, metallic);
     }
 
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 ambient = PushConstants.ambientFactor * albedo * ao;
     vec3 finalColor = lighting + ambient + emissive;
 
     outColor = vec4(finalColor, 1.0);

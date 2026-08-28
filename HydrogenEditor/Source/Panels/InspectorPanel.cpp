@@ -225,11 +225,26 @@ inline void DrawComponentUI<TransformComponent>(TransformComponent& comp)
 		glm::vec3 scale = comp.GetScale();
 		glm::quat rotation = comp.GetRotation();
 
+		static glm::quat lastRotation = rotation;
+		static glm::vec3 eulerAngles = glm::degrees(glm::eulerAngles(rotation));
+
+		if (rotation != lastRotation)
+		{
+			eulerAngles = glm::degrees(glm::eulerAngles(rotation));
+			lastRotation = rotation;
+		}
+
 		if (ImGui::DragFloat3("Translation", glm::value_ptr(translation), 0.1f))
 			comp.SetTranslation(translation);
 
-		if (ImGui::DragFloat4("Rotation", glm::value_ptr(rotation), 0.1f))
+		if (ImGui::DragFloat3("Rotation (Euler)", glm::value_ptr(eulerAngles), 0.5f))
+		{
+			glm::vec3 radiansRot = glm::radians(eulerAngles);
+			rotation = glm::quat(radiansRot);
+
 			comp.SetRotation(rotation);
+			lastRotation = rotation;
+		}
 
 		if (ImGui::DragFloat3("Scale", glm::value_ptr(scale), 0.1f))
 			comp.SetScale(scale);

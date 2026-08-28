@@ -128,6 +128,8 @@ void AssimpSkeletalMeshAsset::Parse(std::string path)
 
 			if (mesh->mTangents)
 				vertex.Tangent = glm::vec3(mesh->mTangents[v].x, mesh->mTangents[v].y, mesh->mTangents[v].z);
+			else
+				vertex.Tangent = glm::vec3(1.0f, 0.0f, 0.0f);
 
 			m_Vertices.push_back(vertex);
 		}
@@ -198,7 +200,7 @@ void AssimpStaticMeshAsset::WriteAssetFile(const std::string& path)
 void AssimpStaticMeshAsset::Parse(std::string path)
 {
 	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GenNormals | aiProcess_FlipUVs);
+	const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_CalcTangentSpace | aiProcess_GenNormals | aiProcess_FlipUVs | aiProcess_PreTransformVertices);
 	HY_ASSERT(scene, "Assimp failed to load mesh: {}", importer.GetErrorString());
 
 	uint32_t vertexOffset = 0;
@@ -219,6 +221,8 @@ void AssimpStaticMeshAsset::Parse(std::string path)
 
 			if (mesh->mTangents)
 				vertex.Tangent = glm::vec3(mesh->mTangents[v].x, mesh->mTangents[v].y, mesh->mTangents[v].z);
+			else
+				vertex.Tangent = glm::vec3(1.0f, 0.0f, 0.0f);
 
 			m_Vertices.push_back(vertex);
 		}

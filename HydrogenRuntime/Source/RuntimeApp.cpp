@@ -66,7 +66,7 @@ public:
 	{
 		m_Renderer = std::make_unique<Renderer>(MainViewport, ActiveRenderDevice.get(), ActiveSwapChain.get());
 
-		CurrentScene->GetScene()->CreateScripts();
+		CurrentScene->GetScene()->InitScripts();
 	}
 
 	virtual void OnShutdown() override
@@ -109,7 +109,7 @@ private:
 		}
 
 		const auto& camera = cameraEntity.GetComponent<CameraComponent>();
-		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetPosition();
+		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetTranslation();
 		const auto& scene = CurrentScene->GetScene();
 
 		DefaultRenderer::RenderSceneDeferred(m_Renderer.get(), { .Display = { .Width = (uint64_t)MainViewport->GetWidth(), .Height = (uint64_t)MainViewport->GetHeight() }}, camera, cameraPos, scene);

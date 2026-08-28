@@ -585,20 +585,26 @@ void MaterialAsset::Parse()
 
 	const auto& emissive = material.value("Emissive", nlohmann::json::object());
 
-	float r = emissive.value("r", 0.0f);
-	float g = emissive.value("g", 0.0f);
-	float b = emissive.value("b", 0.0f);
-	float intensity = emissive.value("intensity", 0.0f);
+	if (emissive.is_object())
+	{
+		float r = emissive.value("r", 0.0f);
+		float g = emissive.value("g", 0.0f);
+		float b = emissive.value("b", 0.0f);
+		float intensity = emissive.value("intensity", 0.0f);
 
-	m_Emissive = glm::vec4(r, g, b, intensity);
+		m_Emissive = glm::vec4(r, g, b, intensity);
+	}
 
 	const auto& tint = material.value("Tint", nlohmann::json::object());
 
-	r = tint.value("r", 1.0f);
-	g = tint.value("g", 1.0f);
-	b = tint.value("b", 1.0f);
+	if (tint.is_object())
+	{
+		float r = tint.value("r", 1.0f);
+		float g = tint.value("g", 1.0f);
+		float b = tint.value("b", 1.0f);
 
-	m_Tint = glm::vec3(r, g, b);
+		m_Tint = glm::vec3(r, g, b);
+	}
 }
 
 void MaterialAsset::Save() const

@@ -762,12 +762,14 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 
 					PipelineSpec directionalLightsPipeline = {};
 					directionalLightsPipeline.VertexBufferLayout = {};
-					directionalLightsPipeline.PushConstants = {};
+					directionalLightsPipeline.PushConstants = {{sizeof(glm::vec3), ShaderStage::Fragment}};
 					directionalLightsPipeline.CullMode = ShaderCullMode::None;
 					directionalLightsPipeline.ColorBlending = { BlendMode::None, BlendMode::None };
 					directionalLightsPipeline.DepthSpec = { .DepthTest = false, .DepthWrite = false };
 
 					cmd.BindPipeline(vertexShader, fragmentShader, directionalLightsPipeline);
+					cmd.PushConstants(&settings.Lighting.AmbientFactor, sizeof(glm::vec3), 0, ShaderStage::Fragment);
+
 					cmd.Draw(3);
 
 					// point lights

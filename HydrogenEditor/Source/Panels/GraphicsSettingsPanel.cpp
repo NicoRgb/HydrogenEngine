@@ -123,6 +123,7 @@ void GraphicsSettingsPanel::OnImGuiRender()
 	ImGui::Checkbox("Wireframe Mode", &m_RenderSettings.Debug.WireframeMode);
 	ImGui::Checkbox("Tone Mapping", &m_RenderSettings.PostProcessing.ToneMapping);
 	ImGui::Checkbox("Bloom", &m_RenderSettings.PostProcessing.BloomEnabled);
+	ImGui::DragFloat3("Ambient Factor", &m_RenderSettings.Lighting.AmbientFactor.x, 0.01f, 0.0f, 1.0f);
 
 	int bloomIterations = (int)m_RenderSettings.PostProcessing.BloomIterations;
 	if (ImGui::InputInt("Bloom Iterations", &bloomIterations))

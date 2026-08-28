@@ -1,0 +1,97 @@
+{
+  "1001": {
+    "CameraComponent": {
+      "Active": true,
+      "FOV": 60.0,
+      "FarPlane": 1000.0,
+      "NearPlane": 0.1
+    },
+    "TagComponent": {
+      "name": "Main Camera"
+    },
+    "TransformComponent": {
+      "rotation": {
+        "x": -0.7,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "translation": {
+        "x": -3,
+        "y": 2.5,
+        "z": 0
+      }
+    }
+  },
+  "15025973543738608336": {
+    "PointLightComponent": {
+      "Color": {
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+      },
+      "Intensity": 1.1449999809265137,
+      "Radius": 100.0
+    },
+    "TagComponent": {
+      "name": "PointLight"
+    },
+    "TransformComponent": {
+      "rotation": {
+        "x": 0.0,
+        "y": -0.0,
+        "z": 0.0
+      },
+      "scale": {
+        "x": 0.10000000149011612,
+        "y": 0.10000000149011612,
+        "z": 0.10000000149011612
+      },
+      "translation": {
+        "x": -2.2,
+        "y": 11,
+        "z": 9.6
+      }
+    }
+  },
+  "3001": {
+    "ColliderComponent": {
+      "size": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": 0
+    },
+    "MeshRendererComponent": {
+      "FragmentShader": "FragmentShader.glsl",
+      "Material": "DefaultMaterial.hymat",
+      "Mesh": "sphere.hymesh",
+      "VertexShader": "VertexShader.glsl"
+    },
+    "TagComponent": {
+      "name": "FloatingCube2"
+    },
+    "TransformComponent": {
+      "rotation": {
+        "x": 0.0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+      },
+      "translation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+      }
+    }
+  }
+}

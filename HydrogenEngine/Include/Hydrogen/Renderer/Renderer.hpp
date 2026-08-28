@@ -100,6 +100,11 @@ namespace Hydrogen
 		bool ToneMapping = true;
 	};
 
+	struct LightingSettings
+	{
+		glm::vec3 AmbientFactor = glm::vec3(0.1f, 0.1f, 0.1f);
+	};
+
 	struct RenderingSettings
 	{
 		std::shared_ptr<CubeMapAsset> Skybox = nullptr;
@@ -111,6 +116,7 @@ namespace Hydrogen
 		DebugSettings Debug;
 		PostProcessingSettings PostProcessing;
 		RenderingSettings Rendering;
+		LightingSettings Lighting;
 	};
 
 	struct DirectionalLight
