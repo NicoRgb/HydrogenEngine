@@ -93,11 +93,20 @@ namespace Hydrogen
 		std::vector<Gizmo> Gizmos;
 	};
 
+	enum class AntiAliasingMode
+	{
+		None,
+		FXAA,
+		TAA,
+		SSAA
+	};
+
 	struct PostProcessingSettings
 	{
 		uint8_t BloomIterations = 3;
 		bool BloomEnabled = true;
 		bool ToneMapping = true;
+		AntiAliasingMode AntiAliasing = AntiAliasingMode::None;
 	};
 
 	struct LightingSettings

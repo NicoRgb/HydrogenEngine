@@ -75,6 +75,37 @@ namespace Hydrogen
 			}
 		}
 
+		template<typename... Ts, typename Func>
+		void IterateAnyComponents(Func&& func) const
+		{
+			if constexpr (sizeof...(Ts) == 0)
+			{
+				return;
+			}
+
+			std::unordered_set<entt::entity> visited;
+			auto&& callback = func;
+
+			auto iterate = [&]<typename T>()
+			{
+				auto view = m_Registry.view<T>();
+
+				for (auto entityHandle : view)
+				{
+					if (!visited.insert(entityHandle).second)
+						continue;
+
+					Entity entity;
+					entity.m_Entity = entityHandle;
+					entity.m_Scene = const_cast<Scene*>(this);
+
+					callback(entity);
+				}
+			};
+
+			(iterate.template operator() < Ts > (), ...);
+		}
+
 		Entity GetEntityByEntityID(uint32_t id);
 		Entity GetEntityByUUID(uint64_t uuid);
 

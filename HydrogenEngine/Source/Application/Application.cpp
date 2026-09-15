@@ -2,6 +2,7 @@
 #include "Hydrogen/Logger.hpp"
 #include "Hydrogen/Scene/Camera.hpp"
 #include "Hydrogen/Input.hpp"
+#include "Hydrogen/Renderer/DeferredRenderer.hpp"
 #include "Hydrogen/Scripting/ScriptEngine.hpp"
 
 #include <ImGuizmo.h>
@@ -108,6 +109,7 @@ void Application::Run()
 	ActiveRenderDevice->WaitForIdle();
 
 	DefaultRenderer::Reset();
+	DeferredRenderer::Reset();
 	CurrentScene->ClearScene();
 	MainAssetManager.Clear();
 

@@ -35,6 +35,13 @@ void GameViewportPanel::OnUpdate(float dt)
 		const auto& camera = cameraEntity.GetComponent<CameraComponent>();
 		const auto& cameraPos = cameraEntity.GetComponent<TransformComponent>().GetTranslation();
 
+		if (SettingsPanel && SettingsPanel->GetUseNewDeferredRenderer())
+		{
+			m_RenderedScene = DeferredRenderer::RenderSceneDeferred(
+				m_Renderer.get(), Settings, camera, cameraPos, m_Scene
+			).ImageView;
+			return;
+		}
 		m_RenderedScene = DefaultRenderer::RenderSceneDeferred(
 			m_Renderer.get(), Settings, camera, cameraPos, m_Scene
 		).ImageView;

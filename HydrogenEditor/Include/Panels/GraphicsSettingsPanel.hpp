@@ -15,8 +15,11 @@ public:
 	virtual void OnImGuiRender() override;
 
 	const Hydrogen::RenderSettings& GetSettings() const { return m_RenderSettings; }
+	bool GetUseNewDeferredRenderer() const { return UseNewDeferredRenderer; }
 
 private:
+	bool UseNewDeferredRenderer = false;
+
 	Hydrogen::RenderSettings m_RenderSettings = {};
 	Hydrogen::SwapChainSpec m_CurrentSwapChainSpec = {};
 

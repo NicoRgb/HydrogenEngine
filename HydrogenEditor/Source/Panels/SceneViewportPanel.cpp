@@ -85,6 +85,13 @@ void SceneViewportPanel::OnUpdate(float dt)
 			m_FreeCam.CalculateProj();
 		}
 
+		if (SettingsPanel && SettingsPanel->GetUseNewDeferredRenderer())
+		{
+			m_RenderedScene = DeferredRenderer::RenderSceneDeferred(
+				m_Renderer.get(), Settings, m_FreeCam, m_FreeCam.GetPosition(), m_Scene
+			).ImageView;
+			return;
+		}
 		m_RenderedScene = DefaultRenderer::RenderSceneDeferred(
 			m_Renderer.get(), Settings, m_FreeCam, m_FreeCam.GetPosition(), m_Scene
 		).ImageView;

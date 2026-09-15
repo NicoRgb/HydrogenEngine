@@ -17,6 +17,8 @@ void GraphicsSettingsPanel::OnImGuiRender()
 
 	ImGui::TextDisabled("RENDERING");
 
+	ImGui::Checkbox("Use New Deferred Renderer", &UseNewDeferredRenderer);
+
 	AssetPicker("Skybox", m_RenderSettings.Rendering.Skybox);
 
 	ImGui::Spacing();

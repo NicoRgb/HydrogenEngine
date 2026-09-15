@@ -8,4 +8,5 @@
 #include <Hydrogen/Scene/Scene.hpp>
 #include <Hydrogen/Scene/Physics.hpp>
 #include <Hydrogen/Scene/Camera.hpp>
-#include "Hydrogen/Input.hpp"
+#include <Hydrogen/Input.hpp>
+#include <Hydrogen/Renderer/DeferredRenderer.hpp>
