@@ -9,6 +9,8 @@ void GraphicsSettingsPanel::OnAttach()
 	m_CurrentSwapChainSpec = Application::Get()->GetCurrentSwapChainSepc();
 
 	m_RenderSettings.Rendering.Skybox = Application::Get()->MainAssetManager.GetAsset<CubeMapAsset>("sky.hycube");
+
+	UseNewDeferredRenderer = true;
 }
 
 void GraphicsSettingsPanel::OnImGuiRender()

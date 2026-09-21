@@ -1,47 +1,50 @@
 #version 450
+#extension GL_KHR_vulkan_glsl : enable
 
-layout(binding = 0, set = 0) uniform UniformBufferObject
-{
-    mat4 prevViewProj;
-    mat4 view;
-    mat4 proj;
-    vec3 viewPos;
-    float pad;
-} ubo;
-
-layout(push_constant) uniform GizmoData
+struct BillboardInstance
 {
     vec3 worldPosition;
     int textureIndex;
     vec2 scale;
-} gizmo;
+    vec2 padding;
+};
+
+layout(set = 0, binding = 0) uniform CameraBuffer
+{
+    mat4 view;
+    mat4 proj;
+    vec3 viewPos;
+} ubo;
+
+layout(std430, set = 1, binding = 0) readonly buffer InstanceData
+{
+    BillboardInstance instances[];
+};
 
 layout(location = 0) out vec2 fragUV;
+layout(location = 1) flat out int fragTextureIndex;
 
 void main()
 {
-    vec2 positions[3] = vec2[](
-        vec2(-1.0, -1.0),
-        vec2( 3.0, -1.0),
-        vec2(-1.0,  3.0)
+    BillboardInstance instance = instances[gl_InstanceIndex];
+
+    vec2 offsets[6] = vec2[](
+        vec2(-0.5, -0.5), vec2(-0.5,  0.5), vec2(0.5, -0.5),
+        vec2( 0.5, -0.5), vec2(-0.5,  0.5), vec2(0.5,  0.5)
     );
 
-    vec2 uvs[3] = vec2[](
-        vec2(0.0, 0.0),
-        vec2(2.0, 0.0),
-        vec2(0.0, 2.0)
+    vec2 uvs[6] = vec2[](
+        vec2(0.0, 1.0), vec2(0.0, 0.0), vec2(1.0, 1.0),
+        vec2(1.0, 1.0), vec2(0.0, 0.0), vec2(1.0, 0.0)
     );
 
-    vec2 inPos = positions[gl_VertexIndex];
-    fragUV = uvs[gl_VertexIndex];
+    uint vertexIdx = gl_VertexIndex % 6;
+    vec2 posOffset = offsets[vertexIdx];
+    fragUV = uvs[vertexIdx];
+    fragTextureIndex = instance.textureIndex;
 
-    mat4 viewProj = ubo.proj * ubo.view;
-    vec3 cameraRight = normalize(vec3(viewProj[0][0], viewProj[1][0], viewProj[2][0]));
-    vec3 cameraUp = normalize(vec3(viewProj[0][1], viewProj[1][1], viewProj[2][1]));
+    vec4 viewSpacePos = ubo.view * vec4(instance.worldPosition, 1.0);
+    viewSpacePos.xy += posOffset * instance.scale; 
 
-    vec3 worldOffsetPos = gizmo.worldPosition 
-                        + (cameraRight * inPos.x * gizmo.scale.x * 0.5) 
-                        + (cameraUp    * inPos.y * gizmo.scale.y * 0.5);
-
-    gl_Position = viewProj * vec4(worldOffsetPos, 1.0);
+    gl_Position = ubo.proj * viewSpacePos;
 }
