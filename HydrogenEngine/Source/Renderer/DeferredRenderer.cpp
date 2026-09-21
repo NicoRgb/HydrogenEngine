@@ -21,6 +21,16 @@ void SceneExtractor::ExtractSceneData(const Scene* scene)
 			RenderableEntityData renderData;
 			renderData.Entity = e;
 
+			renderData.PreviousModelMatrix = glm::mat4(1.0f);
+			for (auto& transformData : m_RenderableEntityTransforms)
+			{
+				if (transformData.Entity == renderData.Entity)
+				{
+					renderData.PreviousModelMatrix = transformData.ModelMatrix;
+					break;
+				}
+			}
+
 			if (e.HasComponent<MeshRendererComponent>())
 			{
 				const auto& component = e.GetComponent<MeshRendererComponent>();
@@ -83,12 +93,26 @@ void SceneExtractor::ExtractSceneData(const Scene* scene)
 		m_Bones.push_back(glm::mat4(1.0f));
 }
 
+void SceneExtractor::UpdateRenderableEntityTransforms(const Scene* scene)
+{
+	for (auto& renderableEntity : m_RenderableEntities)
+	{
+		if (!renderableEntity.Entity.IsValid() || !renderableEntity.Entity.HasComponent<TransformComponent>())
+			continue;
+
+		auto& transform = renderableEntity.Entity.GetComponent<TransformComponent>();
+		glm::mat4 modelMatrix = transform.GetModel();
+		m_RenderableEntityTransforms.push_back({ renderableEntity.Entity, modelMatrix });
+	}
+}
+
 SceneExtractor DeferredRenderer::s_SceneExtractor;
 std::unique_ptr<RenderBuffer> DeferredRenderer::s_SphereVertexBuffer;
 std::unique_ptr<RenderBuffer> DeferredRenderer::s_SphereIndexBuffer;
 
 struct CameraInfoUniformBuffer
 {
+	glm::mat4 PreviousViewProj = glm::mat4(1.0f);
 	glm::mat4 View;
 	glm::mat4 Proj;
 	glm::vec3 ViewPos;
@@ -105,6 +129,7 @@ static void PopulateCameraInfoUniformBuffer(const RenderContext& context, Camera
 struct GeometryPassPushConstants
 {
 	glm::mat4 Model;
+	glm::mat4 PreviousModel;
 
 	int32_t AlbedoIndex;
 	int32_t NormalIndex;
@@ -136,6 +161,7 @@ struct BlurPushConstants
 	int Horizontal;
 };
 
+CameraInfoUniformBuffer g_CameraInfo;
 RgTextureView DeferredRenderer::RenderSceneDeferred(Renderer* renderer, RenderSettings settings, const CameraComponent& camera, glm::vec3 cameraPos, Scene* scene)
 {
 	RenderContext context = {
@@ -151,6 +177,7 @@ RgTextureView DeferredRenderer::RenderSceneDeferred(Renderer* renderer, RenderSe
 
 	s_SceneExtractor.ExtractSceneData(scene);
 	const auto& outputs = renderer->Render([context](RenderGraph* graph) { return RenderFunc(graph, context); }, settings.Display.RenderToSwapChain);
+	g_CameraInfo.PreviousViewProj = context.Camera.Proj * context.Camera.View;
 	s_SceneExtractor.Reset();
 
 	if (settings.Display.RenderToSwapChain)
@@ -159,7 +186,6 @@ RgTextureView DeferredRenderer::RenderSceneDeferred(Renderer* renderer, RenderSe
 	return outputs[0];
 }
 
-CameraInfoUniformBuffer g_CameraInfo;
 const std::vector<DescriptorBindingValue> DeferredRenderer::RenderFunc(RenderGraph* graph, const RenderContext& context)
 {
 	uint32_t textureWidth = static_cast<uint32_t>(context.Settings.Display.Width);
@@ -170,6 +196,7 @@ const std::vector<DescriptorBindingValue> DeferredRenderer::RenderFunc(RenderGra
 	auto gBufferAlbedoRoughness = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA8_SRGB });
 	auto gBufferMetallicAO = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA8_SRGB });
 	auto gBufferEmissive = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+	auto motionVectors = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
 	auto gBufferDepth = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::D32_SFLOAT });
 
 	graph->AddPass("GBuffer",
@@ -189,6 +216,8 @@ const std::vector<DescriptorBindingValue> DeferredRenderer::RenderFunc(RenderGra
 			builder.WriteColor(gBufferAlbedoRoughness);
 			builder.WriteColor(gBufferMetallicAO);
 			builder.WriteColor(gBufferEmissive);
+			builder.WriteColor(motionVectors);
+
 			builder.WriteDepth(gBufferDepth);
 		},
 		[&](RgCommandList& cmd)
@@ -203,7 +232,7 @@ const std::vector<DescriptorBindingValue> DeferredRenderer::RenderFunc(RenderGra
 			gBufferStaticMeshPipeline.VertexBufferLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} };
 			gBufferStaticMeshPipeline.PushConstants = { { sizeof(GeometryPassPushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
 			gBufferStaticMeshPipeline.CullMode = ShaderCullMode::Back;
-			gBufferStaticMeshPipeline.ColorBlending = { BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None };
+			gBufferStaticMeshPipeline.ColorBlending = { BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None };
 			gBufferStaticMeshPipeline.DepthSpec = { .DepthTest = true, .DepthWrite = true, .Operator = DepthTestOp::Less };
 			if (context.Settings.Debug.WireframeMode)
 			{

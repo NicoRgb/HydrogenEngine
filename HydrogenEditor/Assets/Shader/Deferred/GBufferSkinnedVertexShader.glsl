@@ -2,6 +2,7 @@
 
 layout(binding = 0, set = 0) uniform UniformBufferObject
 {
+    mat4 prevViewProj;
     mat4 view;
     mat4 proj;
     vec3 viewPos;
@@ -16,7 +17,8 @@ layout(std430, binding = 1, set = 1) readonly buffer DynamicBoneData
 layout(push_constant) uniform constants
 {
     mat4 model;
-    
+    mat4 prevModel;
+
     int albedoIndex;
     int normalIndex;
     int ormIndex;
@@ -41,9 +43,10 @@ layout(location = 4) in ivec4 inBoneIDs;
 layout(location = 5) in vec4 inWeights;
 
 layout(location = 0) out vec3 fragPos;
-layout(location = 1) out vec2 fragUV;
-layout(location = 2) out vec3 fragNormal;
-layout(location = 3) out vec3 fragTangent;
+layout(location = 1) out vec3 fragPrevPos;
+layout(location = 2) out vec2 fragUV;
+layout(location = 3) out vec3 fragNormal;
+layout(location = 4) out vec3 fragTangent;
 
 void main()
 {
@@ -54,8 +57,10 @@ void main()
 
     vec4 skinnedPosition = boneTransform * vec4(inPosition, 1.0);
     vec4 worldPos = PushConstants.model * skinnedPosition;
+    vec4 prevWorldPos = PushConstants.prevModel * skinnedPosition;
 
     fragPos = worldPos.xyz;
+    fragPrevPos = prevWorldPos.xyz; // TODO: previous bones ?
     fragUV = inTexCoord;
 
     mat3 normalMatrix = mat3(transpose(inverse(PushConstants.model)));

@@ -2,7 +2,7 @@
 
 #extension GL_KHR_vulkan_glsl : enable
 
-layout(set = 0, binding = 0, set = 1) uniform sampler2D hdrScene;
+layout(binding = 0, set = 1) uniform sampler2D hdrScene;
 
 layout(push_constant) uniform constants
 {

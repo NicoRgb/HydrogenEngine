@@ -101,10 +101,12 @@ namespace Hydrogen
 			m_Bones.clear();
 		}
 		void ExtractSceneData(const Scene* scene);
+		void UpdateRenderableEntityTransforms(const Scene* scene);
 
 		struct RenderableEntityData
 		{
 			Entity Entity;
+			glm::mat4 PreviousModelMatrix;
 
 			int32_t AlbedoTextureIndex;
 			int32_t NormalTextureIndex;
@@ -115,6 +117,12 @@ namespace Hydrogen
 
 			std::shared_ptr<Asset> Mesh;
 			std::shared_ptr<MaterialAsset> Material;
+		};
+
+		struct RenderableEntityTransformData
+		{
+			Entity Entity;
+			glm::mat4 ModelMatrix;
 		};
 
 		std::vector<RenderableEntityData>& GetRenderableEntities() { return m_RenderableEntities; }
@@ -128,6 +136,7 @@ namespace Hydrogen
 		std::vector<const Texture*> m_Textures;
 		std::vector<glm::mat4> m_Bones;
 		std::vector<RenderableEntityData> m_RenderableEntities;
+		std::vector<RenderableEntityTransformData> m_RenderableEntityTransforms;
 	};
 
 	class DeferredRenderer
@@ -142,7 +151,6 @@ namespace Hydrogen
 
 	private:
 		static const std::vector<DescriptorBindingValue> RenderFunc(RenderGraph* graph, const RenderContext& context);
-		static void AddGBufferPass(RenderGraph* graph, const RenderContext& context);
 
 		static void CreateSphereBuffers();
 

@@ -380,6 +380,7 @@ std::unique_ptr<RenderBuffer> DefaultRenderer::s_SphereIndexBuffer;
 
 struct UniformBuffer
 {
+	glm::mat4 Reserved;
 	glm::mat4 View;
 	glm::mat4 Proj;
 	glm::vec3 ViewPos;
@@ -389,6 +390,7 @@ struct UniformBuffer
 struct GeometryPassPushConstants
 {
 	glm::mat4 Model;
+	glm::mat4 Reserved;
 
 	int32_t AlbedoIndex;
 	int32_t NormalIndex;
@@ -557,6 +559,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 			auto gBufferAlbedoRoughness = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA8_SRGB });
 			auto gBufferMetallicAO = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA8_SRGB });
 			auto gBufferEmissive = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+			auto motionVectors = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::RGBA16_SFLOAT });
+
 			auto gBufferDepth = graph->CreateTexture({ .Width = textureWidth, .Height = textureHeight, .Format = TextureFormat::D32_SFLOAT });
 			
 			graph->AddPass("GBuffer",
@@ -577,6 +581,8 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					builder.WriteColor(gBufferAlbedoRoughness);
 					builder.WriteColor(gBufferMetallicAO);
 					builder.WriteColor(gBufferEmissive);
+					builder.WriteColor(motionVectors);
+
 					builder.WriteDepth(gBufferDepth);
 				},
 				[&](RgCommandList& cmd)
@@ -590,7 +596,7 @@ RgTextureView DefaultRenderer::RenderSceneDeferred(Renderer* renderer, RenderSet
 					gBufferPipeline.VertexBufferLayout = { {VertexElementType::Float3}, {VertexElementType::Float2}, {VertexElementType::Float3}, {VertexElementType::Float3} };
 					gBufferPipeline.PushConstants = { { sizeof(GeometryPassPushConstants), (ShaderStage)((uint32_t)ShaderStage::Fragment | (uint32_t)ShaderStage::Vertex) } };
 					gBufferPipeline.CullMode = ShaderCullMode::Back;
-					gBufferPipeline.ColorBlending = { BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None };
+					gBufferPipeline.ColorBlending = { BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None, BlendMode::None };
 					gBufferPipeline.DepthSpec = { .DepthTest = true, .DepthWrite = true, .Operator = DepthTestOp::Less };
 					if (settings.Debug.WireframeMode)
 					{

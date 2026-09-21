@@ -6,6 +6,7 @@ layout(location = 2) in vec3 inNormal;
 
 layout(binding = 0, set = 0) uniform UniformBufferObject
 {
+    mat4 prevViewProj;
     mat4 view;
     mat4 proj;
     vec3 viewPos;

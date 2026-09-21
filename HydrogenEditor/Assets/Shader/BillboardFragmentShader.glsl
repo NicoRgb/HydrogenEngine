@@ -1,7 +1,7 @@
 #version 450
 
 #define MAX_TEXTURES 128
-layout(binding = 0) uniform sampler2D textures[MAX_TEXTURES];
+layout(binding = 0, set = 1) uniform sampler2D textures[MAX_TEXTURES];
 
 layout(location = 0) in vec2 fragUV;
 

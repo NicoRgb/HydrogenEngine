@@ -24,6 +24,7 @@ layout(std430, binding = 5, set = 1) readonly buffer DirectionalLights
 
 layout(binding = 0, set = 0) uniform UniformBufferObject
 {
+    mat4 prevViewProj;
     mat4 view;
     mat4 proj;
     vec3 viewPos;

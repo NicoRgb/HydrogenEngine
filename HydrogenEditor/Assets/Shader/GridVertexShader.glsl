@@ -1,24 +1,33 @@
 #version 450
 
-layout(location = 0) in vec2 inPos;
-layout(location = 1) in vec2 inUV;
+#extension GL_KHR_vulkan_glsl : enable
 
-layout(binding = 1) uniform CameraInfo
+layout(binding = 0, set = 0) uniform UniformBufferObject
 {
-    mat4 viewProj;
+    mat4 prevViewProj;
+    mat4 view;
+    mat4 proj;
     vec3 viewPos;
-} camera;
+    float pad;
+} ubo;
 
 layout(location = 0) out vec3 fragRayDir;
 
 void main()
 {
-    mat4 invViewProj = inverse(camera.viewProj);
+    vec2 positions[3] = vec2[](
+        vec2(-1.0, -1.0),
+        vec2( 3.0, -1.0),
+        vec2(-1.0,  3.0)
+    );
 
-    vec4 farPlaneTarget = invViewProj * vec4(inPos, 1.0, 1.0);
+    mat4 viewProj = ubo.proj * ubo.view;
+    mat4 invViewProj = inverse(viewProj);
+
+    vec4 farPlaneTarget = invViewProj * vec4(positions[gl_VertexIndex], 1.0, 1.0);
     vec3 worldPosFar = farPlaneTarget.xyz / farPlaneTarget.w;
 
-    fragRayDir = worldPosFar - camera.viewPos;
+    fragRayDir = worldPosFar - ubo.viewPos;
 
-    gl_Position = vec4(inPos, 0.0, 1.0);
+    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
 }

@@ -2,6 +2,7 @@
 
 layout(binding = 0, set = 0) uniform UniformBufferObject
 {
+    mat4 prevViewProj;
     mat4 view;
     mat4 proj;
     vec3 viewPos;
@@ -11,6 +12,7 @@ layout(binding = 0, set = 0) uniform UniformBufferObject
 layout(push_constant) uniform constants
 {
     mat4 model;
+    mat4 prevModel;
     
     int albedoIndex;
     int normalIndex;
@@ -33,22 +35,24 @@ layout(location = 2) in vec3 inNormal;
 layout(location = 3) in vec3 inTangent;
 
 layout(location = 0) out vec3 fragPos;
-layout(location = 1) out vec2 fragUV;
-layout(location = 2) out vec3 fragNormal;
-layout(location = 3) out vec3 fragTangent;
+layout(location = 1) out vec3 fragPrevPos;
+layout(location = 2) out vec2 fragUV;
+layout(location = 3) out vec3 fragNormal;
+layout(location = 4) out vec3 fragTangent;
 
 void main()
 {
     vec4 worldPos = PushConstants.model * vec4(inPosition, 1.0);
+    vec4 prevWorldPos = PushConstants.prevModel * vec4(inPosition, 1.0);
 
     fragPos = worldPos.xyz;
+    fragPrevPos = prevWorldPos.xyz;
     fragUV = inTexCoord;
 
     mat3 normalMatrix = mat3(transpose(inverse(PushConstants.model)));
     
     fragNormal = normalMatrix * inNormal;
     fragTangent = normalMatrix * inTangent;
-
 
     gl_Position = ubo.proj * ubo.view * worldPos;
 }

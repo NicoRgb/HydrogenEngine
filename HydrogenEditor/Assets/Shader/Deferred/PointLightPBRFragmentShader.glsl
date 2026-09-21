@@ -12,6 +12,7 @@ layout(binding = 3, set = 1) uniform sampler2D gMaterial; // r = metallic, g = a
 
 layout(binding = 0, set = 0) uniform UniformBufferObject
 {
+    mat4 prevViewProj;
     mat4 view;
     mat4 proj;
     vec3 viewPos;

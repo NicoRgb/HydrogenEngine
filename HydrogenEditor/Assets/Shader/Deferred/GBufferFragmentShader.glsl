@@ -2,11 +2,21 @@
 #extension GL_KHR_vulkan_glsl : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
+layout(binding = 0, set = 0) uniform UniformBufferObject
+{
+    mat4 prevViewProj;
+    mat4 view;
+    mat4 proj;
+    vec3 viewPos;
+    float pad;
+} ubo;
+
 layout(binding = 0, set = 1) uniform sampler2D materialTextures[];
 
 layout(push_constant) uniform constants
 {
     mat4 model;
+    mat4 prevModel;
     
     int albedoIndex;
     int normalIndex;
@@ -24,20 +34,34 @@ layout(push_constant) uniform constants
 } PushConstants;
 
 layout(location = 0) in vec3 fragPos;
-layout(location = 1) in vec2 fragUV;
-layout(location = 2) in vec3 fragNormal;
-layout(location = 3) in vec3 fragTangent;
+layout(location = 1) in vec3 fragPrevPos;
+layout(location = 2) in vec2 fragUV;
+layout(location = 3) in vec3 fragNormal;
+layout(location = 4) in vec3 fragTangent;
 
 layout(location = 0) out vec4 outPosition;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outAlbedoRough;
 layout(location = 3) out vec4 outMaterial; // r = metallic, g = ao
 layout(location = 4) out vec4 outEmissive;
+layout(location = 5) out vec4 outMotionVectors;
 
 void main()
 {
     outPosition = vec4(fragPos, 1.0);
     outMaterial = vec4(0.0, 1.0, 0.0, 0.0);
+
+    vec4 currentClipPos = ubo.proj * ubo.view * vec4(fragPos, 1.0);
+    vec4 previousClipPos = ubo.prevViewProj * vec4(fragPrevPos, 1.0);
+
+    vec2 currentNDC = currentClipPos.xy / currentClipPos.w;
+    vec2 previousNDC = previousClipPos.xy / previousClipPos.w;
+
+    vec2 currentUV  = currentNDC * 0.5 + 0.5;
+    vec2 previousUV = previousNDC * 0.5 + 0.5;
+
+    vec2 motion = currentUV - previousUV;
+    outMotionVectors = vec4(motion, 0.0, 1.0);
 
     if (PushConstants.normalIndex == -1)
     {
